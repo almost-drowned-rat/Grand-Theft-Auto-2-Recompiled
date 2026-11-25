@@ -32,7 +32,7 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [ ] Native replacement for Dmavideo.dll (Vid_*: mode, flip, surfaces, gamma)
 - [ ] Native replacement for d3ddll.dll (gbh_*: textures, palettes, polygons, lights, DrawLine)
 - [ ] Vulkan 1.1 backend (swapchain, pipelines, texture cache), no 1.2+ dependency
-- [ ] Offscreen game image at RENDER RESOLUTION, final pass to the swapchain (ASPECT RATIO 4:3/16:9 as option-c/p)
+- [ ] Offscreen game image at RENDER RESOLUTION, final pass to the swapchain (ASPECT RATIO 4:3/16:9/16:10/21:9 as option-c/p: real wider view of the city, never stretched; frontend pillarboxed)
 - [ ] Slang shaders (RetroArch) via librashader, shader packs from media/shaders (option-c feature)
 - [ ] V-Sync, FRAME RATE 30/60/120 (PERFORMANCE sub-menu)
 - [ ] Android: landscape, preTransform identity

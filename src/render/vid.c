@@ -15,6 +15,8 @@
 #include "platform/wr_platform.h"
 
 #include <SDL3/SDL.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 int w32_window_client(uint32_t hwnd, int *w, int *h);
@@ -99,9 +101,21 @@ void gfx_flip(void)
         return;
     if (!g_gfx.cmd && !gfx_begin_drawing())
         return;
+    gbh_flush();
     if (g_gfx.in_target) {
         wr_vk_target_end();
         g_gfx.in_target = 0;
+    }
+    /* WR_DUMP_FRAMES=N: every N-th frame's game picture to data/frame_<n>.png */
+    static int dump_every = -1;
+    if (dump_every < 0) {
+        const char *d = getenv("WR_DUMP_FRAMES");
+        dump_every = d && *d ? atoi(d) : 0;
+    }
+    if (dump_every > 0 && g_gfx.frames % (uint64_t)dump_every == 0) {
+        char path[1300];
+        snprintf(path, sizeof path, "%s/frame_%06llu.png", g_wr_paths.data, (unsigned long long)g_gfx.frames);
+        wr_vk_dump_target(g_gfx.target, path);
     }
     float black[4] = { 0, 0, 0, 1 };
     wr_vk_present_begin(1, black);
@@ -145,6 +159,7 @@ void gfx_set_mode(uint32_t w, uint32_t h)
     g_gfx.w = w;
     g_gfx.h = h;
     setup_window(w, h);
+    gbh_flush();
     if (g_gfx.cmd) {
         if (g_gfx.in_target) {
             wr_vk_target_end();
@@ -162,6 +177,7 @@ void gfx_set_mode(uint32_t w, uint32_t h)
 
 void gfx_shutdown(void)
 {
+    gbh_flush();
     if (g_gfx.cmd) {
         if (g_gfx.in_target)
             wr_vk_target_end();
@@ -433,6 +449,7 @@ WR_HANDLER(Vid_ClearScreen)
     /* gta2 always clears the whole screen right after a flip: the next
      * frame's target pass starts with this clear. Inside a pass: clear now. */
     if (g_gfx.in_target && g_gfx.cmd) {
+        gbh_flush();
         VkClearAttachment ca = { VK_IMAGE_ASPECT_COLOR_BIT, 0, { { { 0 } } } };
         memcpy(ca.clearValue.color.float32, g_gfx.clear_rgba, 16);
         VkClearRect cr = { { { 0, 0 }, { g_gfx.tw, g_gfx.th } }, 0, 1 };

@@ -50,6 +50,7 @@ int main(int argc, char **argv)
     gta2_registry_defaults();
     gta2_manual_register();
     gta2_register_video();
+    gta2_register_renderer();
 
     char exe[1200];
     if (!wr_path_ci(g_wr_paths.game, "gta2.exe", exe, sizeof exe)) {

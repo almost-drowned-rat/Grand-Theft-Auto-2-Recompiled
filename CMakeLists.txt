@@ -30,10 +30,11 @@ add_executable(gta2_recomp
     src/gta2_registry.c
     src/gta2_manual.c
     src/render/vid.c
+    src/render/gbh.c
     $<TARGET_OBJECTS:gta2_gen>)
 target_link_libraries(gta2_recomp PRIVATE winrecomp_rt)
 if(NOT MSVC)
-    target_compile_options(gta2_recomp PRIVATE -Wall -Wextra -Wno-unused-parameter)
+    target_compile_options(gta2_recomp PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers)
 endif()
 # Crash reports name the generated functions: dladdr needs them in the
 # dynamic symbol table. Only those - exporting everything (-rdynamic) lets a
