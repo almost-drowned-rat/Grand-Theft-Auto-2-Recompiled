@@ -32,7 +32,9 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [ ] Native replacement for Dmavideo.dll (Vid_*: mode, flip, surfaces, gamma)
 - [ ] Native replacement for d3ddll.dll (gbh_*: textures, palettes, polygons, lights, DrawLine)
 - [ ] Vulkan 1.1 backend (swapchain, pipelines, texture cache), no 1.2+ dependency
-- [ ] Widescreen/higher resolution, V-Sync, frame pacing
+- [ ] Offscreen game image at RENDER RESOLUTION, final pass to the swapchain (ASPECT RATIO 4:3/16:9 as option-c/p)
+- [ ] Slang shaders (RetroArch) via librashader, shader packs from media/shaders (option-c feature)
+- [ ] V-Sync, FRAME RATE 30/60/120 (PERFORMANCE sub-menu)
 - [ ] Android: landscape, preTransform identity
 
 ## M5 — Audio, video, input
@@ -56,6 +58,7 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [ ] Test on the Odin 2
 
 ## After M8 (maintainer 2026-11-26)
+- [ ] Own milestone: complete translation of ALL story content and UI (game texts + our menus/launcher) into EN, FR, DE, IT, ES, JA, ZH, RU, PL; own text renderer + font (Latin-Ext, Cyrillic, CJK); shipped as a translations pak next to the launcher (like ZOE-subtitles.pak); LANGUAGE in the RECOMP menu
 - [ ] Controller rumble: explosions make the controller rumble
 - [ ] Custom soundtracks
 

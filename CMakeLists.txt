@@ -29,10 +29,16 @@ add_executable(gta2_recomp
     src/main.c
     src/gta2_registry.c
     src/gta2_manual.c
+    src/render/vid.c
     $<TARGET_OBJECTS:gta2_gen>)
 target_link_libraries(gta2_recomp PRIVATE winrecomp_rt)
 if(NOT MSVC)
     target_compile_options(gta2_recomp PRIVATE -Wall -Wextra -Wno-unused-parameter)
 endif()
-# Crash reports name the generated functions (dladdr needs them exported).
-set_target_properties(gta2_recomp PROPERTIES ENABLE_EXPORTS ON)
+# Crash reports name the generated functions: dladdr needs them in the
+# dynamic symbol table. Only those - exporting everything (-rdynamic) lets a
+# library bind to our symbols of the same name (the Vulkan driver called our
+# vkEnumeratePhysicalDevices function-pointer variable).
+if(NOT WIN32 AND NOT APPLE)
+    target_link_options(gta2_recomp PRIVATE "-Wl,--dynamic-list=${CMAKE_CURRENT_SOURCE_DIR}/src/exports.dynlist")
+endif()

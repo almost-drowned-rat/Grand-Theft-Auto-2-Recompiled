@@ -7,6 +7,7 @@
  */
 #include "wr.h"
 #include "platform/wr_platform.h"
+#include "render/gta2_render.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -48,6 +49,7 @@ int main(int argc, char **argv)
     wr_register_miles_bink_silent();
     gta2_registry_defaults();
     gta2_manual_register();
+    gta2_register_video();
 
     char exe[1200];
     if (!wr_path_ci(g_wr_paths.game, "gta2.exe", exe, sizeof exe)) {
