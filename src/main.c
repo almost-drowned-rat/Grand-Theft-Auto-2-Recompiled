@@ -39,6 +39,7 @@ int main(int argc, char **argv)
     snprintf(g_wr_exe_name, sizeof g_wr_exe_name, "%s", "gta2.exe");
     wr_paths_init(root);
     wr_log_init();
+    wr_crash_init();
     wr_log("GTA 2 Recompiled, layout %s", root);
 
     if (!wr_mem_init())

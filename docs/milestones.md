@@ -46,7 +46,7 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [ ] Play through all three districts, fix crashes
 - [ ] Performance: constant 60 FPS, game logic speed correct
 
-## M7 — Windows build
+## M7 — Windows build (PAUSED: done on a Windows PC)
 - [ ] MSVC/clang build, Win95 launcher, settings menu (option-p RECOMP layout)
 - [ ] Test on Windows
 
@@ -54,6 +54,10 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [ ] APK (ARM64), Vista launcher (Android standard), game data import
 - [ ] Back menu in the fixed order, graphics driver (Turnip) row
 - [ ] Test on the Odin 2
+
+## After M8 (maintainer 2026-11-26)
+- [ ] Controller rumble: explosions make the controller rumble
+- [ ] Custom soundtracks
 
 ## M9 — Multiplayer (optional)
 - [ ] DirectPlay (DPLAYX) -> own network layer (LAN/IP)

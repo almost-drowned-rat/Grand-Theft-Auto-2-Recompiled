@@ -34,3 +34,5 @@ target_link_libraries(gta2_recomp PRIVATE winrecomp_rt)
 if(NOT MSVC)
     target_compile_options(gta2_recomp PRIVATE -Wall -Wextra -Wno-unused-parameter)
 endif()
+# Crash reports name the generated functions (dladdr needs them exported).
+set_target_properties(gta2_recomp PROPERTIES ENABLE_EXPORTS ON)
