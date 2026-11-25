@@ -1,0 +1,5 @@
+# main menu -> PLAY, then accept the next screens
+3000 Return
+5000 Return
+7000 Return
+9000 Return

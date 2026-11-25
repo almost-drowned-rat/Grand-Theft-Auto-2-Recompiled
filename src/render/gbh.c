@@ -15,6 +15,7 @@
 #include "gta2_render.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -360,6 +361,29 @@ static void tex_upload(gtex *t)
     t->dirty = 0;
 }
 
+/* The game edits its GBH_Texture directly (the rolling HUD digits change
+ * height and pixel pointer per frame), and d3ddll reads the struct at each
+ * upload: so do we. A change of size or source is a new upload. */
+static void tex_sync(gtex *t)
+{
+    uint32_t va = t->va;
+    uint16_t w = wr_rd16(va + 0x0E), h = wr_rd16(va + 0x10);
+    uint32_t px = wr_rd32(va + 0x14) + ((uint32_t)wr_rd8(va + 0x0D) << 8) + wr_rd8(va + 0x0C);
+    if (w != t->w || h != t->h || px != t->pixels) {
+        t->w = w;
+        t->h = h;
+        t->pixels = px;
+        uint32_t size = cache_size(w, h);
+        if (size != t->size && t->vk) {
+            wr_vk_texture_destroy(t->vk);
+            t->vk = NULL;
+        }
+        t->size = size;
+        t->inv_size = 1.0f / (float)size;
+        t->dirty = 1;
+    }
+}
+
 static VkDescriptorSet tex_set(gtex *t, int nearest)
 {
     if (t->dirty || !t->vk)
@@ -414,8 +438,31 @@ static void apply_lights(uint32_t verts, int n, uint32_t shade)
     }
 }
 
+static int g_trace = -1;
+
+static void trace_draw(const char *what, uint32_t flags, uint32_t texva, uint32_t verts, int n)
+{
+    gtex *t = texva ? tex_find(texva) : NULL;
+    char b[512];
+    size_t o = (size_t)snprintf(b, sizeof b, "%s f=%05X tex=%ux%u", what, flags, t ? t->w : 0, t ? t->h : 0);
+    for (int i = 0; i < n && o < sizeof b; i++) {
+        uint32_t v = verts + 0x20u * (uint32_t)i;
+        float x, y, z, u, vv;
+        uint32_t a = wr_rd32(v), bb = wr_rd32(v + 4), c = wr_rd32(v + 8), d = wr_rd32(v + 0x18), e = wr_rd32(v + 0x1C);
+        memcpy(&x, &a, 4); memcpy(&y, &bb, 4); memcpy(&z, &c, 4); memcpy(&u, &d, 4); memcpy(&vv, &e, 4);
+        o += (size_t)snprintf(b + o, sizeof b - o, " (%.1f,%.1f z%.3f uv %.2f,%.2f)", x, y, z, u, vv);
+    }
+    wr_log("%s", b);
+}
+
 static void draw_core(uint32_t flags, uint32_t texva, uint32_t verts, uint32_t shade, int n, int quad)
 {
+    if (g_trace < 0) {
+        const char *e = getenv("WR_GBH_TRACE");
+        g_trace = e && *e ? atoi(e) : 0;
+    }
+    if (g_trace && (uint32_t)g_trace == (uint32_t)g_gfx.frames && wr_mem_valid(verts, 0x80))
+        trace_draw(quad ? "quad" : "tri", flags, texva, verts, n);
     if (!wr_mem_valid(verts, 0x20u * (uint32_t)n))
         return;
     if (rdf(verts + 8) <= 0.0f)
@@ -438,6 +485,8 @@ static void draw_core(uint32_t flags, uint32_t texva, uint32_t verts, uint32_t s
     int nearest = (flags & 0x20000u) != 0;
 
     gtex *t = texva ? tex_find(texva) : NULL;
+    if (t)
+        tex_sync(t);
     float inv = t ? t->inv_size : 1.0f;
 
     if (quad && (flags & 0x10000u) && t) {
