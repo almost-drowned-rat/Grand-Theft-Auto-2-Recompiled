@@ -1,0 +1,18 @@
+schema_version = 1
+
+[game]
+title = "Grand Theft Auto 2"
+
+[disasm]
+# Data parked in .text by statically linked libraries. No function starts here.
+data_ranges = [
+  [0x4D17C0, 0x4D2AF0],   # DirectInput DIOBJECTDATAFORMAT records (c_dfDIKeyboard, mouse, joystick); import thunks follow
+]
+
+[recomp]
+split = 2000
+
+[variant.freeware]
+label = "Rockstar freeware release (2004, build 2004-04-27)"
+sha256 = "420af867036b1a66ef94c54b8db2e7e654da359031987c6602bcfa74972e089f"
+file = "variants/freeware.toml"
