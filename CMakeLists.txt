@@ -43,3 +43,11 @@ endif()
 if(NOT WIN32 AND NOT APPLE)
     target_link_options(gta2_recomp PRIVATE "-Wl,--dynamic-list=${CMAKE_CURRENT_SOURCE_DIR}/src/exports.dynlist")
 endif()
+
+# librashader (slang shaders): built from source by tools/deps_librashader.sh,
+# loaded at run time from next to the exe (missing = shaders unavailable).
+set(LIBRASHADER_SO "${CMAKE_CURRENT_SOURCE_DIR}/../../deps/linux/build/librashader/x86_64-unknown-linux-gnu/optimized/liblibrashader_capi.so" CACHE FILEPATH "librashader C API library")
+if(EXISTS "${LIBRASHADER_SO}" AND NOT WIN32 AND NOT ANDROID)
+    add_custom_command(TARGET gta2_recomp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${LIBRASHADER_SO}" "$<TARGET_FILE_DIR:gta2_recomp>/librashader.so")
+endif()

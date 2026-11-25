@@ -13,6 +13,7 @@
  */
 #include "gta2_render.h"
 #include "platform/wr_platform.h"
+#include "post/shader_pass.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -40,6 +41,9 @@ static void ensure_vk(void)
     const char *vs = getenv("WR_VSYNC");
     if (!wr_vk_init(win, !(vs && *vs == '0')))
         return;
+    const char *preset = getenv("WR_SHADER_PRESET");
+    if (preset && *preset)
+        sp_set_preset(preset);
     g_gfx.nearest = wr_vk_sampler(VK_FILTER_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
     g_gfx.linear = wr_vk_sampler(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
     g_gfx.vk = 1;
@@ -58,8 +62,12 @@ static void ensure_target(void)
     if (e && *e) {
         scale = (uint32_t)atoi(e);
     } else {
-        uint32_t sx = (uint32_t)ww / g_gfx.w, sy = (uint32_t)wh / g_gfx.h;
-        scale = sx < sy ? sx : sy;
+        /* the smallest integer scale whose image covers the fitted rectangle:
+         * the present pass then only ever scales down (sharp) */
+        double fit = (double)ww / g_gfx.w < (double)wh / g_gfx.h ? (double)ww / g_gfx.w : (double)wh / g_gfx.h;
+        scale = (uint32_t)fit;
+        if ((double)scale < fit - 0.01)
+            scale++;
     }
     if (scale < 1) scale = 1;
     if (scale > 8) scale = 8;
@@ -117,35 +125,96 @@ void gfx_flip(void)
         snprintf(path, sizeof path, "%s/frame_%06llu.png", g_wr_paths.data, (unsigned long long)g_gfx.frames);
         wr_vk_dump_target(g_gfx.target, path);
     }
-    float black[4] = { 0, 0, 0, 1 };
-    wr_vk_present_begin(1, black);
     int x, y, w, h;
     wr_vk_fit_rect(g_vk.extent.width, g_vk.extent.height, g_gfx.w, g_gfx.h, &x, &y, &w, &h);
-    wr_vk_blit(g_gfx.cmd, g_gfx.target, x, y, w, h, g_gfx.gamma);
+    float black[4] = { 0, 0, 0, 1 };
+    /* Slang shader chain (option-c's shader pass): game picture -> chain ->
+     * swapchain image (the bars stay black), then a kept pass for overlays.
+     * Without a preset: the plain scaled blit with the game's gamma. */
+    static uint64_t last_ns;
+    static int lx, ly, lw, lh;
+    uint64_t now = wr_time_ns();
+    uint32_t dt_ms = last_ns ? (uint32_t)((now - last_ns) / 1000000u) : 0;
+    last_ns = now;
+    int shaded = 0;
+    if (g_gfx.shader_on) {
+        VkImageMemoryBarrier b = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+        b.srcQueueFamilyIndex = b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        b.subresourceRange = (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        b.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        b.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        b.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        b.image = wr_vk_swap_image();
+        vkCmdPipelineBarrier(g_gfx.cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                             0, 0, NULL, 0, NULL, 1, &b);
+        int same = x == lx && y == ly && w == lw && h == lh;
+        shaded = sp_frame(g_gfx.cmd, g_gfx.frames, g_gfx.target->color, VK_FORMAT_R8G8B8A8_UNORM, g_gfx.tw, g_gfx.th,
+                          wr_vk_swap_image(), g_vk.format, g_vk.extent.width, g_vk.extent.height, x, y, w, h, same,
+                          dt_ms > 0 && dt_ms < 1000 ? 1000.0f / (float)dt_ms : 30.0f, dt_ms);
+        lx = x; ly = y; lw = w; lh = h;
+    }
+    if (shaded) {
+        wr_vk_present_begin(0, black);   /* keep the chain's picture; overlays go here */
+    } else {
+        wr_vk_present_begin(1, black);
+        wr_vk_blit(g_gfx.cmd, g_gfx.target, x, y, w, h, g_gfx.gamma);
+    }
     wr_vk_present_end();
+    /* WR_DUMP_PRESENT=N: every N-th shown picture to data/present_<n>.png */
+    static int dump_present = -1;
+    if (dump_present < 0) {
+        const char *d = getenv("WR_DUMP_PRESENT");
+        dump_present = d && *d ? atoi(d) : 0;
+    }
+    if (dump_present > 0 && g_gfx.frames % (uint64_t)dump_present == 0) {
+        char path[1300];
+        snprintf(path, sizeof path, "%s/present_%06llu.png", g_wr_paths.data, (unsigned long long)g_gfx.frames);
+        wr_vk_dump_swap(path);
+    }
     wr_vk_frame_end();
     g_gfx.cmd = NULL;
+    /* the chain for the next frame (built on a worker; in place at a flip) */
+    if (g_gfx.vk) {
+        SpDevice d = { g_vk.instance, g_vk.phys, g_vk.dev, g_vk.queue, g_vk.qfamily, WR_VK_FRAMES };
+        g_gfx.shader_on = sp_tick(&d);
+    }
 }
 
-/* The host window: DISPLAY MODE (WR_DISPLAY=windowed|borderless; default
- * windowed for now - the menu setting comes with M6). Windowed = the largest
- * integer multiple of the game screen that fits 85 % of the desktop. */
-static void setup_window(uint32_t w, uint32_t h)
+/* The host window, set up once (it must not jump when the game switches
+ * between its 640x480 menus and the gameplay mode): DISPLAY MODE
+ * (WR_DISPLAY=windowed|borderless; the menu setting comes with M6) and the
+ * ASPECT RATIO (WR_ASPECT=4:3|16:9|16:10|21:9). Windowed = 85 % of the
+ * desktop at that ratio. Every game mode is fitted into it (pillar/letterbox). */
+static double aspect_setting(void)
 {
+    const char *a = getenv("WR_ASPECT");
+    if (a && !strcmp(a, "16:9")) return 16.0 / 9.0;
+    if (a && !strcmp(a, "16:10")) return 16.0 / 10.0;
+    if (a && !strcmp(a, "21:9")) return 64.0 / 27.0;
+    return 4.0 / 3.0;
+}
+
+static void setup_window(void)
+{
+    static int done;
     SDL_Window *win = wr_main_window();
-    if (!win || !w || !h)
+    if (!win || done)
         return;
+    done = 1;
     const char *d = getenv("WR_DISPLAY");
     if (d && !strcmp(d, "borderless")) {
         SDL_SetWindowFullscreen(win, true);
     } else {
         int dw, dh;
         wr_display_size(&dw, &dh);
-        uint32_t s = 1;
-        while ((w * (s + 1)) <= (uint32_t)(dw * 0.85) && (h * (s + 1)) <= (uint32_t)(dh * 0.85))
-            s++;
+        double ar = aspect_setting();
+        int h = (int)(dh * 0.85), w = (int)(h * ar + 0.5);
+        if (w > (int)(dw * 0.85)) {
+            w = (int)(dw * 0.85);
+            h = (int)(w / ar + 0.5);
+        }
         SDL_SetWindowFullscreen(win, false);
-        SDL_SetWindowSize(win, (int)(w * s), (int)(h * s));
+        SDL_SetWindowSize(win, w, h);
         SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     }
     SDL_ShowWindow(win);
@@ -158,7 +227,7 @@ void gfx_set_mode(uint32_t w, uint32_t h)
 {
     g_gfx.w = w;
     g_gfx.h = h;
-    setup_window(w, h);
+    setup_window();
     gbh_flush();
     if (g_gfx.cmd) {
         if (g_gfx.in_target) {

@@ -52,6 +52,7 @@ typedef struct gta2_gfx {
     int in_target;
     VkSampler nearest, linear;
     uint64_t frames;
+    int shader_on;             /* a slang chain is in place */
 } gta2_gfx;
 
 extern gta2_gfx g_gfx;
