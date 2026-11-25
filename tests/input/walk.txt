@@ -1,0 +1,16 @@
+# into the game, then walk around, enter a car, drive
+3000 Return
+5000 Return
+7000 Return
+9000 Return
+14000 Up 3000
+17500 Left 800
+18500 Up 4000
+23000 Right 1200
+24500 Up 3000
+28000 Return 200
+30000 Up 6000
+36500 Left 1500
+38000 Up 5000
+44000 Return 200
+46000 Down 3000

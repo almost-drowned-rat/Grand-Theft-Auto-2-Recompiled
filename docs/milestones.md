@@ -10,29 +10,31 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [x] Full lift: 25,390 functions, 0 failed, 32 unresolved
 
 ## M1 — Clean lift
-- [ ] Clear out data decoded as code (arpl/iretd/outsb hits), write gta2 game.toml
-- [ ] Resolve the 32 unresolved indirect targets, set up icall feedback
-- [ ] Mark jump tables / switch tables, check SEH/CRT parts (startup code, _initterm table at .data 0x57c00c)
-- [ ] Gen into gta2_recomp/gen, stable partitions
+- [x] Clear out data decoded as code (arpl/iretd/outsb hits), write gta2 game.toml
+- [x] Resolve the 32 unresolved indirect targets, set up icall feedback
+- [x] Mark jump tables / switch tables, check SEH/CRT parts (startup code, _initterm table at .data 0x57c00c)
+- [x] Gen into gta2_recomp/gen, stable partitions
 
 ## M2 — Runtime core (winrecomp/runtime)
-- [ ] Guest memory: map the PE image at 0x400000 (.text/.rdata/.data/.bss), heap, stack
-- [ ] Import binding: IAT slots -> native handlers (216 imports, DLL!Func table)
-- [ ] Dispatcher for indirect calls / callbacks (WndProc, threads, timers)
+- Note: the CMake build is Linux-tested; Windows (M7) and NDK (M8) builds come with those milestones
+- [x] Guest memory: map the PE image at 0x400000 (.text/.rdata/.data/.bss), heap, stack
+- [x] Import binding: IAT slots -> native handlers (216 imports, DLL!Func table)
+- [x] Dispatcher for indirect calls / callbacks (WndProc, threads, timers)
 - [ ] CMake build of the generated C (GCC/Clang on Linux, MSVC/clang-cl on Windows, NDK)
-- [ ] First start up to WinMain, log + crash report with guest address
+- [x] First start up to WinMain, log + crash report with guest address
 
 ## M3 — Win32 API layer (on SDL3)
-- [ ] KERNEL32: files (paths, case-insensitive), memory, threads/sync, time, ini/registry
-- [ ] USER32/GDI32: window, message loop, WndProc, cursor, MessageBox
-- [ ] ADVAPI32 (registry -> ini), SHELL32, ole32, VERSION, WINMM (timeGetTime, timers)
+- [x] KERNEL32: files (paths, case-insensitive), memory, threads/sync, time, ini/registry
+- [x] USER32/GDI32: window, message loop, WndProc, cursor, MessageBox
+- [x] ADVAPI32 (registry -> ini), SHELL32, ole32, VERSION, WINMM (timeGetTime, timers)
 - [ ] Settings that gta2 manager.exe writes -> our own settings menu
 
 ## M4 — Renderer Vulkan 1.1
-- [ ] Native replacement for Dmavideo.dll (Vid_*: mode, flip, surfaces, gamma)
-- [ ] Native replacement for d3ddll.dll (gbh_*: textures, palettes, polygons, lights, DrawLine)
-- [ ] Vulkan 1.1 backend (swapchain, pipelines, texture cache), no 1.2+ dependency
-- [ ] Offscreen game image at RENDER RESOLUTION, final pass to the swapchain (ASPECT RATIO 4:3/16:9/16:10/21:9 as option-c/p: real wider view of the city, never stretched; frontend pillarboxed)
+- Status 2026-11-26: main menu + in-game render correctly (HUD, lighting, sprites); original runs at 30 FPS
+- [x] Native replacement for Dmavideo.dll (Vid_*: mode, flip, surfaces, gamma)
+- [x] Native replacement for d3ddll.dll (gbh_*: textures, palettes, polygons, lights, DrawLine)
+- [x] Vulkan 1.1 backend (swapchain, pipelines, texture cache), no 1.2+ dependency
+- [x] Offscreen game image at RENDER RESOLUTION, final pass to the swapchain (ASPECT RATIO 4:3/16:9/16:10/21:9 as option-c/p: real wider view of the city, never stretched; frontend pillarboxed)
 - [ ] Slang shaders (RetroArch) via librashader, shader packs from media/shaders (option-c feature)
 - [ ] V-Sync, FRAME RATE 30/60/120 (PERFORMANCE sub-menu)
 - [ ] Android: landscape, preTransform identity
