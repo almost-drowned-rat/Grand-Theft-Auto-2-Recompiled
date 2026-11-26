@@ -38,8 +38,14 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [x] Slang shaders (RetroArch) via librashader (built from source, Vulkan only); shader packs + menu with M6
 - [x] Real widescreen 16:9/16:10/21:9 (Hor+, all cameras, HUD anchored; 4:3 byte-identical to the original); verify pager/mission texts + fast-car zoom-out in M6
 - [x] No busy-wait: menu + game loop sleep to their deadline (100 % -> ~3 % of a core), timing exact (30.3 Hz)
-- [ ] V-Sync (done: WR_VSYNC), FRAME RATE 60/120 = interpolated extra frames between 30 Hz logic ticks (docs/re/framerate.md; logic is frame-locked)
+- [x] V-Sync (WR_VSYNC; menu line with M6)
+- [ ] FRAME RATE 60/120: moved behind M6 (own item below) - logic is frame-locked at 30 Hz, needs interpolated extra frames
 - [ ] Android: landscape, preTransform identity
+
+## M4b — FRAME RATE 60/120 (after M6)
+- [ ] Keep the 30 Hz logic tick; render interpolated frames in between (camera + object positions/angles lerped, restored after the draw)
+- [ ] Make the render path re-runnable within a tick (sprite lists are cleared after each draw, 0x004C4D6E)
+- [ ] Per-tick animations / HUD stay per tick; FRAME RATE line in the PERFORMANCE sub-menu
 
 ## M5 — Audio, video, input
 - [ ] Miles (mss32): samples, streams, 3D sound, MSSDS3DH -> SDL3 audio
