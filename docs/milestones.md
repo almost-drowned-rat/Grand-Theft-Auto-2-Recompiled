@@ -27,7 +27,7 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [x] KERNEL32: files (paths, case-insensitive), memory, threads/sync, time, ini/registry
 - [x] USER32/GDI32: window, message loop, WndProc, cursor, MessageBox
 - [x] ADVAPI32 (registry -> ini), SHELL32, ole32, VERSION, WINMM (timeGetTime, timers)
-- [ ] Settings that gta2 manager.exe writes -> our own settings menu
+- [x] Settings that gta2 manager.exe writes -> our own settings menu (RECOMP OPTIONS, 2026-11-26)
 
 ## M4 — Renderer Vulkan 1.1
 - Status 2026-11-26: main menu + in-game render correctly (HUD, lighting, sprites); original runs at 30 FPS
@@ -49,14 +49,14 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [ ] Per-tick animations / HUD stay per tick; FRAME RATE line in the PERFORMANCE sub-menu
 
 ## M5 — Audio, video, input
-- [ ] Miles (mss32): samples, streams, 3D sound, MSSDS3DH -> SDL3 audio
-- [ ] Bink (binkw32): intros/movies (decoder or skip)
-- [ ] DirectInput 8: keyboard, gamepad (SDL3), controller layout
+- [x] Miles (mss32): samples, streams, 3D sound, MSSDS3DH -> SDL3 audio (native libs/miles.c, 2026-11-26)
+- [x] Bink (binkw32): intros/movies (lifted binkw32, 32-bit surface, cooperative thread, 2026-11-26)
+- [x] DirectInput 8: keyboard, gamepad (SDL3), controller layout (CLASSIC/MODERN/CUSTOM pad, CLASSIC/MODERN/KEYBOARD + MOUSE keys, CONTROLLER LAYOUT + CONTROL OVERVIEW pages, 2026-11-26)
 - [ ] Android: touch controls
 
 ## M6 — Playable on Linux
-- [ ] Frontend/menu, missions load, saves (POSIX-safe writes)
-- [ ] RECOMP OPTIONS and CHEATS lines in the game's own options menu (CHEATS: the game's cheats as ON/OFF switches, one-shot cheats as actions; maintainer 2026-11-26)
+- [ ] Frontend/menu, missions load, saves (POSIX-safe writes) - frontend, pause menu, missions and saving work in the maintainer's tests; POSIX-safe save writes not checked yet
+- [x] RECOMP OPTIONS and CHEATS lines in the game's own options menu (CHEATS: the game's cheats as ON/OFF switches, one-shot cheats as actions; maintainer 2026-11-26)
 - [ ] Play through all three districts, fix crashes
 - [ ] Performance: constant 60 FPS, game logic speed correct
 
