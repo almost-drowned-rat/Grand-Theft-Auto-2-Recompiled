@@ -466,6 +466,13 @@ static void to_pad_keys(const char *s, char *out, size_t cap)
         while (n && t[n - 1] == ' ') t[--n] = 0;
         char *paren = strstr(t, " (");
         if (paren) *paren = 0;
+        if (!strcmp(t, "D-PAD UP") || !strcmp(t, "D-PAD DOWN") || !strcmp(t, "D-PAD L R")) {
+            /* "STICK / D-PAD UP": the stick part was the same direction */
+            char *prev = strrchr(out, '/');
+            char *start = prev ? prev + 2 : out;
+            if (!strcmp(start, "W A S D"))
+                snprintf(start, cap - (size_t)(start - out), "%s", t[6] == 'U' ? "W" : t[6] == 'D' ? "S" : "A D");
+        }
         const char *k = pad_key(t);
         if (k)
             snprintf(out + strlen(out), cap - strlen(out), "%s%s", out[0] ? " / " : "", k);
@@ -571,16 +578,14 @@ void gta2_pad_function(int id, int driving, char *out, size_t cap)
     const char *f = NULL;
     if (c == -1 || c == -2) {   /* the left stick, the d-pad */
         if (sc == 1)
-            f = driving ? "STEER" : "WALK ANY WAY";
-        else if (driving)
-            f = "GAS BRAKE STEER";
+            f = driving ? "STEER" : "WALK";
         else
-            f = "WALK AND TURN";
+            f = driving ? "DRIVE" : "MOVE";
     } else if (c == -3) {   /* the right stick */
         if (sc == 1)
-            f = driving ? "RADIO LEFT RIGHT" : "AIM AND TURN";
+            f = driving ? "RADIO" : "AIM";
         else
-            f = driving ? "RADIO LEFT RIGHT" : NULL;
+            f = driving ? "RADIO" : NULL;
     } else
         f = act_name(control_act(c, driving), driving);
     snprintf(out, cap, "%s  %s", k[id].tok, f ? f : "-");
