@@ -26,6 +26,7 @@
 #include "gta2_state.h"
 #include "render/gta2_render.h"
 #include "gta2_input.h"
+#include "gta2_shaders.h"
 #include "gta2_gameplay.h"
 #include "platform/wr_platform.h"
 #include "wr.h"
@@ -62,8 +63,8 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 /* ---- pages -------------------------------------------------------------------------------- */
 
 enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
-       VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_COUNT };
-enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND };
+       VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_COUNT };
+enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
        ACT_RESTART_YES, ACT_NO, ACT_QUITPROG_YES };
 enum { VOL_MUSIC, VOL_SFX };
@@ -99,7 +100,7 @@ static const cheat g_cheats[] = {
 #define N_CHEATS ((int)(sizeof g_cheats / sizeof g_cheats[0]))
 
 static const mline l_root[] = {
-    { "RENDERING", L_PAGE, VP_DISPLAY }, { "PERFORMANCE", L_PAGE, VP_PERF }, { "SOUND", L_PAGE, VP_SOUND },
+    { "RENDERING", L_PAGE, VP_DISPLAY }, { "SHADERS", L_PAGE, VP_SHADERS }, { "PERFORMANCE", L_PAGE, VP_PERF }, { "SOUND", L_PAGE, VP_SOUND },
     { "LANGUAGE", L_PAGE, VP_LANG }, { "CONTROLS", L_PAGE, VP_CONTROLS }, { "GAMEPLAY", L_PAGE, VP_GAMEPLAY },
     { "CHEATS", L_PAGE, VP_CHEATS },
 };
@@ -125,6 +126,11 @@ static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME }, { "CUST
 /* CUSTOM MAPPING (as option-p): DEVICE on top, then every function and its
  * button / key; Enter waits for the new one (5 s, keyboard Esc cancels) */
 static mline l_mapping[1 + GTA2_BIND_N];
+/* SHADERS (RetroArch slang; gta2_shaders.c) and its preset browser */
+static const mline l_shaders[] = { { "SHADER", L_SHON, 0 }, { "PRESET", L_SHPRESET, 0 } };
+static mline l_browse[1024];
+static char g_browse_title[64] = "SHADER PACKS";
+static const gta2_shader_item *g_browse_items;
 /* GAMEPLAY (maintainer 2026-11-26; PEDESTRIANS / TRAFFIC / SPRINT follow) */
 static const mline l_gameplay[] = { { NULL, L_OPT, OPT_PEDESTRIANS }, { NULL, L_OPT, OPT_TRAFFIC }, { NULL, L_OPT, OPT_SPRINT },
                                     { NULL, L_OPT, OPT_MORE_BLOOD } };
@@ -148,7 +154,7 @@ static const mline l_quit[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION, A
 static const mline l_restart[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION, ACT_RESTART_YES } };
 
 static mpage g_pages[VP_COUNT] = {
-    [VP_ROOT]    = { "RECOMP OPTIONS", -1, l_root, 7 },
+    [VP_ROOT]    = { "RECOMP OPTIONS", -1, l_root, 8 },
     [VP_SOUND]   = { "SOUND", VP_ROOT, l_sound, 2 },
     [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 4 },
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
@@ -156,6 +162,8 @@ static mpage g_pages[VP_COUNT] = {
     [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 2 },
     [VP_MAPPING] = { "CUSTOM MAPPING", VP_CONTROLS, l_mapping, 0 },
     [VP_GAMEPLAY] = { "GAMEPLAY", VP_ROOT, l_gameplay, 4 },
+    [VP_SHADERS] = { "SHADERS", VP_ROOT, l_shaders, 2 },
+    [VP_SHBROWSE] = { g_browse_title, VP_SHADERS, l_browse, 0 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
     [VP_EXIT]    = { "EXIT GAME?", -1, l_exit, 2 },
     [VP_PAUSE]   = { "PAUSED", -1, l_pause, 5 },
@@ -251,6 +259,9 @@ static void line_value(const mline *l, char *v, size_t cap)
     case L_CHEAT: snprintf(v, cap, "%s", cheat_on(l->arg) ? "ON" : "OFF"); break;
     case L_LANG: snprintf(v, cap, "%s", g_lang_name[g_lang_sel]); break;
     case L_DEVICE: snprintf(v, cap, "%s", g_map_keyboard ? "KEYBOARD" : "CONTROLLER"); break;
+    case L_SHON: snprintf(v, cap, "%s", gta2_shader_on() ? "ON" : "OFF"); break;
+    case L_SHPRESET: gta2_shader_preset_name(v, cap); break;
+    case L_SHITEM: gta2_shader_item_value(&g_browse_items[l->arg], v, cap); break;
     case L_BIND:
         if (g_wait == l->arg)
             snprintf(v, cap, "%s", g_map_keyboard ? "PRESS A KEY" : "PRESS A BUTTON");
@@ -259,6 +270,17 @@ static void line_value(const mline *l, char *v, size_t cap)
         break;
     default: break;
     }
+}
+
+static void build_browse_page(void)
+{
+    int n = gta2_shader_browse(&g_browse_items);
+    if (n > (int)(sizeof l_browse / sizeof l_browse[0]))
+        n = (int)(sizeof l_browse / sizeof l_browse[0]);
+    for (int i = 0; i < n; i++)
+        l_browse[i] = (mline){ g_browse_items[i].label, L_SHITEM, i };
+    g_pages[VP_SHBROWSE].n = n;
+    gta2_shader_dir_title(g_browse_title, sizeof g_browse_title);
 }
 
 static void build_mapping_page(void)
@@ -468,6 +490,7 @@ static void change(X86Ctx *ctx, const mline *l, int d)
         g_map_keyboard = !g_map_keyboard;
         build_mapping_page();
         break;
+    case L_SHON: gta2_shader_set_on(!gta2_shader_on()); break;
     default: return;
     }
     wr_wr32(FE_SOUND, d > 0 ? SND_VALUE : SND_VALUE + 1);
@@ -552,6 +575,19 @@ static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int 
             wr_restart();
         } else if (l->kind == L_ACTION && l->arg == ACT_RESTART_LATER) {
             go_back(ctx, f);
+        } else if (l->kind == L_SHPRESET) {
+            gta2_shader_browse_open();
+            build_browse_page();
+            open_vpage(VP_SHBROWSE);
+            wr_wr32(FE_SOUND, SND_SELECT);
+        } else if (l->kind == L_SHITEM) {
+            if (gta2_shader_pick(&g_browse_items[l->arg])) {   /* into a folder or up */
+                build_browse_page();
+                g_cur = g_top = 0;
+            } else {
+                go_back(ctx, f);   /* chosen: back to SHADERS */
+            }
+            wr_wr32(FE_SOUND, SND_SELECT);
         } else if (l->kind == L_BIND) {
             g_wait = l->arg;
             g_wait_t0 = wr_time_ms();
@@ -721,6 +757,8 @@ void gta2_menu_draw(X86Ctx *ctx)
         put_text(ctx, "...", X_LABEL, Y_FIRST - 16, font, SCALE);
     if (g_top + VISIBLE < pg->n)
         put_text(ctx, "...", X_LABEL, Y_FIRST + VISIBLE * Y_STEP - 6, font, SCALE);
+    if (g_vp == VP_SHADERS && gta2_shader_hint())
+        put_text(ctx, gta2_shader_hint(), X_LABEL, Y_FIRST + 3 * Y_STEP, font, SCALE);
     if (g_vp == VP_LANG && g_lang_sel != g_lang_start)
         put_text(ctx, "THE NEW LANGUAGE NEEDS A RESTART", X_LABEL, Y_FIRST + 4 * Y_STEP, font, SCALE);
 }
@@ -860,4 +898,6 @@ void gta2_pause_draw(X86Ctx *ctx)
         put_text(ctx, "...", x0, y0 - 16, P_FONT, 0x4000);
     if (g_top + VISIBLE < pg->n)
         put_text(ctx, "...", x0, y0 + VISIBLE * 24 - 6, P_FONT, 0x4000);
+    if (g_vp == VP_SHADERS && gta2_shader_hint())
+        put_text(ctx, gta2_shader_hint(), x0, y0 + 3 * 24, P_FONT, 0x4000);
 }

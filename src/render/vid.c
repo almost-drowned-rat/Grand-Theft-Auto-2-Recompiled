@@ -46,8 +46,8 @@ static void ensure_vk(void)
         return;
     wr_overlay_set_tick_rate(1000.0 / 33.0);   /* one logic tick per 33 ms (docs/re/framerate.md) */
     const char *preset = getenv("WR_SHADER_PRESET");
-    if (!preset || !*preset)
-        preset = wr_settings_get("shader_preset", NULL);
+    if ((!preset || !*preset) && wr_settings_get_int("shader_on", 0))
+        preset = wr_settings_get("shader_preset", NULL);   /* SHADERS page */
     if (preset && *preset)
         sp_set_preset(preset);
     g_gfx.nearest = wr_vk_sampler(VK_FILTER_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);

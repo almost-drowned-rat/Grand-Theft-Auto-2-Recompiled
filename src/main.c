@@ -7,6 +7,7 @@
  */
 #include "wr.h"
 #include "gta2_options.h"
+#include "shaderpack/shader_pack.h"
 #include "platform/wr_platform.h"
 #include "render/gta2_render.h"
 
@@ -59,6 +60,12 @@ int main(int argc, char **argv)
     wr_set_thread_hook(gta2_thread_hook);
     gta2_registry_defaults();
     opt_load_all();   /* RECOMP OPTIONS from settings.ini (sets the gameplay width) */
+    {   /* the player's shader packs: media/shaders -> data/shaders (a thread of its own) */
+        char ms[1100], ds[1100];
+        snprintf(ms, sizeof ms, "%s/shaders", g_wr_paths.media);
+        snprintf(ds, sizeof ds, "%s/shaders", g_wr_paths.data);
+        shader_pack_start(ms, ds);
+    }
     gta2_manual_register();
     gta2_input_register();
     gta2_register_video();

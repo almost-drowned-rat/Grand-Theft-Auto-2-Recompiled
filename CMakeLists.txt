@@ -43,6 +43,7 @@ add_executable(gta2_recomp
     src/gta2_menu.c
     src/gta2_state.c
     src/gta2_gameplay.c
+    src/gta2_shaders.c
     src/render/vid.c
     src/render/gbh.c
     src/render/bink_buffer.c
