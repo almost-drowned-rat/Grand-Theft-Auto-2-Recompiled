@@ -1,13 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
 project(gta2_recomp C)
 
-# the log's head names the build: the port's commit (and "dirty" with local changes)
-execute_process(COMMAND git describe --always --dirty --abbrev=7 WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                OUTPUT_VARIABLE GTA2_GIT OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-if(NOT GTA2_GIT)
-    set(GTA2_GIT "unknown")
-endif()
-add_compile_definitions(GTA2_GIT="${GTA2_GIT}")
+# the log's head names the build: the port's commit (and "dirty" with local changes),
+# refreshed on every build (tools/git_id.cmake writes build/gta2_git.h only when it changed)
+add_custom_target(gta2_git_id ALL
+    COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -DOUT=${CMAKE_BINARY_DIR}/gta2_git.h
+            -P ${CMAKE_SOURCE_DIR}/tools/git_id.cmake
+    BYPRODUCTS ${CMAKE_BINARY_DIR}/gta2_git.h)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -62,6 +61,8 @@ add_executable(gta2_recomp
     $<TARGET_OBJECTS:gta2_gen>
     $<TARGET_OBJECTS:bink_gen>)
 target_link_libraries(gta2_recomp PRIVATE winrecomp_rt)
+add_dependencies(gta2_recomp gta2_git_id)
+target_include_directories(gta2_recomp PRIVATE ${CMAKE_BINARY_DIR})
 if(NOT MSVC)
     target_compile_options(gta2_recomp PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers)
 endif()

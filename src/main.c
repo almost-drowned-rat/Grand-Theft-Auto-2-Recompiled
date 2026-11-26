@@ -9,6 +9,7 @@
 #include "gta2_options.h"
 #include "gta2_rumble.h"
 #include "gta2_mixtape.h"
+#include "gta2_git.h"   /* GTA2_GIT, written by the build */
 #include "shaderpack/shader_pack.h"
 #include "platform/wr_platform.h"
 #include "render/gta2_render.h"
