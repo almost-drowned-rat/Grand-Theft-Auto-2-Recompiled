@@ -68,6 +68,11 @@ extern float g_port_quad_scale;   /* 1 = normal; set around one sprite's draw */
 extern float g_port_quad_tint, g_port_quad_alpha;   /* colour factor and opacity, 1 = normal */
 void gbh_port_image(const uint32_t *rgba, uint32_t iw, uint32_t ih, float x, float y, float w, float h);
 void gbh_port_rect(float x, float y, float w, float h, uint32_t rgba);   /* rgba: R in the low byte */
+/* the port's glyph atlas (src/gta2_text.c): made once, quads modulated by a colour */
+void *gbh_port_atlas_create(const uint32_t *rgba, uint32_t w, uint32_t h);
+void gbh_port_atlas_quad(void *atlas, float x, float y, float w, float h, float u0, float v0, float u1, float v1,
+                         uint32_t rgba, int additive);
+int  gbh_port_tex_colours(uint32_t va, uint32_t *fill, uint32_t *edge);   /* a font glyph's fill / edge colour */
 
 void gta2_register_video(void);
 void gta2_register_renderer(void);

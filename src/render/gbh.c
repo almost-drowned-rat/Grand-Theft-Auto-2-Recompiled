@@ -682,6 +682,62 @@ void gbh_port_rect(float x, float y, float w, float h, uint32_t rgba)
     emit(g_white->set, BLEND_ALPHA, gv, 6);
 }
 
+/* ---- the port's glyphs (translations, src/gta2_text.c) ----
+ * An RGBA atlas made once; each glyph is a quad of it, modulated by a colour, alpha blended (or
+ * additive like the game's blend 2), in the same draw stream as the game's own text. */
+void *gbh_port_atlas_create(const uint32_t *rgba, uint32_t w, uint32_t h)
+{
+    if (!pipes_init())
+        return NULL;
+    return wr_vk_texture_create(w, h, rgba, g_gfx.linear);
+}
+
+void gbh_port_atlas_quad(void *atlas, float x, float y, float w, float h, float u0, float v0, float u1, float v1,
+                         uint32_t rgba, int additive)
+{
+    wr_vk_texture *t = atlas;
+    if (!t || !pipes_init())
+        return;
+    gvert q[4] = { { x, y, 1, u0, v0, rgba }, { x + w, y, 1, u1, v0, rgba }, { x + w, y + h, 1, u1, v1, rgba },
+                   { x, y + h, 1, u0, v1, rgba } };
+    gvert gv[6] = { q[0], q[1], q[2], q[0], q[2], q[3] };
+    emit(t->set, additive ? BLEND_ADD : BLEND_ALPHA, gv, 6);
+}
+
+/* The colours of a guest texture (a font glyph with its palette): the fill = the most used opaque
+ * colour, the edge = the darkest colour used at least a tenth as often. 0 = not known yet. */
+int gbh_port_tex_colours(uint32_t va, uint32_t *fill, uint32_t *edge)
+{
+    gtex *t = tex_find(va);
+    if (!t || !t->pal || !t->pixels || !wr_mem_valid(t->pixels, (uint32_t)(t->h ? t->h - 1 : 0) * 256u + t->w))
+        return 0;
+    uint32_t n[256] = { 0 };
+    for (uint32_t y = 0; y < t->h; y++)
+        for (uint32_t x = 0; x < t->w; x++)
+            n[wr_rd8(t->pixels + y * 256u + x)]++;
+    int best = -1;
+    for (int i = 1; i < 256; i++)
+        if (n[i] && (best < 0 || n[i] > n[best]))
+            best = i;
+    if (best < 0)
+        return 0;
+    int dark = best;
+    uint32_t lum_d = 0xFFFFFFFFu;
+    for (int i = 1; i < 256; i++) {
+        if (n[i] * 10u < n[best])
+            continue;
+        uint32_t c = t->pal->rgba[i];
+        uint32_t lum = (c & 0xFF) * 3u + (c >> 8 & 0xFF) * 6u + (c >> 16 & 0xFF);
+        if (lum < lum_d) {
+            lum_d = lum;
+            dark = i;
+        }
+    }
+    *fill = t->pal->rgba[best] | 0xFF000000u;
+    *edge = t->pal->rgba[dark] | 0xFF000000u;
+    return 1;
+}
+
 /* A picture of the port's own (RGBA, made once per pixel buffer) over the
  * given game screen rectangle - the SHADERS page's test picture. */
 void gbh_port_image(const uint32_t *rgba, uint32_t iw, uint32_t ih, float x, float y, float w, float h)

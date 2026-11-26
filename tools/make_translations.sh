@@ -25,11 +25,17 @@ P
     python3 -I "$here/tr_check.py" "$work/en.json" "$work/$lang.json" $uni | tail -1
     python3 -I "$here/tr_check.py" "$work/en.json" "$work/$lang.json" $uni > /dev/null
     python3 -I "$here/gxt.py" build "$work/$lang.json" "$letter" "$tmp/data/$letter.gxt" --like "$data/e.gxt" $uni
+    if [ -n "$uni" ]; then   # the glyphs the game font lacks (src/gta2_text.c)
+        case $lang in ja) face=JP ;; zh) face=SC ;; *) face=LATIN ;; esac
+        mkdir -p "$tmp/data/fonts"
+        python3 -I "$here/make_font.py" "$work/$lang.json" "$tmp/data/fonts/$letter.otf" --face $face
+    fi
 done
 rm -f "$out"
 (cd "$tmp" && python3 -I -c "import zipfile,os,sys
 z=zipfile.ZipFile(sys.argv[1],'w',zipfile.ZIP_DEFLATED)
-for f in sorted(os.listdir('data')): z.write('data/'+f)
+for root, dirs, files in sorted(os.walk('data')):
+    for f in sorted(files): z.write(os.path.join(root, f))
 z.close()" "$out")
 rm -rf "$tmp"
 echo "$out"

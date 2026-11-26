@@ -10,7 +10,8 @@
 #include "gta2_rumble.h"
 #include "gta2_mixtape.h"
 #include "gta2_git.h"
-#include "gta2_translations.h"   /* GTA2_GIT, written by the build */
+#include "gta2_translations.h"
+#include "gta2_text.h"   /* GTA2_GIT, written by the build */
 #include "shaderpack/shader_pack.h"
 #include "platform/wr_platform.h"
 #include "render/gta2_render.h"
@@ -57,6 +58,7 @@ int main(int argc, char **argv)
     wr_log_header("GTA 2 Recompiled", "build " GTA2_GIT " (" __DATE__ ")");
     wr_settings_init("GTA2");   /* saves/settings.ini, GTA2_<KEY> overrides */
     gta2_translations_init();   /* GTA2-translations.pak: data\\<letter>.gxt for more languages */
+    gta2_text_init();           /* p r c n: the language's own glyphs (data\\fonts\\<letter>.otf) */
     wr_crash_init();
 
     if (!wr_mem_init())

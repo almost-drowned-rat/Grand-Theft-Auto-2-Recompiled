@@ -11,6 +11,7 @@
 #include "gta2_gameplay.h"
 #include "gta2_framerate.h"
 #include "gta2_mixtape.h"
+#include "gta2_text.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -679,4 +680,48 @@ void sub_004B1D80(RECOMP_PARAMS)   /* the radio stops (level end, frontend music
 {
     sub_004B1D80_gen(ctx, base);
     gta2_radio_stopped();
+}
+
+
+/* ==== text in languages the game fonts cannot draw (gta2_text.c, docs/re/text.md) ==== */
+extern void sub_004CC100_gen(RECOMP_PARAMS);
+void sub_004CC100(RECOMP_PARAMS)   /* the text drawer (stdcall, 9 args): our glyphs between the game's */
+{
+    gta2_text_draw(ctx);   /* draws a string with our characters itself and leaves the drawer an empty one */
+    sub_004CC100_gen(ctx, base);
+}
+
+extern void sub_004BF570_gen(RECOMP_PARAMS);
+void sub_004BF570(RECOMP_PARAMS)   /* a glyph's width (thiscall style, (u16 *font, u16 *ch), ret 8) */
+{
+    uint16_t w;
+    if (gta2_text_width(ctx, &w)) {
+        uint32_t ch = MEM32(ctx->r_esp + 8), keep = MEM16(ch);
+        MEM16(ch) = 'A';                  /* a safe character for the original's table read ... */
+        sub_004BF570_gen(ctx, base);      /* ... which does the ret 8 */
+        MEM16(ch) = (uint16_t)keep;
+        ctx->r_eax = (ctx->r_eax & 0xFFFF0000u) | w;
+        return;
+    }
+    sub_004BF570_gen(ctx, base);
+}
+
+extern void sub_004C21A0_gen(RECOMP_PARAMS);
+void sub_004C21A0(RECOMP_PARAMS)   /* upper case of one character (thiscall gxt, (u16 c), ret 4) */
+{
+    uint16_t u;
+    if (gta2_text_upper((uint16_t)MEM32(ctx->r_esp + 4), &u)) {
+        ctx->r_eax = (ctx->r_eax & 0xFFFF0000u) | u;
+        ctx->r_esp += 8;   /* ret 4 */
+        return;
+    }
+    sub_004C21A0_gen(ctx, base);
+}
+
+extern void sub_004C2620_gen(RECOMP_PARAMS);
+void sub_004C2620(RECOMP_PARAMS)   /* the GXT object's ctor (thiscall): it accepts only e f g i s j */
+{
+    uint32_t self = ctx->r_ecx;
+    sub_004C2620_gen(ctx, base);
+    gta2_text_after_gxt_ctor(self);
 }

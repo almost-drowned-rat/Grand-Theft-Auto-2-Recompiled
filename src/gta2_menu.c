@@ -203,9 +203,13 @@ static uint16_t g_last_page = 0xFFFF;
 static uint32_t g_strbuf;        /* guest u16 text buffer */
 
 /* languages: the game's own gxt files (Option\language, first letter) */
-static const char g_lang_code[] = "efgisj";
-static const char *const g_lang_name[] = { "ENGLISH", "FRANCAIS", "DEUTSCH", "ITALIANO", "ESPANOL", "JAPANESE" };
-static int g_lang_have[6], g_lang_start = -1, g_lang_sel;
+/* + the translations pak's (p r c n: drawn by src/gta2_text.c); 'j' = the game's own kanji path, never offered
+ * (it needs a kanji.dat no edition ships). Names in the game font's letters. */
+static const char g_lang_code[] = "efgisprnc";
+#define N_LANG 9
+static const char *const g_lang_name[] = { "ENGLISH", "FRANCAIS", "DEUTSCH", "ITALIANO", "ESPANOL", "POLSKI",
+                                           "RUSSKIJ", "NIHONGO", "ZHONGWEN" };
+static int g_lang_have[N_LANG], g_lang_start = -1, g_lang_sel;
 
 static uint32_t fe(void) { return wr_rd32(FE_PTR); }
 static uint32_t port_page(uint32_t f) { return f + FE_PAGES + PORT_PAGE * PAGE_SIZE; }
@@ -239,13 +243,13 @@ static void lang_init(void)
     if (g_lang_start >= 0)
         return;
     char host[1200], name[32], cur[16] = "e";
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < N_LANG; i++) {
         snprintf(name, sizeof name, "data\\%c.gxt", g_lang_code[i]);
         g_lang_have[i] = wr_path_resolve_read(name, host, sizeof host);
     }
     wr_reg_get_str(REG_GTA2 "\\Option", "language", cur, sizeof cur);
     g_lang_start = 0;
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < N_LANG; i++)
         if (g_lang_code[i] == cur[0])
             g_lang_start = i;
     g_lang_sel = g_lang_start;
@@ -253,8 +257,8 @@ static void lang_init(void)
 
 static void lang_step(int d)
 {
-    for (int k = 0; k < 6; k++) {
-        g_lang_sel = (g_lang_sel + d + 6) % 6;
+    for (int k = 0; k < N_LANG; k++) {
+        g_lang_sel = (g_lang_sel + d + N_LANG) % N_LANG;
         if (g_lang_have[g_lang_sel])
             break;
     }
