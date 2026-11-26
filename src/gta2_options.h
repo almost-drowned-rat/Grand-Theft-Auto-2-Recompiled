@@ -15,6 +15,7 @@ enum {
     OPT_RENDER_RES,        /* NATIVE / 480P ... 2160P */
     OPT_ASPECT,            /* 4:3 / 16:9 / 16:10 / 21:9 */
     OPT_TEXTURE_FILTER,    /* ORIGINAL / NEAREST / BILINEAR */
+    OPT_FRAME_RATE,        /* 30 / 60 INTERPOLATED / 120 INTERPOLATED (M4b) */
     OPT_VSYNC,             /* OFF / ON */
     OPT_PERF_FPS,          /* OFF / ON  \                               */
     OPT_PERF_FRAMETIME,    /* OFF / ON   } stored together: performance_overlay */

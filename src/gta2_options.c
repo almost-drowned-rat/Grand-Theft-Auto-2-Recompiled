@@ -34,6 +34,9 @@ static const char *const l_res[] = { "NATIVE", "480P", "720P", "1080P", "1440P",
 static const char *const v_aspect[] = { "4:3", "16:9", "16:10", "21:9" };
 static const char *const v_filter[] = { "original", "nearest", "bilinear" };
 static const char *const l_filter[] = { "ORIGINAL", "NEAREST", "BILINEAR" };
+/* the logic stays at 30 ticks; 60 / 120 draw interpolated frames in between (maintainer 2026-11-26) */
+static const char *const v_rate[] = { "30", "60", "120" };
+static const char *const l_rate[] = { "30", "60 INTERPOLATED", "120 INTERPOLATED" };
 static const char *const v_kscheme[] = { "classic", "modern", "mouse" };   /* modern = keyboard only (the pad layout) */
 static const char *const l_kscheme[] = { "CLASSIC", "MODERN", "KEYBOARD + MOUSE" };
 static const char *const v_scheme[] = { "classic", "modern", "custom" };
@@ -83,6 +86,7 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_RENDER_RES]     = { "RENDER RESOLUTION", "render_resolution", 6, v_res, l_res, 0, apply_nothing },
     [OPT_ASPECT]         = { "ASPECT RATIO", "aspect_ratio", 4, v_aspect, v_aspect, 0, apply_aspect },
     [OPT_TEXTURE_FILTER] = { "TEXTURE FILTERING", "texture_filter", 3, v_filter, l_filter, 0, apply_nothing },
+    [OPT_FRAME_RATE]     = { "FRAME RATE", "frame_rate", 3, v_rate, l_rate, 0, apply_nothing },
     [OPT_VSYNC]          = { "V-SYNC", "vsync", 2, v_onoff, l_onoff, 1, apply_vsync },
     [OPT_PERF_FPS]       = { "FPS", NULL, 2, v_onoff, l_onoff, 0, apply_perf },
     [OPT_PERF_FRAMETIME] = { "FRAME TIME", NULL, 2, v_onoff, l_onoff, 0, apply_perf },

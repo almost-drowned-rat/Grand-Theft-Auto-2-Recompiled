@@ -9,6 +9,7 @@
 #include "vk/wr_vk.h"
 #include "gta2_menu.h"
 #include "gta2_gameplay.h"
+#include "gta2_framerate.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -37,6 +38,7 @@ void sub_004031C0(RECOMP_PARAMS)
  * deadline [0x00662748] (timeGetTime ms). Game logic and timing unchanged. */
 extern void sub_00462A30_gen(RECOMP_PARAMS);
 extern uint64_t gta2_frames_presented(void);
+static int g_fps_set_catchup;   /* FRAME RATE turned the game's catch-up pacing on */
 void sub_00462A30(RECOMP_PARAMS)
 {
     {   /* the pause menu (gta2_menu.c) between two loop steps */
@@ -50,6 +52,7 @@ void sub_00462A30(RECOMP_PARAMS)
     sub_00462A30_gen(ctx, base);
     uint32_t next = MEM32(0x00662748u);
     if (next != next0) {
+        gta2_fps_after_tick();    /* FRAME RATE: the tick's positions for interpolation */
         wr_overlay_game_tick();   /* GAME SPEED */
         gta2_traffic_tick();      /* TRAFFIC: more spawn credit */
     }
@@ -61,21 +64,34 @@ void sub_00462A30(RECOMP_PARAMS)
             wr_log("tick +%.3f ms (next %u, now %u)", (double)(t - last) / 1e6, next, wr_time_ms());
         last = t;
     }
-    if (getenv("GTA2_FPS_TEST") && gta2_frames_presented() != f0 && MEM32(0x005EB4FCu)) {
-        /* experiment: draw the same tick again, count its sprites */
-        extern uint32_t g_gta2_sprite_draws;
-        static int n;
-        uint32_t s1 = g_gta2_sprite_draws;
-        uint32_t regs[4] = { ctx->r_eax, ctx->r_ecx, ctx->r_edx, ctx->r_ebx };
-        wr_call_guest(ctx, 0x00461960u, 0, NULL);
-        ctx->r_eax = regs[0]; ctx->r_ecx = regs[1]; ctx->r_edx = regs[2]; ctx->r_ebx = regs[3];
-        static uint32_t s0;
-        if (n++ % 30 == 0)
-            wr_log("fps test: first draw %u sprites, extra draw %u", s1 - s0, g_gta2_sprite_draws - s1);
-        s0 = g_gta2_sprite_draws;
-    }
     if (next != next0 || gta2_frames_presented() != f0 || !MEM8(0x00595010u))
         return;   /* ticked, drew, or the limiter is off: no waiting */
+    if (gta2_fps_target() > 30 && MEM32(0x005EB4FCu) && !MEM8(0x00662740u)) {
+        /* FRAME RATE 60 / 120: the tick is drawn; extra interpolated frames until the next one.
+         * The schedule keeps its pace (accumulated, like the game's catch-up mode) so a frame
+         * that runs late never slows the game down. */
+        if (!MEM8(0x00673598u)) {
+            MEM8(0x00673598u) = 1;
+            g_fps_set_catchup = 1;
+        }
+        if (gta2_fps_extra_due()) {
+            uint32_t r[6] = { ctx->r_eax, ctx->r_ecx, ctx->r_edx, ctx->r_ebx, ctx->r_esi, ctx->r_edi };
+            wr_call_guest(ctx, 0x00461960u, 0, NULL);
+            ctx->r_eax = r[0]; ctx->r_ecx = r[1]; ctx->r_edx = r[2];
+            ctx->r_ebx = r[3]; ctx->r_esi = r[4]; ctx->r_edi = r[5];
+            return;
+        }
+        /* sleep to the next frame or the tick, whichever comes first */
+        uint64_t period = 1000000000ull / (uint64_t)gta2_fps_target();
+        struct timespec ts = { 0, (long)(period / 4) };
+        int32_t left_ms = (int32_t)(next - wr_time_ms());
+        if (left_ms > 1)
+            nanosleep(&ts, NULL);
+        return;
+    } else if (gta2_fps_target() <= 30 && g_fps_set_catchup) {
+        MEM8(0x00673598u) = 0;   /* back at 30: the original re-base pacing */
+        g_fps_set_catchup = 0;
+    }
     int32_t left = (int32_t)(next - wr_time_ms());
     if (left > 2) {
         uint64_t until = wr_time_ns() + (uint64_t)(left - 1) * 1000000u;
@@ -83,6 +99,32 @@ void sub_00462A30(RECOMP_PARAMS)
             uint64_t rest = until - wr_time_ns();
             struct timespec ts = { 0, (long)(rest > 900000 ? rest - 200000 : rest) };
             nanosleep(&ts, NULL);
+        }
+    }
+}
+
+/* 0x00461960 one in-game frame: render (sub_0045A5A0) + Vid_FlipBuffers. With
+ * FRAME RATE 60 / 120 the camera and the sprites are blended between the last
+ * two ticks for this frame only (gta2_framerate.c). */
+extern void sub_00461960_gen(RECOMP_PARAMS);
+void sub_00461960(RECOMP_PARAMS)
+{
+    gta2_fps_draw_begin();
+    sub_00461960_gen(ctx, base);
+    gta2_fps_draw_end();
+    static int log = -1;
+    if (log < 0)
+        log = getenv("GTA2_FPS_LOG") != NULL;
+    if (log) {
+        static uint64_t t0;
+        static int n;
+        uint64_t t = wr_time_ns();
+        if (!t0) t0 = t;
+        n++;
+        if (t - t0 >= 1000000000ull) {
+            wr_log("frame rate: %d draws in %.2f s", n, (double)(t - t0) / 1e9);
+            n = 0;
+            t0 = t;
         }
     }
 }
@@ -500,9 +542,13 @@ void sub_004BE060(RECOMP_PARAMS)   /* draws one sprite through gbh_DrawQuad (thi
 {
     g_gta2_sprite_draws++;
     float sc, ti, al;
-    gta2_sprite_look(ctx->r_ecx, &sc, &ti, &al);
+    uint32_t spr = ctx->r_ecx;
+    int moved = gta2_fps_sprite_before(spr);   /* FRAME RATE: blended position */
+    gta2_sprite_look(spr, &sc, &ti, &al);
     if (sc == 1.0f && ti == 1.0f && al == 1.0f) {
         sub_004BE060_gen(ctx, base);
+        if (moved)
+            gta2_fps_sprite_after(spr);
         return;
     }
     g_port_quad_scale = sc;
@@ -510,6 +556,8 @@ void sub_004BE060(RECOMP_PARAMS)   /* draws one sprite through gbh_DrawQuad (thi
     g_port_quad_alpha = al;
     sub_004BE060_gen(ctx, base);   /* its quads are changed as they are emitted */
     g_port_quad_scale = g_port_quad_tint = g_port_quad_alpha = 1.0f;
+    if (moved)
+        gta2_fps_sprite_after(spr);
 }
 
 /* ---- PEDESTRIANS 1x..4x (gta2_gameplay.c) ------------------------------------------------ */
