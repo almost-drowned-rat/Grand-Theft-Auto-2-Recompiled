@@ -59,7 +59,7 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [ ] Android: touch controls
 
 ## M6 — Playable on Linux
-- [ ] Frontend/menu, missions load, saves (POSIX-safe writes) - frontend, pause menu, missions and saving work in the maintainer's tests; POSIX-safe save writes not checked yet
+- [x] Frontend/menu, missions load, saves (POSIX-safe writes): replaced files go through <name>.tmp + fsync + rename (+ folder fsync) in winrecomp kernel32 CloseHandle; checked 2026-11-26 (plyslot0.dat rewritten, no .tmp left)
 - [x] RECOMP OPTIONS and CHEATS lines in the game's own options menu (CHEATS: the game's cheats as ON/OFF switches, one-shot cheats as actions; maintainer 2026-11-26)
 - ~~Play through all three districts~~ dropped (maintainer 2026-11-26: too long; crashes are fixed as they show up)
 - [ ] Performance: constant 60 FPS, game logic speed correct
