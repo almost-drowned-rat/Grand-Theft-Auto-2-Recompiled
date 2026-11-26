@@ -48,6 +48,10 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [ ] Make the render path re-runnable within a tick (sprite lists are cleared after each draw, 0x004C4D6E)
 - [ ] Per-tick animations / HUD stay per tick; FRAME RATE line in the PERFORMANCE sub-menu
 
+## M4c — Rumble + custom soundtracks (right after M4b, before M8; maintainer 2026-11-26)
+- [ ] Controller rumble: explosions make the controller rumble
+- [ ] Custom soundtracks
+
 ## M5 — Audio, video, input
 - [x] Miles (mss32): samples, streams, 3D sound, MSSDS3DH -> SDL3 audio (native libs/miles.c, 2026-11-26)
 - [x] Bink (binkw32): intros/movies (lifted binkw32, 32-bit surface, cooperative thread, 2026-11-26)
@@ -69,10 +73,8 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [ ] Back menu in the fixed order, graphics driver (Turnip) row
 - [ ] Test on the Odin 2
 
-## After M8 (maintainer 2026-11-26)
+## After M8 (maintainer 2026-11-26; rumble + soundtracks moved to M4c)
 - [ ] Own milestone: complete translation of ALL story content and UI (game texts + our menus/launcher) into EN, FR, DE, IT, ES, JA, ZH, RU, PL; own text renderer + font (Latin-Ext, Cyrillic, CJK); shipped as a translations pak next to the launcher (like ZOE-subtitles.pak); LANGUAGE in the RECOMP menu
-- [ ] Controller rumble: explosions make the controller rumble
-- [ ] Custom soundtracks
 
 ## M9 — Multiplayer (optional)
 - [ ] DirectPlay (DPLAYX) -> own network layer (LAN/IP)
