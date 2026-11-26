@@ -398,3 +398,113 @@ int gta2_kbm_sticks(float *lx, float *ly, float *rx, float *ry)
     }
     return 1;
 }
+
+/* ---- CONTROL OVERVIEW: every function with its controller button and its key for
+ * the schemes in use, on foot and in a car (maintainer 2026-11-26). Controller
+ * tokens are wr_pad_control_name's; the PAD keyboard shows the key behind them. */
+typedef struct ov_row {
+    const char *label;
+    const char *classic, *modern;   /* controller, " / " between alternatives */
+    int act;                        /* CLASSIC keyboard + CUSTOM controller: ACT_* / bind index, -1 none */
+    const char *kbm;                /* MODERN keyboard */
+} ov_row;
+
+static const ov_row k_ov[] = {
+    { "ON FOOT", NULL, NULL, -1, NULL },
+    { "WALK", "D-PAD / STICK", "STICK / D-PAD (ANY WAY)", -2, "W A S D (ANY WAY)" },
+    { "TURN / AIM", "D-PAD / STICK", "R-STICK", -3, "MOUSE" },
+    { "ATTACK", "X / RT", "X / RT", ACT_ATTACK, "LEFT MOUSE" },
+    { "JUMP", "B", "B", ACT_JUMP, "RIGHT MOUSE / SPACE" },
+    { "SPRINT", "L3", "A", BIND_SPRINT, "LEFT SHIFT" },
+    { "ENTER VEHICLE", "A", "Y", ACT_ENTER, "E" },
+    { "PREVIOUS WEAPON", "LB", "LB", ACT_PREV, "Q / WHEEL DOWN" },
+    { "NEXT WEAPON", "RB", "RB", ACT_NEXT, "R / WHEEL UP" },
+    { "SPECIAL 1", "Y", "R3", ACT_SPECIAL, "F" },
+    { "SPECIAL 2", "LT", "SELECT / LT", ACT_SPECIAL2, "G" },
+    { "SPECIAL 3", "R3", "L3", ACT_STATUS, "C" },
+    { "MENU", "START", "START", -4, "ESC" },
+    { "IN A CAR", NULL, NULL, -1, NULL },
+    { "GAS", "D-PAD UP / STICK UP", "A", ACT_UP, "W" },
+    { "BRAKE / REVERSE", "D-PAD DOWN / STICK DOWN", "X", ACT_DOWN, "S" },
+    { "STEER", "D-PAD / STICK LEFT RIGHT", "STICK / D-PAD LEFT RIGHT", -5, "A / D" },
+    { "HANDBRAKE", "B", "B", ACT_JUMP, "RIGHT MOUSE / SPACE" },
+    { "ATTACK", "X / RT", "RT", ACT_ATTACK, "LEFT MOUSE" },
+    { "EXIT VEHICLE", "A", "Y", ACT_ENTER, "E" },
+    { "RADIO", "R-STICK LEFT RIGHT", "R-STICK LEFT RIGHT", -6, "ARROW LEFT / RIGHT" },
+    { "SPECIAL 1", "Y", "R3 / LT", ACT_SPECIAL, "F" },
+};
+
+int gta2_overview_count(void) { return (int)(sizeof k_ov / sizeof k_ov[0]); }
+const char *gta2_overview_label(int i) { return i >= 0 && i < gta2_overview_count() ? k_ov[i].label : ""; }
+int gta2_overview_is_head(int i) { return i >= 0 && i < gta2_overview_count() && !k_ov[i].classic; }
+
+/* the keyboard pad's key for a controller token */
+static const char *pad_key(const char *t)
+{
+    static const char *const m[][2] = {
+        { "A", "K" }, { "B", "L" }, { "X", "J" }, { "Y", "I" }, { "LB", "U" }, { "RB", "O" }, { "LT", "Z" },
+        { "RT", "P" }, { "START", "ENTER" }, { "SELECT", "BACKSPACE" }, { "D-PAD", "ARROWS" },
+        { "STICK", "W A S D" }, { "D-PAD UP", "ARROW UP" }, { "D-PAD DOWN", "ARROW DOWN" },
+        { "STICK UP", "W" }, { "STICK DOWN", "S" }, { "D-PAD LEFT RIGHT", "ARROWS LEFT RIGHT" },
+        { "STICK LEFT RIGHT", "A D" },
+    };
+    for (size_t i = 0; i < sizeof m / sizeof m[0]; i++)
+        if (!strcmp(t, m[i][0]))
+            return m[i][1];
+    return NULL;   /* sticks clicked, the right stick: no key */
+}
+
+/* "X / RT" -> "J / P"; tokens without a key are left out */
+static void to_pad_keys(const char *s, char *out, size_t cap)
+{
+    char buf[96];
+    snprintf(buf, sizeof buf, "%s", s);
+    out[0] = 0;
+    for (char *t = strtok(buf, "/"); t; t = strtok(NULL, "/")) {
+        while (*t == ' ') t++;
+        size_t n = strlen(t);
+        while (n && t[n - 1] == ' ') t[--n] = 0;
+        char *paren = strstr(t, " (");
+        if (paren) *paren = 0;
+        const char *k = pad_key(t);
+        if (k)
+            snprintf(out + strlen(out), cap - strlen(out), "%s%s", out[0] ? " / " : "", k);
+    }
+    if (!out[0])
+        snprintf(out, cap, "-");
+}
+
+static int bind_of_act(int act)
+{
+    for (int i = 0; i < GTA2_BIND_N; i++)
+        if (k_fn[i].act == act || (act == BIND_SPRINT && i == BIND_SPRINT))
+            return i;
+    return -1;
+}
+
+void gta2_overview_value(int i, char *out, size_t cap)
+{
+    out[0] = 0;
+    if (gta2_overview_is_head(i) || i < 0 || i >= gta2_overview_count())
+        return;
+    const ov_row *r = &k_ov[i];
+    int ps = opt_get(OPT_CONTROL_SCHEME), ks = opt_get(OPT_KEY_SCHEME);
+    char pad[96], key[96];
+    if (ps == 2 && r->act >= 0 && bind_of_act(r->act) >= 0)
+        gta2_bind_value(0, bind_of_act(r->act), pad, sizeof pad);
+    else if (ps == 2 && r->act == -6)
+        snprintf(pad, sizeof pad, "%s %s", wr_pad_control_name(g_bind[14]), wr_pad_control_name(g_bind[13]));
+    else
+        snprintf(pad, sizeof pad, "%s", ps == 1 ? r->modern : r->classic);
+    if (ks == 1)
+        snprintf(key, sizeof key, "%s", r->kbm);
+    else if (ks == 2)
+        to_pad_keys(pad, key, sizeof key);
+    else if (r->act >= 0)
+        wr_key_name(key_of(r->act), key, sizeof key);
+    else {
+        static const char *const fixed[] = { "", "", "ARROWS", "ARROWS", "ESC", "ARROW LEFT / RIGHT", "F1 / F2" };
+        snprintf(key, sizeof key, "%s", fixed[-r->act]);
+    }
+    snprintf(out, cap, "%s   |   %s", pad, key);
+}

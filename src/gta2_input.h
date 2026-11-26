@@ -16,6 +16,11 @@ void gta2_bind_defaults(int keyboard);        /* the keyboard: then call sub_004
 
 int  gta2_sprint_pressed(void);
 void gta2_keys_apply(void);
+/* CONTROL OVERVIEW rows: function, "controller   |   keyboard" for the schemes in use */
+int  gta2_overview_count(void);
+const char *gta2_overview_label(int i);
+int  gta2_overview_is_head(int i);
+void gta2_overview_value(int i, char *out, size_t cap);
 int  gta2_kbm_sticks(float *lx, float *ly, float *rx, float *ry);
 int  gta2_game_centre(float *x, float *y);   /* the game picture's centre in window points (render/vid.c) */
 

@@ -64,8 +64,8 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 /* ---- pages -------------------------------------------------------------------------------- */
 
 enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
-       VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_COUNT };
-enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM };
+       VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_OVERVIEW, VP_COUNT };
+enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM, L_OVR };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
        ACT_RESTART_YES, ACT_NO, ACT_QUITPROG_YES };
 enum { VOL_MUSIC, VOL_SFX };
@@ -124,7 +124,9 @@ static const mline l_lang_changed[] = {
 };
 static mline l_cheats[N_CHEATS + 1];
 static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME }, { NULL, L_OPT, OPT_KEY_SCHEME },
-                                    { "CUSTOM MAPPING", L_PAGE, VP_MAPPING } };
+                                    { "CUSTOM MAPPING", L_PAGE, VP_MAPPING },
+                                    { "CONTROL OVERVIEW", L_PAGE, VP_OVERVIEW } };
+static mline l_overview[32];
 /* CUSTOM MAPPING (as option-p): DEVICE on top, then every function and its
  * button / key; Enter waits for the new one (5 s, keyboard Esc cancels) */
 static mline l_mapping[1 + GTA2_BIND_N];
@@ -164,7 +166,8 @@ static mpage g_pages[VP_COUNT] = {
     [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 4 },
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 1 },
-    [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 3 },
+    [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 4 },
+    [VP_OVERVIEW] = { "CONTROL OVERVIEW", VP_CONTROLS, l_overview, 0 },
     [VP_MAPPING] = { "CUSTOM MAPPING", VP_CONTROLS, l_mapping, 0 },
     [VP_GAMEPLAY] = { "GAMEPLAY", VP_ROOT, l_gameplay, 4 },
     [VP_SHADERS] = { "SHADERS", VP_ROOT, l_shaders, 4 },
@@ -270,6 +273,13 @@ static void line_value(const mline *l, char *v, size_t cap)
     case L_SHRES: snprintf(v, cap, "%s", (const char *[]){ "ORIGINAL", "2X", "FULL" }[gta2_shader_resolution()]); break;
     case L_SHPARAMS: snprintf(v, cap, ">"); break;
     case L_SHPARAM: gta2_shader_param_value(l->arg, v, cap); break;
+    case L_OVR:
+        if (gta2_overview_is_head(l->arg))
+            snprintf(v, cap, "CONTROLLER %s   |   KEYBOARD %s", opt_choice_label(OPT_CONTROL_SCHEME, opt_get(OPT_CONTROL_SCHEME)),
+                     opt_choice_label(OPT_KEY_SCHEME, opt_get(OPT_KEY_SCHEME)));
+        else
+            gta2_overview_value(l->arg, v, cap);
+        break;
     case L_BIND:
         if (g_wait == l->arg)
             snprintf(v, cap, "%s", g_map_keyboard ? "PRESS A KEY" : "PRESS A BUTTON");
@@ -314,6 +324,16 @@ static void build_mapping_page(void)
     g_pages[VP_MAPPING].n = n;
 }
 
+static void build_overview_page(void)
+{
+    int n = gta2_overview_count();
+    if (n > (int)(sizeof l_overview / sizeof l_overview[0]))
+        n = (int)(sizeof l_overview / sizeof l_overview[0]);
+    for (int i = 0; i < n; i++)
+        l_overview[i] = (mline){ NULL, L_OVR, i };
+    g_pages[VP_OVERVIEW].n = n;
+}
+
 static const char *line_label(const mline *l)
 {
     if (l->kind == L_OPT)
@@ -322,6 +342,8 @@ static const char *line_label(const mline *l)
         return gta2_bind_label(l->arg);
     if (l->kind == L_SHPARAM)
         return gta2_shader_param_label(l->arg);
+    if (l->kind == L_OVR)
+        return gta2_overview_label(l->arg);
     return l->label;
 }
 
@@ -360,6 +382,7 @@ static void build_cheat_page(void)
     l_cheats[n++] = (mline){ "UNLOCK ALL AREAS", L_ACTION, ACT_UNLOCK_AREAS };
     g_pages[VP_CHEATS].n = n;
     build_mapping_page();
+    build_overview_page();
 }
 
 static void open_vpage(int vp)
@@ -803,6 +826,24 @@ static int text_w(X86Ctx *ctx, const char *s, uint16_t font, uint32_t scale)
     return (int)((uint64_t)wr_call_guest(ctx, FN_TEXT_W, 2, a) * scale >> 14);
 }
 
+/* a CONTROL OVERVIEW row: function | controller | keyboard in three columns */
+static void put_text(X86Ctx *ctx, const char *s, int x, int y, uint16_t font, uint32_t scale);
+static void draw_overview_row(X86Ctx *ctx, const mline *l, const char *v, int x0, int xr, int y, uint16_t fo,
+                              uint32_t sc)
+{
+    int w = xr - x0;
+    put_text(ctx, line_label(l), x0, y, fo, sc);
+    const char *bar = strstr(v, "   |   ");
+    if (!bar)
+        return;
+    char a[64];
+    size_t n = (size_t)(bar - v) < sizeof a - 1 ? (size_t)(bar - v) : sizeof a - 1;
+    memcpy(a, v, n);
+    a[n] = 0;
+    put_text(ctx, a, x0 + w * 30 / 100, y, fo, sc);
+    put_text(ctx, bar + 7, x0 + w * 66 / 100, y, fo, sc);
+}
+
 #define X_LABEL 290
 #define X_RIGHT 615
 #define Y_FIRST 205
@@ -829,15 +870,25 @@ void gta2_menu_draw(X86Ctx *ctx)
         int rows = pg->n - g_top < VISIBLE ? pg->n - g_top : VISIBLE;
         gbh_port_rect((float)(xl - 12), (float)(Y_FIRST - 48), (float)(xr - xl + 24),
                       (float)(48 + rows * Y_STEP + 30), 0xB0000000u);
+    } else if (g_vp == VP_OVERVIEW) {   /* three columns: the whole width on a dark panel */
+        xl = 24;
+        xr = 616;
+        int rows = pg->n - g_top < VISIBLE ? pg->n - g_top : VISIBLE;
+        gbh_port_rect((float)(xl - 12), (float)(Y_FIRST - 48), (float)(xr - xl + 24),
+                      (float)(48 + rows * Y_STEP + 30), 0xD0000000u);
     }
     put_text(ctx, pg->title, xl, Y_FIRST - 38, font, 0x4000);
-    char v[64];
+    char v[128];
     for (int i = g_top; i < pg->n && i < g_top + VISIBLE; i++) {
         const mline *l = &pg->l[i];
         int y = Y_FIRST + (i - g_top) * Y_STEP;
         uint16_t fo = i == g_cur ? hi : font;
-        put_text(ctx, line_label(l), xl, y, fo, SCALE);
         line_value(l, v, sizeof v);
+        if (l->kind == L_OVR) {
+            draw_overview_row(ctx, l, v, xl, xr, y, fo, 0x2800u);
+            continue;
+        }
+        put_text(ctx, line_label(l), xl, y, fo, SCALE);
         if (v[0])
             put_text(ctx, v, xr - text_w(ctx, v, fo, SCALE), y, fo, SCALE);
     }
@@ -971,19 +1022,24 @@ void gta2_pause_draw(X86Ctx *ctx)
     int sw = (int)g_gfx.w, sh = (int)g_gfx.h;
     gbh_port_rect(0, 0, (float)sw, (float)sh, 0xA0000000u);   /* dim the game */
     const mpage *pg = &g_pages[g_vp];
-    int wide = g_vp == VP_SHADERS || g_vp == VP_SHBROWSE || g_vp == VP_SHPARAMS;   /* long preset names */
-    int pw = wide ? 580 : 420, x0 = (sw - pw) / 2, xr = x0 + pw;
+    int wide = g_vp == VP_SHADERS || g_vp == VP_SHBROWSE || g_vp == VP_SHPARAMS ||
+               g_vp == VP_OVERVIEW;   /* long preset names, three columns */
+    int pw = wide ? (g_vp == VP_OVERVIEW ? 600 : 580) : 420, x0 = (sw - pw) / 2, xr = x0 + pw;
     int y0 = sh / 2 - 110;
     gbh_port_rect((float)(x0 - 20), (float)(y0 - 48), (float)(pw + 40), 300.0f, 0xC0201410u);
     put_text(ctx, pg->title, x0, y0 - 38, P_HI, 0x4000);
-    char v[64];
+    char v[128];
     for (int i = g_top; i < pg->n && i < g_top + VISIBLE; i++) {
         const mline *l = &pg->l[i];
         int y = y0 + (i - g_top) * 24;
         uint16_t fo = i == g_cur ? P_HI : P_FONT;
         uint32_t sc = i == g_cur ? P_HI_SCALE : P_FONT_SCALE;
-        put_text(ctx, line_label(l), x0, y, fo, sc);
         line_value(l, v, sizeof v);
+        if (l->kind == L_OVR) {
+            draw_overview_row(ctx, l, v, x0, xr, y, fo, sc * 3 / 4);
+            continue;
+        }
+        put_text(ctx, line_label(l), x0, y, fo, sc);
         if (v[0])
             put_text(ctx, v, xr - text_w(ctx, v, fo, sc), y, fo, sc);
     }
