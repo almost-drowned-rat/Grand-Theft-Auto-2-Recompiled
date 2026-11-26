@@ -105,6 +105,24 @@ VkCommandBuffer gfx_begin_drawing(void)
 void gfx_flip(void)
 {
     g_gfx.frames++;
+    /* WR_FPS_LOG=1: presented frames per second, every 5 s */
+    static int fps_log = -1;
+    static uint64_t fps_t0, fps_f0;
+    if (fps_log < 0) {
+        const char *e = getenv("WR_FPS_LOG");
+        fps_log = e && *e == '1';
+    }
+    if (fps_log) {
+        uint64_t t = wr_time_ns();
+        if (!fps_t0) {
+            fps_t0 = t;
+            fps_f0 = g_gfx.frames;
+        } else if (t - fps_t0 >= 5000000000ull) {
+            wr_log("fps: %.2f", (double)(g_gfx.frames - fps_f0) * 1e9 / (double)(t - fps_t0));
+            fps_t0 = t;
+            fps_f0 = g_gfx.frames;
+        }
+    }
     if (!g_gfx.vk)
         return;
     if (!g_gfx.cmd && !gfx_begin_drawing())

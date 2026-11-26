@@ -69,8 +69,10 @@ void sub_0045A320(RECOMP_PARAMS)
     uint32_t self = ctx->r_ecx;
     uint64_t f0 = gta2_frames_presented();
     sub_0045A320_gen(ctx, base);
-    if (gta2_frames_presented() != f0 || !wr_mem_valid(self + 0xC9C8u, 4))
+    if (gta2_frames_presented() != f0 || !wr_mem_valid(self + 0xC9C8u, 8))
         return;
+    if (MEM8(self + 0xC9CCu))
+        return;   /* an update just ran: its frame is drawn by the next call */
     int32_t left = (int32_t)(MEM32(self + 0xC9C8u) - wr_time_ms());
     if (left > 2 && left < 1000) {
         uint64_t until = wr_time_ns() + (uint64_t)(left - 1) * 1000000u;
