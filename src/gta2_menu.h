@@ -17,4 +17,5 @@ void gta2_pause_draw(X86Ctx *ctx);      /* after sub_004CA440 (HUD) */
 int  gta2_pause_hide_panel(void);       /* skip sub_004C9FA0 (the game's PAUSED panel) */
 int  gta2_pause_open(void);
 
+void gta2_radio_label_draw(X86Ctx *ctx);   /* after the HUD: the MIXTAPE label */
 #endif

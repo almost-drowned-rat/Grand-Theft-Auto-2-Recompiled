@@ -181,3 +181,106 @@ const char *gta2_mixtape_song(void)
     const MediaSong *s = &g_pl.items[g_pl.pos];
     return g_lib.albums[s->album].tracks[s->track].name;
 }
+
+/* ==== the radio cycle (docs/re/radio.md section 7) ====================================
+ * mgr = 0x5DCBC8: +0x54F7 the station slot (0..4, 0x65 police scanner, 0x66 off),
+ * +0x5504 the change request (1 next, 2 previous), +0x5506 static ticks after a change,
+ * +0x54F6 signal, +0x54FC full flag, +0x54F4 / +0x54F5 in a radio car last / this tick,
+ * +0x25 CDVol, +0x01 paused. MIXTAPE sits after the last station: 1 5 7 6 2 MIXTAPE 1 ...
+ * (Downtown). While it plays the game station stays "on" but muted, so its play head
+ * and the car's remembered station stay right. */
+#define MGR 0x005DCBC8u
+static int g_mix_on, g_key_dir, g_audible;
+static uint32_t g_mix_car;
+
+int gta2_mixtape_on(void) { return g_mix_on; }
+int gta2_mixtape_audible(void) { return g_audible; }
+
+/* after the key handler (sub_004B2CD0): a request made by a key, not by auto seek */
+void gta2_radio_after_key(void)
+{
+    uint8_t r = wr_rd8(MGR + 0x5504);
+    if (r)
+        g_key_dir = r;
+}
+
+/* around the station change (sub_004B2420); gen runs it. Returns nothing: it decides itself. */
+void gta2_radio_cycle(X86Ctx *ctx, void (*gen)(X86Ctx *, uint8_t *), uint8_t *base)
+{
+    uint32_t m = MGR;
+    uint8_t dir = wr_rd8(m + 0x5504), old = wr_rd8(m + 0x54F7);
+    int key = g_key_dir != 0;
+    g_key_dir = 0;
+    if (g_mix_on) {
+        if (!key || !g_have) {
+            if (!g_have)
+                g_mix_on = 0;
+            gen(ctx, base);   /* auto seek under MIXTAPE: the game re-tunes its muted station */
+            return;
+        }
+        g_mix_on = 0;
+        wr_wr8(m + 0x54F7, dir == 1 ? 4 : 0);   /* next: the first station (from slot 4), previous: the last */
+        uint8_t keep = wr_rd8(m + 0x5506);
+        wr_wr8(m + 0x5506, 0);
+        gen(ctx, base);
+        if (!wr_rd8(m + 0x5506)) {   /* nothing found */
+            wr_wr8(m + 0x54F7, old);
+            wr_wr8(m + 0x5506, keep);
+        }
+        return;
+    }
+    if (!key || old >= 5 || !g_have) {
+        gen(ctx, base);
+        return;
+    }
+    uint8_t s6 = wr_rd8(m + 0x54F6);
+    uint32_t sfc = wr_rd32(m + 0x54FC);
+    wr_wr8(m + 0x5506, 0);
+    gen(ctx, base);
+    uint8_t now = wr_rd8(m + 0x54F7);
+    int found = wr_rd8(m + 0x5506) != 0;
+    int wrapped = !found || (dir == 1 ? now <= old : now >= old);
+    if (wrapped) {   /* past the last (or before the first) station: MIXTAPE */
+        wr_wr8(m + 0x54F7, old);
+        wr_wr8(m + 0x54F6, s6);
+        wr_wr32(m + 0x54FC, sfc);
+        wr_wr8(m + 0x5506, 0);
+        g_mix_on = 1;
+        wr_log("radio: MIXTAPE (after station slot %u)", old);
+    }
+}
+
+/* before the volume / static step (sub_004B1E40): no static while MIXTAPE plays */
+void gta2_radio_before_volume(void)
+{
+    if (g_audible) {
+        wr_wr8(MGR + 0x5506, 0);
+        wr_wr8(MGR + 0x54F6, 0x7F);
+    }
+}
+
+/* after the radio tick (sub_004B2D50): is MIXTAPE audible now; a car keeps it */
+void gta2_radio_after_tick(void)
+{
+    uint32_t m = MGR;
+    uint8_t was = wr_rd8(m + 0x54F4), in = wr_rd8(m + 0x54F5);
+    uint32_t car = wr_rd32(0x0066C274u);
+    if (was == 1 && in != 1)   /* left the car: it remembers MIXTAPE */
+        g_mix_car = g_mix_on ? car : (car == g_mix_car ? 0 : g_mix_car);
+    if (was != 1 && in == 1)   /* got in: MIXTAPE again only in that car */
+        g_mix_on = g_have && car && car == g_mix_car;
+    int listen = g_mix_on && in == 1 && wr_rd8(m + 0x54F7) < 5 && wr_rd8(0x0066BEECu) && !wr_rd8(m + 0x01);
+    if (listen)
+        gta2_mixtape_volume((float)wr_rd8(m + 0x25) / 127.0f);
+    gta2_mixtape_listen(listen);
+    g_audible = listen;
+}
+
+/* the radio stopped (sub_004B1D80: level end, frontend) */
+void gta2_radio_stopped(void)
+{
+    g_mix_on = 0;
+    g_audible = 0;
+    g_mix_car = 0;
+    gta2_mixtape_listen(0);
+}

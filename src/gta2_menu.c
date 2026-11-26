@@ -1145,3 +1145,29 @@ void gta2_pause_draw(X86Ctx *ctx)
     if (g_vp == VP_SHADERS && gta2_shader_hint())
         put_text(ctx, gta2_shader_hint(), x0, y0 + 3 * 24, P_FONT, 0x4000);
 }
+
+
+/* MIXTAPE label (the game names no station; maintainer 2026-11-26): "MIXTAPE" and the
+ * song for 3 s when the station comes on or a new song starts, centred near the top. */
+void gta2_radio_label_draw(X86Ctx *ctx)
+{
+    static int was;
+    static char song[128];
+    static uint64_t until;
+    int on = gta2_mixtape_audible();
+    const char *cur = on ? gta2_mixtape_song() : "";
+    if (on && (!was || strcmp(cur, song))) {
+        snprintf(song, sizeof song, "%s", cur);
+        until = wr_time_ns() + 3000000000ull;
+    }
+    was = on;
+    if (!on || wr_time_ns() > until || g_pause_open)
+        return;
+    if (!g_strbuf)
+        g_strbuf = wr_galloc(256);
+    int sw = (int)g_gfx.w;
+    char t[64];
+    upper_text(song, t, sizeof t);
+    put_text(ctx, "MIXTAPE", (sw - text_w(ctx, "MIXTAPE", P_HI, P_HI_SCALE * 2)) / 2, 60, P_HI, P_HI_SCALE * 2);
+    put_text(ctx, t, (sw - text_w(ctx, t, P_FONT, P_FONT_SCALE * 3 / 4)) / 2, 100, P_FONT, P_FONT_SCALE * 3 / 4);
+}

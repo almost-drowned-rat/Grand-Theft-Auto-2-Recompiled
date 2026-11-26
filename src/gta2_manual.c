@@ -10,6 +10,7 @@
 #include "gta2_menu.h"
 #include "gta2_gameplay.h"
 #include "gta2_framerate.h"
+#include "gta2_mixtape.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -449,6 +450,7 @@ void sub_004CA440(RECOMP_PARAMS)   /* draws the HUD each frame (thiscall HUD) */
 {
     sub_004CA440_gen(ctx, base);
     uint32_t eax = ctx->r_eax;
+    gta2_radio_label_draw(ctx);   /* MIXTAPE: station + song for a moment */
     gta2_pause_draw(ctx);
     ctx->r_eax = eax;
 }
@@ -633,4 +635,48 @@ void sub_004B4A60(RECOMP_PARAMS)   /* the traffic generator for one player camer
     MEM32(m + 0x40) = (uint32_t)(a + ((int32_t)MEM32(m + 0x40) - sa));   /* plus what it spawned */
     MEM32(m + 0x28) = (uint32_t)(b + ((int32_t)MEM32(m + 0x28) - sb));
     ctx->r_eax = eax;
+}
+
+
+/* ==== MIXTAPE in the car radio (gta2_mixtape.c, docs/re/radio.md section 7) ==== */
+extern void sub_004B2CD0_gen(RECOMP_PARAMS);
+void sub_004B2CD0(RECOMP_PARAMS)   /* radio key (thiscall mgr, dir): posts the change request */
+{
+    sub_004B2CD0_gen(ctx, base);
+    gta2_radio_after_key();
+}
+
+extern void sub_004B2420_gen(RECOMP_PARAMS);
+void sub_004B2420(RECOMP_PARAMS)   /* the station change: MIXTAPE after the last station */
+{
+    gta2_radio_cycle(ctx, sub_004B2420_gen, base);
+}
+
+extern void sub_004B1E40_gen(RECOMP_PARAMS);
+void sub_004B1E40(RECOMP_PARAMS)   /* radio volume / static per tick: the game station muted under MIXTAPE */
+{
+    gta2_radio_before_volume();
+    sub_004B1E40_gen(ctx, base);
+    if (gta2_mixtape_audible()) {
+        uint32_t r[6] = { ctx->r_eax, ctx->r_ecx, ctx->r_edx, ctx->r_ebx, ctx->r_esi, ctx->r_edi };
+        uint32_t a[2] = { 0, 0 };   /* slot 0, volume 0 */
+        ctx->r_ecx = 0x0066C950u;
+        wr_call_guest(ctx, 0x004B6890u, 2, a);
+        ctx->r_eax = r[0]; ctx->r_ecx = r[1]; ctx->r_edx = r[2];
+        ctx->r_ebx = r[3]; ctx->r_esi = r[4]; ctx->r_edi = r[5];
+    }
+}
+
+extern void sub_004B2D50_gen(RECOMP_PARAMS);
+void sub_004B2D50(RECOMP_PARAMS)   /* the radio's tick */
+{
+    sub_004B2D50_gen(ctx, base);
+    gta2_radio_after_tick();
+}
+
+extern void sub_004B1D80_gen(RECOMP_PARAMS);
+void sub_004B1D80(RECOMP_PARAMS)   /* the radio stops (level end, frontend music) */
+{
+    sub_004B1D80_gen(ctx, base);
+    gta2_radio_stopped();
 }
