@@ -27,6 +27,8 @@
 #include "render/gta2_render.h"
 #include "gta2_input.h"
 #include "gta2_padview.h"
+#include "gta2_mixtape.h"
+#include <ctype.h>
 #include "gta2_shaders.h"
 #include "gta2_gameplay.h"
 #include "platform/wr_platform.h"
@@ -65,8 +67,8 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 /* ---- pages -------------------------------------------------------------------------------- */
 
 enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
-       VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_OVERVIEW, VP_PADVIEW, VP_COUNT };
-enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM, L_OVR, L_PADVIEW };
+       VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_OVERVIEW, VP_PADVIEW, VP_SOUNDTRACK, VP_COUNT };
+enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM, L_OVR, L_PADVIEW, L_MTSRC, L_MTMODE };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
        ACT_RESTART_YES, ACT_NO, ACT_QUITPROG_YES };
 enum { VOL_MUSIC, VOL_SFX };
@@ -108,7 +110,10 @@ static const mline l_root[] = {
 };
 static const mline l_sound[] = {
     { "MUSIC VOLUME", L_VOL, VOL_MUSIC }, { "EFFECTS VOLUME", L_VOL, VOL_SFX },
+    { "CUSTOM SOUNDTRACK", L_PAGE, VP_SOUNDTRACK },
 };
+/* the MIXTAPE radio station's music (maintainer 2026-11-26) */
+static const mline l_soundtrack[] = { { "SOURCE", L_MTSRC, 0 }, { "PLAYBACK MODE", L_MTMODE, 0 } };
 static const mline l_display[] = {
     { NULL, L_OPT, OPT_DISPLAY_MODE }, { NULL, L_OPT, OPT_RENDER_RES }, { NULL, L_OPT, OPT_TEXTURE_FILTER },
     { NULL, L_OPT, OPT_FRAME_RATE }, { NULL, L_OPT, OPT_ASPECT },   /* FRAME RATE before ASPECT RATIO (maintainer 2026-11-26) */
@@ -167,7 +172,8 @@ static const mline l_restart[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION
 
 static mpage g_pages[VP_COUNT] = {
     [VP_ROOT]    = { "RECOMP OPTIONS", -1, l_root, 8 },
-    [VP_SOUND]   = { "SOUND", VP_ROOT, l_sound, 2 },
+    [VP_SOUND]   = { "SOUND", VP_ROOT, l_sound, 3 },
+    [VP_SOUNDTRACK] = { "CUSTOM SOUNDTRACK", VP_SOUND, l_soundtrack, 2 },
     [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 5 },
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 1 },
@@ -264,6 +270,32 @@ static void cheat_set(int i, int on)
     wr_settings_set_int(g_cheats[i].key, on != 0);
 }
 
+/* the SOURCE choice: -1 = ALL ALBUMS, else the album */
+static int mt_source_index(void)
+{
+    const char *k = wr_settings_get("mixtape_source", "all");
+    for (int i = 0; i < gta2_mixtape_album_count(); i++)
+        if (!strcmp(k, gta2_mixtape_album_key(i)))
+            return i;
+    return -1;
+}
+
+/* what the game's font draws: upper case letters, digits, space, a few marks */
+static void upper_text(const char *s, char *out, size_t cap)
+{
+    size_t k = 0;
+    for (; *s && k + 1 < cap && k < 40; s++) {
+        unsigned char c = (unsigned char)*s;
+        char o = c < 0x80 && (isalnum(c) || c == '.' || c == ':' || c == '-' || c == '\'') ? (char)toupper(c) : ' ';
+        if (o == ' ' && (!k || out[k - 1] == ' '))
+            continue;
+        out[k++] = o;
+    }
+    while (k && out[k - 1] == ' ')
+        k--;
+    out[k] = 0;
+}
+
 /* "LABEL" + value for a line */
 static void line_value(const mline *l, char *v, size_t cap)
 {
@@ -280,6 +312,18 @@ static void line_value(const mline *l, char *v, size_t cap)
     case L_SHPARAMS: snprintf(v, cap, ">"); break;
     case L_SHPARAM: gta2_shader_param_value(l->arg, v, cap); break;
     case L_PADVIEW: snprintf(v, cap, "%s", g_pv_car ? "< IN A CAR >" : "< ON FOOT >"); break;
+    case L_MTSRC: {
+        if (!gta2_mixtape_album_count()) {
+            snprintf(v, cap, "NO MUSIC IN MEDIA");
+            break;
+        }
+        int a = mt_source_index();
+        upper_text(a < 0 ? "ALL ALBUMS" : gta2_mixtape_album_name(a), v, cap);
+        break;
+    }
+    case L_MTMODE:
+        snprintf(v, cap, "%s", strcmp(wr_settings_get("mixtape_mode", "order"), "shuffle") ? "PLAY IN ORDER" : "SHUFFLE");
+        break;
     case L_OVR:
         if (gta2_overview_is_head(l->arg))
             snprintf(v, cap, "CONTROLLER %s   |   %s%s", opt_choice_label(OPT_CONTROL_SCHEME, opt_get(OPT_CONTROL_SCHEME)),
@@ -541,6 +585,20 @@ static void change(X86Ctx *ctx, const mline *l, int d)
     }
     case L_CHEAT: cheat_set(l->arg, !cheat_on(l->arg)); break;
     case L_PADVIEW: g_pv_car = !g_pv_car; break;
+    case L_MTSRC: {
+        int n = gta2_mixtape_album_count();
+        if (!n)
+            break;
+        int a = mt_source_index() + 1 + d;   /* 0 = ALL ALBUMS, k = album k-1 */
+        a = ((a % (n + 1)) + n + 1) % (n + 1);
+        wr_settings_set("mixtape_source", a ? gta2_mixtape_album_key(a - 1) : "all");
+        gta2_mixtape_rebuild();
+        break;
+    }
+    case L_MTMODE:
+        wr_settings_set("mixtape_mode", strcmp(wr_settings_get("mixtape_mode", "order"), "shuffle") ? "shuffle" : "order");
+        gta2_mixtape_rebuild();
+        break;
     case L_LANG: lang_step(d); break;
     case L_DEVICE:
         g_map_keyboard = !g_map_keyboard;

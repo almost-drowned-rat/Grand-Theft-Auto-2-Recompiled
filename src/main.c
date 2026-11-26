@@ -8,6 +8,7 @@
 #include "wr.h"
 #include "gta2_options.h"
 #include "gta2_rumble.h"
+#include "gta2_mixtape.h"
 #include "shaderpack/shader_pack.h"
 #include "platform/wr_platform.h"
 #include "render/gta2_render.h"
@@ -60,6 +61,7 @@ int main(int argc, char **argv)
     wr_win32_register();
     wr_register_miles();
     gta2_rumble_init();
+    gta2_mixtape_init();   /* MIXTAPE: the albums in media/ */
     wr_set_thread_hook(gta2_thread_hook);
     gta2_registry_defaults();
     opt_load_all();   /* RECOMP OPTIONS from settings.ini (sets the gameplay width) */

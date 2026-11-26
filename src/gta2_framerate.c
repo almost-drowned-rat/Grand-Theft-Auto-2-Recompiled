@@ -27,6 +27,8 @@ static float g_alpha = 1.0f;  /* this draw's blend: 0 = the tick before, 1 = the
 static int g_lerp;            /* a draw with interpolation is running */
 static uint64_t g_last_draw;  /* the last frame's start: frames keep the target's spacing */
 
+uint32_t gta2_game_ticks(void) { return g_tick_id; }   /* logic ticks so far (MIXTAPE clock) */
+
 int gta2_fps_target(void)
 {
     static const int r[] = { 30, 60, 120 };
