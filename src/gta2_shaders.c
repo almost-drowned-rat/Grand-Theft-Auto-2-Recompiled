@@ -222,7 +222,7 @@ int gta2_shader_browse(const gta2_shader_item **items)
                 continue;
         }
         char *lab = g_names[g_nitems];
-        display(name, lab, 24);   /* folders end in " >" (as the N64 recomps' "›") */
+        display(name, lab, 44);   /* the shader pages are wide; folders end in " >" */
         if (folder)
             snprintf(lab + strlen(lab), sizeof g_names[0] - strlen(lab), " >");
         gta2_shader_item it = { lab, folder ? SI_FOLDER : SI_PRESET, folder ? -1 : i, "" };

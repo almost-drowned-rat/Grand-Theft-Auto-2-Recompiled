@@ -771,30 +771,34 @@ void gta2_menu_draw(X86Ctx *ctx)
         g_strbuf = wr_galloc(256);
     uint16_t font = wr_rd16(f + FE_FONT), hi = wr_rd16(FONT_HILITE);
     const mpage *pg = &g_pages[g_vp];
+    int xl = X_LABEL, xr = X_RIGHT;
     if (g_vp == VP_SHADERS || g_vp == VP_SHBROWSE || g_vp == VP_SHPARAMS) {
-        /* the shader pages: a test picture behind (maintainer 2026-11-26), the lines on a dark panel */
+        /* the shader pages: a test picture behind, the lines centred and wide on a dark panel so
+         * long preset names fit (maintainer 2026-11-26) */
+        xl = 40;
+        xr = 600;
         gbh_port_image(gta2_shader_test_picture(), 640, 480, 0, 0, 640, 480);
         int rows = pg->n - g_top < VISIBLE ? pg->n - g_top : VISIBLE;
-        gbh_port_rect((float)(X_LABEL - 12), (float)(Y_FIRST - 48), (float)(X_RIGHT - X_LABEL + 24),
+        gbh_port_rect((float)(xl - 12), (float)(Y_FIRST - 48), (float)(xr - xl + 24),
                       (float)(48 + rows * Y_STEP + 30), 0xB0000000u);
     }
-    put_text(ctx, pg->title, X_LABEL, Y_FIRST - 38, font, 0x4000);
+    put_text(ctx, pg->title, xl, Y_FIRST - 38, font, 0x4000);
     char v[64];
     for (int i = g_top; i < pg->n && i < g_top + VISIBLE; i++) {
         const mline *l = &pg->l[i];
         int y = Y_FIRST + (i - g_top) * Y_STEP;
         uint16_t fo = i == g_cur ? hi : font;
-        put_text(ctx, line_label(l), X_LABEL, y, fo, SCALE);
+        put_text(ctx, line_label(l), xl, y, fo, SCALE);
         line_value(l, v, sizeof v);
         if (v[0])
-            put_text(ctx, v, X_RIGHT - text_w(ctx, v, fo, SCALE), y, fo, SCALE);
+            put_text(ctx, v, xr - text_w(ctx, v, fo, SCALE), y, fo, SCALE);
     }
     if (g_top > 0)
-        put_text(ctx, "...", X_LABEL, Y_FIRST - 16, font, SCALE);
+        put_text(ctx, "...", xl, Y_FIRST - 16, font, SCALE);
     if (g_top + VISIBLE < pg->n)
-        put_text(ctx, "...", X_LABEL, Y_FIRST + VISIBLE * Y_STEP - 6, font, SCALE);
+        put_text(ctx, "...", xl, Y_FIRST + VISIBLE * Y_STEP - 6, font, SCALE);
     if (g_vp == VP_SHADERS && gta2_shader_hint())
-        put_text(ctx, gta2_shader_hint(), X_LABEL, Y_FIRST + 3 * Y_STEP, font, SCALE);
+        put_text(ctx, gta2_shader_hint(), xl, Y_FIRST + 4 * Y_STEP, font, SCALE);
     if (g_vp == VP_LANG && g_lang_sel != g_lang_start)
         put_text(ctx, "THE NEW LANGUAGE NEEDS A RESTART", X_LABEL, Y_FIRST + 4 * Y_STEP, font, SCALE);
 }
