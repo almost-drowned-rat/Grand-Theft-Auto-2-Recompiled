@@ -4,6 +4,7 @@
  */
 #include "gta2_state.h"
 #include "gta2_options.h"
+#include "gta2_input.h"
 #include "wr.h"
 #include "platform/wr_platform.h"
 
@@ -106,7 +107,7 @@ int gta2_twin_move_angle(uint32_t obj)
  * Heading = u16 [[ped+0x168]+0x40], 1440 per turn, 0 = screen down,
  * growing counter-clockwise; player+8 = this tick's turn (signed, wrapped),
  * player+0xC = walk command (Q14). */
-/* SPRINT (MODERN, A on foot; maintainer 2026-11-26): 1.5 s at 1.4x, then 10 s
+/* SPRINT (GAMEPLAY option; MODERN A, CLASSIC L3, keyboard Left Shift; maintainer 2026-11-26): 1.5 s at 1.4x, then 10 s
  * before the next one. Counted in on-foot steps (one per game tick). */
 #define SPRINT_TICKS   45     /* 1.5 s at 30.3 ticks/s */
 #define SPRINT_REST   303     /* 10 s */
@@ -116,7 +117,7 @@ static int g_sprint_b_prev;
 
 static void sprint_step(uint32_t player)
 {
-    int b = (wr_pad_controls() >> WR_PAD_SOUTH) & 1;
+    int b = gta2_sprint_pressed();
     if (getenv("WR_FAKE_SPRINT"))
         b = 1;
     if (g_sprint_rest > 0)
@@ -145,8 +146,8 @@ void gta2_modern_on_foot(uint32_t player, uint32_t ped)
     g_twin_obj = 0;
     if (opt_get(OPT_CONTROL_SCHEME) == 1 && player && ped)
         modern_on_foot_steer(player, ped);
-    if (opt_get(OPT_CONTROL_SCHEME) == 1 && player)
-        sprint_step(player);
+    if (player)
+        sprint_step(player);   /* SPRINT: any scheme (gta2_sprint_pressed) */
     static int n;
     if (getenv("WR_MODERN_LOG") && player && ped && n++ % 15 == 0)
         wr_log("modern: walk %d sprint %d pos %d,%d", (int32_t)wr_rd32(player + 0xC), g_sprint_left,

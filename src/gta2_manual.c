@@ -490,3 +490,56 @@ void sub_004BE060(RECOMP_PARAMS)   /* draws one sprite through gbh_DrawQuad (thi
     sub_004BE060_gen(ctx, base);   /* its quads are changed as they are emitted */
     g_port_quad_scale = g_port_quad_tint = g_port_quad_alpha = 1.0f;
 }
+
+/* ---- PEDESTRIANS 1x..4x (gta2_gameplay.c) ------------------------------------------------ */
+extern void sub_004416B0_gen(RECOMP_PARAMS);
+void sub_004416B0(RECOMP_PARAMS)   /* the ped manager's constructor: a new game */
+{
+    sub_004416B0_gen(ctx, base);
+    uint32_t eax = ctx->r_eax;   /* the new manager (the caller stores it in [0x5E5BC0]) */
+    gta2_peds_game_start(ctx, eax);
+    ctx->r_eax = eax;
+}
+
+extern void sub_00403890_gen(RECOMP_PARAMS);
+void sub_00403890(RECOMP_PARAMS)   /* ped pool pop (thiscall pool): it had no test for an empty pool */
+{
+    if (!MEM32(ctx->r_ecx)) {
+        static int n;
+        if (n++ < 5)
+            wr_log("pedestrians: ped pool empty - no new ped");
+        ctx->r_eax = 0;
+        ctx->r_esp += 4;   /* ret */
+        return;
+    }
+    sub_00403890_gen(ctx, base);
+}
+
+extern void sub_004415E0_gen(RECOMP_PARAMS);
+void sub_004415E0(RECOMP_PARAMS)   /* the ambient ped spawner (plain ret) */
+{
+    int k = gta2_ped_factor();
+    if (getenv("WR_GAMEPLAY_LOG")) {
+        static int n;
+        uint32_t m = MEM32(0x005E5BC0u);
+        if (m && n++ % 150 == 0)
+            wr_log("pedestrians: %u ambient, %u on screen (cap %u, %dx)", MEM8(0x005E5BEAu), MEM8(m + 6), MEM16(m), k);
+    }
+    if (k == 1) {
+        sub_004415E0_gen(ctx, base);
+        return;
+    }
+    uint32_t ret = MEM32(ctx->r_esp), mgr = MEM32(0x005E5BC0u);
+    for (int i = 0; i < k && mgr; i++) {
+        if (!gta2_peds_spawn_ok())
+            break;   /* keep room for the game's unchecked allocations */
+        uint8_t shown = MEM8(mgr + 6);
+        MEM8(mgr + 6) = (uint8_t)(shown / k);   /* on-screen cap: density / 25 * K */
+        uint32_t sp = ctx->r_esp;
+        MEM32(ctx->r_esp) = ret;
+        sub_004415E0_gen(ctx, base);           /* pops its return address */
+        ctx->r_esp = sp;
+        MEM8(mgr + 6) = shown;
+    }
+    ctx->r_esp += 4;   /* ret */
+}

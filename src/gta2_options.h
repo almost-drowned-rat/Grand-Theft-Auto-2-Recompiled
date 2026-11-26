@@ -21,6 +21,8 @@ enum {
     OPT_PERF_SPEED,        /* OFF / ON  /                               */
     OPT_RADIO_HALF_RATE,   /* OFF / ON (stereo radio stream rate, see docs/re/audio.md) */
     OPT_CONTROL_SCHEME,    /* CLASSIC / MODERN / CUSTOM (controller) */
+    OPT_PEDESTRIANS,       /* 1X / 2X / 3X / 4X (from the next game) */
+    OPT_SPRINT,            /* OFF / ON */
     OPT_MORE_BLOOD,        /* OFF / ON: blood stays longer, dries, and the bodies stay with it */
     OPT_COUNT
 };

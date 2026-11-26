@@ -217,3 +217,91 @@ static void new_game_check(void)
     }
 }
 
+
+/* ---- PEDESTRIANS 1x..4x (docs/re/enhancements.md §1; maintainer 2026-11-26) ----------- *
+ * Read at game start (the ped manager is built per game, sub_004416B0):
+ *  - the three pools get extra entries appended to their free lists (the game
+ *    never turns a pointer into an index): peds (200 + 136 per step, incl.
+ *    traffic drivers), ped physics objects (400 + 136 per step) and the
+ *    8-byte list nodes (100 + 100 per step)
+ *  - the global cap u16 [[0x5E5BC0]] = 50 * K
+ *  - the on-screen cap: the spawner compares the byte mgr+6 (peds on screen)
+ *    with zone density / 25; it gets mgr+6 / K for that comparison
+ *  - the spawner runs K times per tick (sub_004415E0)
+ * The pool pop sub_00403890 returns 0 when empty (it had no test), and the
+ * spawner pauses while fewer than 40 peds are free. */
+
+#define FN_PED_CTOR   0x0043AE70u   /* thiscall ped */
+#define FN_PHYS_CTOR  0x00497A60u   /* thiscall phys object */
+#define PED_SIZE      0x294u
+#define PHYS_SIZE     0xB4u
+
+static uint32_t g_extra_ped, g_extra_phys, g_extra_nodes;   /* this game's extra arrays */
+static int g_n_extra_ped;
+static int g_ped_factor = 1;                                  /* K of this game */
+
+int gta2_ped_factor(void) { return g_ped_factor; }
+
+static uint32_t extend(X86Ctx *ctx, uint32_t last_link_va, uint32_t n, uint32_t size, uint32_t link_off,
+                       uint32_t ctor)
+{
+    uint32_t arr = wr_heap_alloc(n * size, 1);
+    if (!arr)
+        return 0;
+    memset(wr_ptr(arr), 0, (size_t)n * size);
+    uint32_t ecx = ctx->r_ecx;
+    for (uint32_t i = 0; i < n; i++) {
+        uint32_t e = arr + i * size;
+        if (ctor) {
+            ctx->r_ecx = e;
+            wr_call_guest(ctx, ctor, 0, NULL);
+        }
+        wr_wr32(e + link_off, i + 1 < n ? e + size : 0);
+    }
+    ctx->r_ecx = ecx;
+    wr_wr32(last_link_va, arr);   /* the original list's end now leads into the extras */
+    return arr;
+}
+
+/* After the ped manager's constructor (sub_004416B0): a new game. */
+void gta2_peds_game_start(X86Ctx *ctx, uint32_t mgr)
+{
+    /* the last game's extras are gone with its pools */
+    if (g_extra_ped) wr_heap_free(g_extra_ped);
+    if (g_extra_phys) wr_heap_free(g_extra_phys);
+    if (g_extra_nodes) wr_heap_free(g_extra_nodes);
+    g_extra_ped = g_extra_phys = g_extra_nodes = 0;
+    g_n_extra_ped = 0;
+    int k = opt_get(OPT_PEDESTRIANS) + 1;
+    if (wr_rd32(0x00673E2Cu)) {
+        if (k > 1)
+            wr_log("pedestrians: network game - 1x");
+        k = 1;
+    }   /* network game: every player must run the same simulation */
+    g_ped_factor = k;
+    if (k == 1)
+        return;
+    uint32_t pool = wr_rd32(0x005E5BBCu), phys = wr_rd32(0x0066A3B4u), nodes = wr_rd32(0x005E5FBCu);
+    if (!pool || !phys || !nodes || !mgr) {
+        wr_log("pedestrians: %dx not applied (pools %08X %08X %08X, manager %08X)", k, pool, phys, nodes, mgr);
+        return;
+    }
+    uint32_t np = 136u * (uint32_t)(k - 1);
+    g_extra_ped = extend(ctx, pool + 0x20274u, np, PED_SIZE, 0x160u, FN_PED_CTOR);
+    if (g_extra_ped)
+        g_n_extra_ped = (int)np;
+    g_extra_phys = extend(ctx, phys + 0x11908u, np, PHYS_SIZE, 0x78u, FN_PHYS_CTOR);
+    g_extra_nodes = extend(ctx, nodes + 0x320u, 100u * (uint32_t)(k - 1), 8u, 4u, 0);
+    wr_wr16(mgr, (uint16_t)(50 * k));
+    wr_log("pedestrians: %dx - %u more peds, cap %d", k, np, 50 * k);
+}
+
+/* The spawner may run only with enough free peds (unchecked callers elsewhere). */
+int gta2_peds_spawn_ok(void)
+{
+    uint32_t pool = wr_rd32(0x005E5BBCu);
+    if (!pool)
+        return 0;
+    int total = 200 + g_n_extra_ped;
+    return total - (int)wr_rd16(pool + 0x203A8u) >= 40;
+}

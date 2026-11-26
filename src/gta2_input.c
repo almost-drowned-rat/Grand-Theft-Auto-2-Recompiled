@@ -20,7 +20,7 @@
 int wr_reg_get_dword(const char *key, const char *name, uint32_t *out);
 
 enum { ACT_UP, ACT_DOWN, ACT_LEFT, ACT_RIGHT, ACT_ATTACK, ACT_ENTER, ACT_JUMP, ACT_PREV, ACT_NEXT,
-       ACT_SPECIAL, ACT_SPECIAL2, ACT_STATUS, ACT_N, ACT_ESCAPE = 100, ACT_RADIO_NEXT, ACT_RADIO_PREV };
+       ACT_SPECIAL, ACT_SPECIAL2, ACT_STATUS, ACT_N, ACT_ESCAPE = 100, ACT_RADIO_NEXT, ACT_RADIO_PREV, ACT_SPRINT };
 
 static const uint8_t k_default_dik[ACT_N] = { 0xC8, 0xD0, 0xCB, 0xCD, 0x1D, 0x1C, 0x39, 0x2C, 0x2D, 0x0F, 0x38, 0x36 };
 
@@ -100,7 +100,7 @@ static int modern_action(int c, int driving)
     case WR_PAD_LEFT_STICK_RIGHT: case WR_PAD_DPAD_RIGHT: return driving ? ACT_RIGHT : ACT_UP;
     /* car buttons (maintainer 2026-11-26): A gas, X brake, B handbrake, R2 shoot */
     case WR_PAD_RT: return ACT_ATTACK;
-    case WR_PAD_SOUTH: return driving ? ACT_UP : -1;     /* on foot: SPRINT (gta2_state.c) */
+    case WR_PAD_SOUTH: return driving ? ACT_UP : opt_get(OPT_SPRINT) ? -1 : ACT_JUMP;   /* on foot: SPRINT (or jump without it) */
     case WR_PAD_WEST: return driving ? ACT_DOWN : ACT_ATTACK;
     case WR_PAD_EAST: return ACT_JUMP;                   /* jump on foot, handbrake in a car */
     case WR_PAD_RSTICK: return ACT_SPECIAL;              /* special 1 on R3 */
@@ -123,13 +123,13 @@ static const struct { const char *label; int act; } k_fn[GTA2_BIND_N] = {
     { "FORWARD", ACT_UP }, { "BACKWARD", ACT_DOWN }, { "LEFT", ACT_LEFT }, { "RIGHT", ACT_RIGHT },
     { "ATTACK", ACT_ATTACK }, { "ENTER / EXIT", ACT_ENTER }, { "JUMP / HANDBRAKE", ACT_JUMP },
     { "PREVIOUS WEAPON", ACT_PREV }, { "NEXT WEAPON", ACT_NEXT }, { "SPECIAL 1", ACT_SPECIAL },
-    { "SPECIAL 2", ACT_SPECIAL2 }, { "SPECIAL 3", ACT_STATUS }, { "RADIO NEXT", ACT_RADIO_NEXT },
-    { "RADIO PREVIOUS", ACT_RADIO_PREV }, { "MENU", ACT_ESCAPE },
+    { "SPECIAL 2", ACT_SPECIAL2 }, { "SPECIAL 3", ACT_STATUS }, { "SPRINT", ACT_SPRINT },
+    { "RADIO NEXT", ACT_RADIO_NEXT }, { "RADIO PREVIOUS", ACT_RADIO_PREV }, { "MENU", ACT_ESCAPE },
 };
 static const int k_bind_default[GTA2_BIND_N] = {
     WR_PAD_DPAD_UP, WR_PAD_DPAD_DOWN, WR_PAD_DPAD_LEFT, WR_PAD_DPAD_RIGHT, WR_PAD_WEST, WR_PAD_SOUTH,
-    WR_PAD_EAST, WR_PAD_LB, WR_PAD_RB, WR_PAD_NORTH, WR_PAD_LT, WR_PAD_RSTICK, WR_PAD_RIGHT_STICK_RIGHT,
-    WR_PAD_RIGHT_STICK_LEFT, WR_PAD_START,
+    WR_PAD_EAST, WR_PAD_LB, WR_PAD_RB, WR_PAD_NORTH, WR_PAD_LT, WR_PAD_RSTICK, WR_PAD_LSTICK,
+    WR_PAD_RIGHT_STICK_RIGHT, WR_PAD_RIGHT_STICK_LEFT, WR_PAD_START,
 };
 static int g_bind[GTA2_BIND_N];
 static int g_bind_loaded;
@@ -147,11 +147,18 @@ static void bind_load(void)
     }
 }
 
-int gta2_bind_count(int keyboard) { return keyboard ? ACT_N : GTA2_BIND_N; }
+#define BIND_SPRINT 12      /* the same index on both devices */
+#define KEY_SPRINT_DEFAULT 0x2A   /* Left Shift: unused by the game */
+
+int gta2_bind_count(int keyboard) { return keyboard ? ACT_N + 1 : GTA2_BIND_N; }
 const char *gta2_bind_label(int i) { return i >= 0 && i < GTA2_BIND_N ? k_fn[i].label : ""; }
 
 static uint8_t key_of(int act)
 {
+    if (act == BIND_SPRINT) {   /* the port's own key: settings.ini */
+        int v = wr_settings_get_int("key_sprint", KEY_SPRINT_DEFAULT);
+        return v > 0 && v < 256 ? (uint8_t)v : KEY_SPRINT_DEFAULT;
+    }
     char name[8];
     uint32_t v;
     snprintf(name, sizeof name, "%d", act);
@@ -163,7 +170,7 @@ void gta2_bind_value(int keyboard, int i, char *out, size_t cap)
 {
     bind_load();
     if (keyboard)
-        wr_key_name(key_of(k_fn[i].act), out, cap);
+        wr_key_name(key_of(i == BIND_SPRINT ? BIND_SPRINT : k_fn[i].act), out, cap);
     else
         snprintf(out, cap, "%s", wr_pad_control_name(g_bind[i]));
 }
@@ -191,13 +198,21 @@ void gta2_bind_set_key(int i, uint8_t dik)
     const char *k = "HKEY_LOCAL_MACHINE\\SOFTWARE\\DMA Design Ltd\\GTA2\\Control";
     char name[8];
     uint8_t old = key_of(i);
-    for (int j = 0; j < ACT_N; j++)
+    for (int j = 0; j <= ACT_N; j++)   /* ACT_N == BIND_SPRINT: the sprint key */
         if (j != i && key_of(j) == dik) {
-            snprintf(name, sizeof name, "%d", j);
-            wr_reg_set_dword(k, name, old);
+            if (j == BIND_SPRINT) {
+                wr_settings_set_int("key_sprint", old);
+            } else {
+                snprintf(name, sizeof name, "%d", j);
+                wr_reg_set_dword(k, name, old);
+            }
         }
-    snprintf(name, sizeof name, "%d", i);
-    wr_reg_set_dword(k, name, dik);
+    if (i == BIND_SPRINT) {
+        wr_settings_set_int("key_sprint", dik);
+    } else {
+        snprintf(name, sizeof name, "%d", i);
+        wr_reg_set_dword(k, name, dik);
+    }
     g_dik_time = 0;   /* the pad follows at once */
 }
 
@@ -210,6 +225,7 @@ void gta2_bind_defaults(int keyboard)
             snprintf(name, sizeof name, "%d", j);
             wr_reg_set_dword(k, name, k_default_dik[j]);
         }
+        wr_settings_set_int("key_sprint", KEY_SPRINT_DEFAULT);
         g_dik_time = 0;
         return;
     }
@@ -251,6 +267,8 @@ static uint8_t map(int control)
         return 0;
     if (a == ACT_ESCAPE)
         return 0x01;
+    if (a == ACT_SPRINT)
+        return 0;   /* read by the sprint itself (gta2_sprint_pressed) */
     if (a == ACT_RADIO_NEXT || a == ACT_RADIO_PREV)
         return a == ACT_RADIO_NEXT ? 0x3C : 0x3B;   /* F2 / F1 */
     uint32_t now = wr_time_ms();
@@ -268,3 +286,20 @@ static uint8_t map(int control)
 }
 
 void gta2_input_register(void) { wr_pad_set_map(map); }
+
+/* SPRINT held (GAMEPLAY SPRINT on): MODERN A, CLASSIC L3, CUSTOM its binding;
+ * on the keyboard its key (Left Shift by default). */
+int gta2_sprint_pressed(void)
+{
+    if (!opt_get(OPT_SPRINT))
+        return 0;
+    uint8_t kb[256];
+    wr_keys_keyboard_dik(kb);
+    if (kb[key_of(BIND_SPRINT)] & 0x80)
+        return 1;
+    uint64_t c = wr_pad_controls();
+    int scheme = opt_get(OPT_CONTROL_SCHEME);
+    bind_load();
+    int ctl = scheme == 1 ? WR_PAD_SOUTH : scheme == 2 ? g_bind[BIND_SPRINT] : WR_PAD_LSTICK;
+    return (int)(c >> ctl & 1);
+}

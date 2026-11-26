@@ -36,6 +36,8 @@ static const char *const v_filter[] = { "original", "nearest", "bilinear" };
 static const char *const l_filter[] = { "ORIGINAL", "NEAREST", "BILINEAR" };
 static const char *const v_scheme[] = { "classic", "modern", "custom" };
 static const char *const l_scheme[] = { "CLASSIC", "MODERN", "CUSTOM" };
+static const char *const v_factor[] = { "1", "2", "3", "4" };
+static const char *const l_factor[] = { "1X", "2X", "3X", "4X" };
 static const char *const v_onoff[] = { "0", "1" };
 static const char *const l_onoff[] = { "OFF", "ON" };
 
@@ -81,6 +83,8 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_PERF_SPEED]     = { "GAME SPEED", NULL, 2, v_onoff, l_onoff, 0, apply_perf },
     [OPT_RADIO_HALF_RATE] = { "RADIO RATE FIX", "radio_half_rate", 2, v_onoff, l_onoff, 1, apply_radio },
     [OPT_CONTROL_SCHEME] = { "CONTROLLER", "control_scheme", 3, v_scheme, l_scheme, 0, apply_nothing },
+    [OPT_PEDESTRIANS]    = { "PEDESTRIANS", "pedestrians", 4, v_factor, l_factor, 0, apply_nothing },
+    [OPT_SPRINT]         = { "SPRINT", "sprint", 2, v_onoff, l_onoff, 1, apply_nothing },
     [OPT_MORE_BLOOD]     = { "MORE BLOOD", "more_blood", 2, v_onoff, l_onoff, 0, apply_nothing },
 };
 

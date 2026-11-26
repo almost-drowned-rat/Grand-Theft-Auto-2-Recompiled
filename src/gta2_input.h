@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define GTA2_BIND_N 15   /* 12 game actions + RADIO NEXT / PREVIOUS + MENU (the keyboard: the first 12) */
+#define GTA2_BIND_N 16   /* 12 game actions + SPRINT + RADIO NEXT / PREVIOUS + MENU (the keyboard: the first 13) */
 
 int  gta2_bind_count(int keyboard);
 const char *gta2_bind_label(int i);
@@ -13,5 +13,7 @@ void gta2_bind_value(int keyboard, int i, char *out, size_t cap);
 void gta2_bind_set_pad(int i, int control);
 void gta2_bind_set_key(int i, uint8_t dik);   /* then call sub_0044BF30 */
 void gta2_bind_defaults(int keyboard);        /* the keyboard: then call sub_0044BF30 */
+
+int  gta2_sprint_pressed(void);
 
 #endif

@@ -9,4 +9,10 @@ void gta2_blood_before_tick(uint32_t particle);
 int  gta2_more_blood(void);
 void gta2_sprite_look(uint32_t sprite, float *scale, float *tint, float *alpha);
 
+/* PEDESTRIANS */
+#include "recomp_types.h"
+void gta2_peds_game_start(X86Ctx *ctx, uint32_t manager);   /* after sub_004416B0 (its return value) */
+int  gta2_ped_factor(void);
+int  gta2_peds_spawn_ok(void);
+
 #endif
