@@ -56,6 +56,7 @@ static void apply_perf(int c)
 
 /* ASPECT RATIO: the window's shape now, the gameplay width (the game's own
  * Screen\full_width, 480 lines high) from the next game start on. */
+extern int g_gta2_aspect_pending;
 static void apply_aspect(int c)
 {
     (void)c;
@@ -64,7 +65,10 @@ static void apply_aspect(int c)
     wr_reg_set_dword(REG_SCREEN, "full_width", w);
     wr_reg_set_dword(REG_SCREEN, "full_height", 480);
     gfx_apply_window();
+    g_gta2_aspect_pending = 1;   /* in a game: the mode switches at the next loop step (gta2_menu.c) */
 }
+
+int g_gta2_aspect_pending;
 
 static const optdef g_def[OPT_COUNT] = {
     [OPT_DISPLAY_MODE]   = { "DISPLAY MODE", "display_mode", 3, v_display, l_display, 1, apply_window },

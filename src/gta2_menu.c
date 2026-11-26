@@ -728,6 +728,30 @@ void gta2_menu_apply_cheats(void)
 
 /* ---- the pause menu over the game ----------------------------------------------------------- */
 
+/* ASPECT RATIO changed during a game: the game's own WM_SETFOCUS sequence
+ * (docs/re/enhancements.md §3) - re-read Screen\\full_width and set the mode
+ * (sub_004CC5C0), refresh cameras + HUD (sub_004CB880), forced tick off -
+ * at a loop-step boundary, not during a movie or with the surface locked. */
+extern int g_gta2_aspect_pending;
+
+static void apply_aspect_live(X86Ctx *ctx, uint32_t g)
+{
+    if (!g_gta2_aspect_pending)
+        return;
+    uint32_t vs = wr_rd32(0x00673D20u);
+    if (!g || wr_rd8(0x00595018u) || wr_rd32(0x00673E2Cu) || !vs || (wr_rd32(vs + 4) & 2u))
+        return;   /* not now (or not in a game: the next game reads it anyway) */
+    if (wr_call_guest(ctx, 0x00481DD0u, 0, NULL))
+        return;   /* a movie plays */
+    g_gta2_aspect_pending = 0;
+    uint32_t ecx = ctx->r_ecx;
+    wr_call_guest(ctx, 0x004CC5C0u, 0, NULL);
+    wr_call_guest(ctx, 0x004CB880u, 0, NULL);
+    wr_wr8(0x006735A5u, 0);
+    ctx->r_ecx = ecx;
+    wr_log("aspect: switched in the game to %ux%u", g_gfx.w, g_gfx.h);
+}
+
 /* Between two game loop steps (before sub_00462A30): START / Esc opens the
  * menu (the game pauses itself, freeze.wav); while open the port reads the
  * keys and the game gets none. Only in single-player games. */
@@ -743,8 +767,11 @@ void gta2_pause_tick(X86Ctx *ctx)
     if (!playing) {
         if (g_pause_open)
             pause_close(ctx, 0);
+        if (!g)
+            g_gta2_aspect_pending = 0;   /* no game: the next one reads the new width at its start */
         return;
     }
+    apply_aspect_live(ctx, g);
     static uint8_t prev[256];
     uint8_t st[256];
     wr_keys_dik_state(st);
