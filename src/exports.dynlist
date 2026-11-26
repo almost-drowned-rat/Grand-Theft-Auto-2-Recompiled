@@ -1,4 +1,5 @@
 {
   sub_*;
-  xbe_entry_point;
+  gta2_entry_point;
+  bink_entry_point;
 };

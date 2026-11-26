@@ -25,6 +25,15 @@ if(NOT MSVC)
     target_compile_options(gta2_gen PRIVATE -O2 -w -fwrapv -fno-strict-aliasing)
 endif()
 
+# binkw32.dll, lifted the same way (tools/lift.sh bink) - the original decoder
+set(BINK_GEN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/gen_bink/src")
+file(GLOB BINK_GEN_SOURCES CONFIGURE_DEPENDS "${BINK_GEN_DIR}/*.c")
+add_library(bink_gen OBJECT ${BINK_GEN_SOURCES})
+target_include_directories(bink_gen PRIVATE ${BINK_GEN_DIR})
+if(NOT MSVC)
+    target_compile_options(bink_gen PRIVATE -O2 -w -fwrapv -fno-strict-aliasing)
+endif()
+
 add_executable(gta2_recomp
     src/main.c
     src/gta2_registry.c
@@ -32,7 +41,9 @@ add_executable(gta2_recomp
     src/gta2_input.c
     src/render/vid.c
     src/render/gbh.c
-    $<TARGET_OBJECTS:gta2_gen>)
+    src/render/bink_buffer.c
+    $<TARGET_OBJECTS:gta2_gen>
+    $<TARGET_OBJECTS:bink_gen>)
 target_link_libraries(gta2_recomp PRIVATE winrecomp_rt)
 if(NOT MSVC)
     target_compile_options(gta2_recomp PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers)

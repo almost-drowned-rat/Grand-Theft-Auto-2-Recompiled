@@ -15,6 +15,11 @@
 #include <string.h>
 
 void wr_register_miles_bink_silent(void);
+recomp_func_t gta2_recomp_lookup(uint32_t va);
+int gta2_dispatch_init(void);
+recomp_func_t bink_recomp_lookup(uint32_t va);
+int bink_dispatch_init(void);
+extern const wr_export g_bink_overrides[];
 void gta2_registry_defaults(void);
 void gta2_manual_register(void);
 void gta2_input_register(void);
@@ -54,12 +59,19 @@ int main(int argc, char **argv)
     gta2_register_video();
     gta2_register_renderer();
 
-    char exe[1200];
+    /* binkw32.dll first: gta2.exe's imports bind to its lifted code */
+    char exe[1200], bink[1200];
+    if (!wr_path_ci(g_wr_paths.game, "binkw32.dll", bink, sizeof bink) ||
+        !wr_pe_load_dll(bink, "binkw32.dll", g_bink_overrides, bink_recomp_lookup, bink_dispatch_init)) {
+        wr_log("binkw32.dll missing: movies are skipped");
+        void wr_register_bink_absent(void);
+        wr_register_bink_absent();
+    }
     if (!wr_path_ci(g_wr_paths.game, "gta2.exe", exe, sizeof exe)) {
         wr_log("gta2.exe not found in %s", g_wr_paths.game);
         return 1;
     }
-    if (!wr_pe_load(exe))
+    if (!wr_pe_load(exe, gta2_recomp_lookup, gta2_dispatch_init))
         return 1;
     char hex[41];
     for (int i = 0; i < 20; i++)

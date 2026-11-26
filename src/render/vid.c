@@ -586,3 +586,58 @@ static wr_module k_vid_module = { "dmavideo.dll", k_vid_exports, 0 };
 void gta2_register_video(void) { wr_module_register(&k_vid_module); }
 
 uint64_t gta2_frames_presented(void) { return g_gfx.frames; }
+
+/* A full frame from the CPU (Bink movies): BGRX pixels shown 4:3 in the window. */
+void gfx_show_frame_bgrx(const uint8_t *px, uint32_t w, uint32_t h, uint32_t pitch)
+{
+    g_gfx.frames++;
+    ensure_vk();
+    if (!g_gfx.vk)
+        return;
+    static wr_vk_texture *tex;
+    static uint32_t tw, th;
+    static uint32_t *rgba;
+    static size_t cap;
+    if ((size_t)w * h > cap) {
+        free(rgba);
+        cap = (size_t)w * h;
+        rgba = (uint32_t *)malloc(cap * 4);
+    }
+    for (uint32_t y = 0; y < h; y++) {
+        const uint8_t *s = px + (size_t)y * pitch;
+        uint32_t *d = rgba + (size_t)y * w;
+        for (uint32_t x = 0; x < w; x++)
+            d[x] = 0xFF000000u | (uint32_t)s[4 * x] << 16 | (uint32_t)s[4 * x + 1] << 8 | s[4 * x + 2];
+    }
+    if (g_gfx.cmd) {   /* a game frame in progress: finish it first */
+        gbh_flush();
+        if (g_gfx.in_target) { wr_vk_target_end(); g_gfx.in_target = 0; }
+        wr_vk_frame_end();
+        g_gfx.cmd = NULL;
+    }
+    if (!tex || tw != w || th != h) {
+        if (tex)
+            wr_vk_texture_destroy(tex);
+        tex = wr_vk_texture_create(w, h, rgba, g_gfx.linear);
+        tw = w;
+        th = h;
+    } else {
+        wr_vk_texture_update(tex, 0, 0, w, h, rgba, w);
+    }
+    VkCommandBuffer cmd = wr_vk_frame_begin();
+    if (!cmd)
+        return;
+    int x, y, ww, hh;
+    wr_vk_fit_rect(g_vk.extent.width, g_vk.extent.height, w, h, &x, &y, &ww, &hh);
+    float black[4] = { 0, 0, 0, 1 };
+    wr_vk_present_begin(1, black);
+    wr_vk_blit_texture(cmd, tex, x, y, ww, hh, 1.0f);
+    wr_vk_present_end();
+    const char *d = getenv("WR_DUMP_PRESENT");
+    if (d && *d && atoi(d) > 0 && g_gfx.frames % (uint64_t)atoi(d) == 0) {
+        char path[1300];
+        snprintf(path, sizeof path, "%s/movie_%06llu.png", g_wr_paths.data, (unsigned long long)g_gfx.frames);
+        wr_vk_dump_swap(path);
+    }
+    wr_vk_frame_end();
+}
