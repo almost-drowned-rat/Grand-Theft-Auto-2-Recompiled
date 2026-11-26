@@ -77,6 +77,7 @@ static uint8_t map_menu(int control)
  * B          special 1                     special 1
  * LB / RB    previous / next weapon
  * d-pad up / down in a car: radio station next / previous (F2 / F1)
+ * Select in a car (both schemes): next radio station
  * Back       special 3 (as CLASSIC), START the menu
  * The stick's direction on foot is set in the on-foot control step
  * (gta2_modern_on_foot, wrapper of sub_004A5C50); this table only presses
@@ -108,7 +109,10 @@ static uint8_t map(int control)
         return control == WR_PAD_START ? 0x01 : map_menu(control);
     if (g_gta2_frontend_ms && wr_time_ms() - g_gta2_frontend_ms < 250)
         return map_menu(control);
-    int a = opt_get(OPT_CONTROL_SCHEME) == 1 ? modern_action(control, gta2_player_driving()) : pad_action(control);
+    int driving = gta2_player_driving();
+    int a = opt_get(OPT_CONTROL_SCHEME) == 1 ? modern_action(control, driving) : pad_action(control);
+    if (control == WR_PAD_BACK && driving)
+        a = ACT_RADIO_NEXT;   /* Select in a car: the next radio station (both schemes) */
     if (a < 0)
         return 0;
     if (a == ACT_ESCAPE)
