@@ -12,6 +12,7 @@
  * there is nothing to patch.
  */
 #include "gta2_render.h"
+#include "../gta2_options.h"
 #include "platform/wr_platform.h"
 #include "post/shader_pass.h"
 
@@ -40,11 +41,10 @@ static void ensure_vk(void)
         return;
     /* settings.ini (GTA2_<KEY> overrides; the old WR_* names still work) */
     const char *vs = getenv("WR_VSYNC");
-    int vsync = vs && *vs ? *vs != '0' : wr_settings_get_int("vsync", 1);
+    int vsync = vs && *vs ? *vs != '0' : opt_get(OPT_VSYNC);
     if (!wr_vk_init(win, vsync))
         return;
     wr_overlay_set_tick_rate(1000.0 / 33.0);   /* one logic tick per 33 ms (docs/re/framerate.md) */
-    wr_overlay_set(wr_overlay_parse(wr_settings_get("performance_overlay", "off")));
     const char *preset = getenv("WR_SHADER_PRESET");
     if (!preset || !*preset)
         preset = wr_settings_get("shader_preset", NULL);
@@ -64,9 +64,12 @@ static void ensure_target(void)
     int ww, wh;
     wr_main_window_size(&ww, &wh);
     uint32_t scale = 1;
-    const char *e = getenv("WR_RENDER_SCALE");
+    const char *e = getenv("WR_RENDER_SCALE");   /* dev override */
+    int rh = opt_render_height();
     if (e && *e) {
         scale = (uint32_t)atoi(e);
+    } else if (rh) {   /* RENDER RESOLUTION: the smallest scale reaching that height */
+        scale = ((uint32_t)rh + g_gfx.h - 1) / g_gfx.h;
     } else {
         /* the smallest integer scale whose image covers the fitted rectangle:
          * the present pass then only ever scales down (sharp) */
@@ -206,34 +209,34 @@ void gfx_flip(void)
     }
 }
 
-/* The host window, set up once (it must not jump when the game switches
- * between its 640x480 menus and the gameplay mode): DISPLAY MODE
- * (WR_DISPLAY=windowed|borderless; the menu setting comes with M6) and the
- * ASPECT RATIO (WR_ASPECT=4:3|16:9|16:10|21:9). Windowed = 85 % of the
- * desktop at that ratio. Every game mode is fitted into it (pillar/letterbox). */
-static double aspect_setting(void)
-{
-    const char *a = getenv("WR_ASPECT");
-    if (a && !strcmp(a, "16:9")) return 16.0 / 9.0;
-    if (a && !strcmp(a, "16:10")) return 16.0 / 10.0;
-    if (a && !strcmp(a, "21:9")) return 64.0 / 27.0;
-    return 4.0 / 3.0;
-}
+/* The host window from DISPLAY MODE and ASPECT RATIO (gta2_options.c): set
+ * up when the game first sets a mode and again whenever one of the two
+ * changes. Windowed = 85 % of the desktop at that ratio; BORDERLESS = the
+ * desktop; FULLSCREEN = exclusive at the display's native mode. Every game
+ * mode is fitted into it (pillar/letterbox); it never jumps with the game's
+ * own 640x480 menu / gameplay mode switches. */
+static int g_window_shown;
 
-static void setup_window(void)
+void gfx_apply_window(void)
 {
-    static int done;
     SDL_Window *win = wr_main_window();
-    if (!win || done)
+    if (!win)
         return;
-    done = 1;
-    const char *d = getenv("WR_DISPLAY");
-    if (d && !strcmp(d, "borderless")) {
+    int mode = opt_display_mode();
+#if defined(__ANDROID__)
+    mode = 1;
+#endif
+    if (mode == 2) {
+        const SDL_DisplayMode *dm = SDL_GetDesktopDisplayMode(SDL_GetDisplayForWindow(win));
+        SDL_SetWindowFullscreenMode(win, dm);
+        SDL_SetWindowFullscreen(win, true);
+    } else if (mode == 1) {
+        SDL_SetWindowFullscreenMode(win, NULL);
         SDL_SetWindowFullscreen(win, true);
     } else {
         int dw, dh;
         wr_display_size(&dw, &dh);
-        double ar = aspect_setting();
+        double ar = opt_aspect_ratio();
         int h = (int)(dh * 0.85), w = (int)(h * ar + 0.5);
         if (w > (int)(dw * 0.85)) {
             w = (int)(dw * 0.85);
@@ -243,10 +246,25 @@ static void setup_window(void)
         SDL_SetWindowSize(win, w, h);
         SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     }
-    SDL_ShowWindow(win);
+    if (!g_window_shown) {
+        SDL_ShowWindow(win);
+        g_window_shown = 1;
+    }
     SDL_SyncWindow(win);
     if (g_gfx.vk)
         g_vk.need_recreate = 1;
+}
+
+void gfx_apply_vsync(int on)
+{
+    if (g_gfx.vk)
+        wr_vk_set_vsync(on);
+}
+
+static void setup_window(void)
+{
+    if (!g_window_shown)
+        gfx_apply_window();
 }
 
 void gfx_set_mode(uint32_t w, uint32_t h)

@@ -6,6 +6,7 @@
  * player's data and the registry, data/ the log.
  */
 #include "wr.h"
+#include "gta2_options.h"
 #include "platform/wr_platform.h"
 #include "render/gta2_render.h"
 
@@ -55,11 +56,9 @@ int main(int argc, char **argv)
         return 1;
     wr_win32_register();
     wr_register_miles();
-    /* stereo radio: MSS 5 is assumed to report half the stream rate (GTA 2
-     * doubles it); radio_half_rate=0 plays the rate as the file states */
-    wr_miles_set_half_stereo_rate(wr_settings_get_int("radio_half_rate", 1));
     wr_set_thread_hook(gta2_thread_hook);
     gta2_registry_defaults();
+    opt_load_all();   /* RECOMP OPTIONS from settings.ini (sets the gameplay width) */
     gta2_manual_register();
     gta2_input_register();
     gta2_register_video();

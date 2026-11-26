@@ -13,6 +13,7 @@
  * blend mode become one vkCmdDraw.
  */
 #include "gta2_render.h"
+#include "../gta2_options.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -84,7 +85,6 @@ static uint32_t g_bcount;
 static VkCommandBuffer g_bcmd;
 
 /* TEXTURE FILTERING override: -1 = as the game asks, 0 = nearest, 1 = linear */
-static int g_filter_override = -1;
 
 /* ---- pipelines -------------------------------------------------------------------------------- */
 
@@ -177,9 +177,6 @@ static int pipes_init(void)
         wr_log("gbh: pipeline creation failed");
         return 0;
     }
-    const char *f = getenv("WR_TEXTURE_FILTER");
-    if (f && *f)
-        g_filter_override = !strcmp(f, "linear") ? 1 : !strcmp(f, "nearest") ? 0 : -1;
     g_vk_ready = 1;
     return 1;
 }
@@ -391,8 +388,9 @@ static VkDescriptorSet tex_set(gtex *t, int nearest)
     if (!t->vk)
         return g_white->set;
     t->used_frame = g_gfx.frames;
-    if (g_filter_override >= 0)
-        nearest = !g_filter_override;
+    int fo = opt_texture_filter();   /* TEXTURE FILTERING: -1 the game's choice */
+    if (fo >= 0)
+        nearest = !fo;
     return nearest ? wr_vk_texture_alt_set(t->vk, g_gfx.nearest) : t->vk->set;
 }
 
