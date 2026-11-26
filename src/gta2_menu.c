@@ -125,6 +125,7 @@ static const mline l_lang_changed[] = {
 };
 static mline l_cheats[N_CHEATS + 1];
 static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME }, { NULL, L_OPT, OPT_KEY_SCHEME },
+                                    { NULL, L_OPT, OPT_RUMBLE },
                                     { "CUSTOM MAPPING", L_PAGE, VP_MAPPING },
                                     { "CONTROLLER LAYOUT", L_PAGE, VP_PADVIEW },
                                     { "CONTROL OVERVIEW", L_PAGE, VP_OVERVIEW } };
@@ -170,7 +171,7 @@ static mpage g_pages[VP_COUNT] = {
     [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 5 },
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 1 },
-    [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 5 },
+    [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 6 },
     [VP_PADVIEW] = { "CONTROLLER LAYOUT", VP_CONTROLS, l_padview, 1 },
     [VP_OVERVIEW] = { "CONTROL OVERVIEW", VP_CONTROLS, l_overview, 0 },
     [VP_MAPPING] = { "CUSTOM MAPPING", VP_CONTROLS, l_mapping, 0 },

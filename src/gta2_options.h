@@ -22,6 +22,7 @@ enum {
     OPT_PERF_SPEED,        /* OFF / ON  /                               */
     OPT_RADIO_HALF_RATE,   /* OFF / ON (stereo radio stream rate, see docs/re/audio.md) */
     OPT_CONTROL_SCHEME,    /* CLASSIC / MODERN / CUSTOM (controller) */
+    OPT_RUMBLE,            /* OFF / ON: explosions rumble the controller (M4c) */
     OPT_KEY_SCHEME,        /* CLASSIC / MODERN (keyboard only, as a controller) / KEYBOARD + MOUSE */
     OPT_PEDESTRIANS,       /* 1X / 2X / 3X / 4X (from the next game) */
     OPT_TRAFFIC,           /* 1X / 2X / 3X / 4X */
