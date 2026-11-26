@@ -1160,11 +1160,12 @@ void gta2_pause_draw(X86Ctx *ctx)
  * district (Head Radio, Futuro FM), 2 / 3 / 4 are the district stations without a gang
  * (Rockstar Radio downtown, KREZ residential, Lo-Fi FM industrial). 6..11 are the two gang
  * stations of each district: Downtown 6 Funami FM (Japanese), 7 Lithium FM (oldies, electro, a
- * Jesus song only Lithium / Heavenly play; its host does voices) - both heard, as the wiki says.
- * Residential 8 / 9 = King 130.7 / Osmosis FM, Industrial 10 / 11 = Heavenly Radio / KGBH, in an
- * order still to be heard (until then "STATION n"). */
+ * Jesus song only Lithium / Heavenly play; its host does voices), Residential 8 King 130.7 ("Taxi
+ * Drivers"), 9 Osmosis FM ("I Wanna Phunk"), Industrial 10 Heavenly Radio, 11 KGBH (acid sounds) - all
+ * heard by the maintainer with GTA2_RADIO_TEST, as the wiki says. */
 static const char *const k_station_name[12] = {
     "", "HEAD RADIO", "ROCKSTAR RADIO", "KREZ", "LO-FI FM", "FUTURO FM", "FUNAMI FM", "LITHIUM FM", "KING 130.7", "OSMOSIS FM",
+    "HEAVENLY RADIO", "KGBH",
 };
 static const char *const k_station_info[12][2] = {
     { "", "" },
@@ -1176,7 +1177,9 @@ static const char *const k_station_info[12][2] = {
     { "ACID, ELECTRONIC AND DRUM N BASS", "" },   /* 6: heard (Japanese commercials) */
     { "TECHNO, OLDIES, ELECTRONIC AND CHRISTIAN ROCK", "" },   /* 7: heard: oldies, electro, a Jesus song */
     { "HARD ROCK AND SOFT ROCK", "" },   /* 8: heard (GTA2_RADIO_TEST): "Taxi Drivers" plays only on Head Radio + King */
-    { "DANCE, POP AND ALTERNATIVE ROCK", "" },   /* 9: King's pair in Residential */
+    { "DANCE, POP AND ALTERNATIVE ROCK", "" },   /* 9: heard: "I Wanna Phunk" (only Rockstar Radio + Osmosis FM) */
+    { "CHRISTIAN ROCK, SOFT ROCK AND TRADITIONAL GOSPEL", "" },   /* 10: KGBH's pair in Industrial */
+    { "CLASSIC ROCK AND TECHNO", "" },   /* 11: heard: psychedelic / acid sounds */
 };
 
 void gta2_radio_label_draw(X86Ctx *ctx)
