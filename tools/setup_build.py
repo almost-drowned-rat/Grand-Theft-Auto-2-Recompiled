@@ -7,6 +7,9 @@ player's gta2.exe / binkw32.dll and compiled by the caller.
   setup_build.py extract --installer GTA2.exe --unshield <unshield program> --work DIR --game DIR
       the installer's InstallShield overlay split into DIR/installer, its group "App Executables" unpacked by
       unshield into --game (gta2.exe, the DLLs, data/); exit 3: not the supported installer / game
+  setup_build.py extract --folder <an installed GTA 2> --work DIR --game DIR
+      the same from a GTA 2 the player installed already (the folder with gta2.exe, or one above it): its files
+      copied into --game (the folder is only read); exit 3: no supported gta2.exe in it
   setup_build.py check --game DIR      exit 3 unless DIR/gta2.exe is the supported build (sha1 below)
   setup_build.py lift --game DIR --toolkit WINRECOMP --config CONFIGDIR --work DIR [--module gta2|bink]
       the toolkit's lifter (disasm, func_id, abi, recomp) -> DIR/gen/<module>/src (C + headers), with the
@@ -95,7 +98,52 @@ def split_overlay(installer, out):
             n += 1
 
 
+def find_game_dir(top):
+    """the folder holding gta2.exe (case-insensitive): top itself or one below it (not deeper than 3)"""
+    base = top.rstrip(os.sep).count(os.sep)
+    for root, dirs, files in os.walk(top):
+        dirs.sort()
+        if root.count(os.sep) - base >= 3:
+            dirs[:] = []
+        for f in files:
+            if f.lower() == "gta2.exe" and any(d.lower() == "data" for d in dirs):
+                return root, f
+    return None, None
+
+
+def cmd_folder(a):
+    src, exe = find_game_dir(a.folder)
+    if not src:
+        say("no GTA 2 in that folder (gta2.exe with its data folder)")
+        return WRONG
+    if sha1(os.path.join(src, exe)) != GTA2_SHA1:
+        say("gta2.exe is not the supported build (the 2004 freeware release)")
+        return WRONG
+    if os.path.realpath(src) == os.path.realpath(a.game):
+        return 0
+    say("copying the game files from", src)
+    os.makedirs(a.game, exist_ok=True)
+    for root, dirs, files in os.walk(src):
+        rel = os.path.relpath(root, src)
+        if rel != "." and rel.split(os.sep)[0].lower() in ("saves", "player"):
+            dirs[:] = []                    # the player's old saves stay where they are
+            continue
+        dst = os.path.join(a.game, rel) if rel != "." else a.game
+        os.makedirs(dst, exist_ok=True)
+        for f in files:
+            # the original spellings as the installer writes them (gta2.exe in lower case: the check reads it so)
+            name = "gta2.exe" if rel == "." and f.lower() == "gta2.exe" else f
+            shutil.copyfile(os.path.join(root, f), os.path.join(dst, name))
+    say("game files in", a.game)
+    return 0
+
+
 def cmd_extract(a):
+    if a.folder:
+        return cmd_folder(a)
+    if not a.unshield:
+        say("--installer needs --unshield")
+        return 2
     inst = os.path.join(a.work, "installer")
     shutil.rmtree(inst, ignore_errors=True)
     say("splitting the installer")
@@ -207,8 +255,10 @@ def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     e = sub.add_parser("extract")
-    e.add_argument("--installer", required=True)
-    e.add_argument("--unshield", required=True)
+    src = e.add_mutually_exclusive_group(required=True)
+    src.add_argument("--installer")
+    src.add_argument("--folder")
+    e.add_argument("--unshield")
     e.add_argument("--work", required=True)
     e.add_argument("--game", required=True)
     c = sub.add_parser("check")
