@@ -1157,7 +1157,7 @@ void gta2_pause_draw(X86Ctx *ctx)
  * (Rockstar Radio downtown, KREZ residential, Lo-Fi FM industrial). 6..11 are the two gang
  * stations of each district - which is which still to be heard (NULL: "STATION n"). */
 static const char *const k_station_name[12] = {
-    "", "HEAD RADIO", "ROCKSTAR RADIO", "KREZ", "LO-FI FM", "FUTURO FM",
+    "", "HEAD RADIO", "ROCKSTAR RADIO", "KREZ", "LO-FI FM", "FUTURO FM", NULL, "KING 130.7",
 };
 static const char *const k_station_info[12][2] = {
     { "", "" },
@@ -1166,6 +1166,8 @@ static const char *const k_station_info[12][2] = {
     { "HIP HOP, RAP, JAZZSTEP AND INDUSTRIAL", "" },
     { "FUNK, JAZZ, OLDIES AND CLASSIC ROCK", "" },
     { "FUNK, DANCE AND CLASSIC ROCK", "" },
+    { "", "" },
+    { "HARD ROCK AND SOFT ROCK", "" },   /* 7: heard by the maintainer in Downtown (Southern host, soft rock) */
 };
 
 void gta2_radio_label_draw(X86Ctx *ctx)
