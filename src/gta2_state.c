@@ -67,6 +67,24 @@ static void modern_on_foot_steer(uint32_t player, uint32_t ped);
 static uint32_t g_twin_obj;     /* the player ped's physics object while twin-stick walks */
 static int g_twin_angle;
 
+/* where the player wants to walk: the left stick, else the d-pad, else WASD (MODERN keyboard) */
+static float left_push(float *sx, float *sy)
+{
+    int dx, dy;
+    float lx, ly, a, b;
+    *sx = *sy = 0;
+    wr_pad_stick(sx, sy);
+    if (sqrtf(*sx * *sx + *sy * *sy) < 0.3f && wr_pad_dpad(&dx, &dy)) {
+        *sx = (float)dx;
+        *sy = (float)dy;
+    }
+    if (sqrtf(*sx * *sx + *sy * *sy) < 0.3f && gta2_kbm_sticks(&lx, &ly, &a, &b) && (lx || ly)) {
+        *sx = lx;
+        *sy = ly;
+    }
+    return sqrtf(*sx * *sx + *sy * *sy);
+}
+
 static void modern_aim(uint32_t player, uint32_t ped, float rx, float ry)
 {
     g_twin_obj = 0;
@@ -75,14 +93,8 @@ static void modern_aim(uint32_t player, uint32_t ped, float rx, float ry)
         return;
     int cur = wr_rd16(obj + 0x40) % 1440;
     turn_toward(player, cur, angle_of(rx, ry));
-    float sx = 0, sy = 0;
-    int dx, dy;
-    wr_pad_stick(&sx, &sy);
-    if (sqrtf(sx * sx + sy * sy) < 0.49f && wr_pad_dpad(&dx, &dy)) {
-        sx = (float)dx;
-        sy = (float)dy;
-    }
-    if (sqrtf(sx * sx + sy * sy) < 0.49f) {
+    float sx, sy;
+    if (left_push(&sx, &sy) < 0.49f) {
         wr_wr32(player + 0xC, 0);   /* aim in place */
         return;
     }
@@ -157,24 +169,21 @@ void gta2_modern_on_foot(uint32_t player, uint32_t ped)
 static void modern_on_foot_steer(uint32_t player, uint32_t ped)
 {
     g_twin_obj = 0;
-    if (opt_get(OPT_CONTROL_SCHEME) != 1 || !player || !ped || !wr_mem_valid(ped, 0x180))
+    float rx = 0, ry = 0, klx, kly, krx, kry;
+    int kbm = gta2_kbm_sticks(&klx, &kly, &krx, &kry);   /* MODERN keyboard + mouse */
+    if ((opt_get(OPT_CONTROL_SCHEME) != 1 && !kbm) || !player || !ped || !wr_mem_valid(ped, 0x180))
         return;
-    float rx = 0, ry = 0;
     wr_pad_stick_right(&rx, &ry);
+    if (kbm && rx * rx + ry * ry < 0.1f) {   /* MODERN keyboard: the mouse aims */
+        rx = krx;
+        ry = kry;
+    }
     if (sqrtf(rx * rx + ry * ry) >= 0.35f) {   /* right stick: turn / aim (maintainer 2026-11-26) */
         modern_aim(player, ped, rx, ry);
         return;
     }
     g_twin_obj = 0;
-    float sx = 0, sy = 0;
-    wr_pad_stick(&sx, &sy);
-    float mag = sqrtf(sx * sx + sy * sy);
-    int dx, dy;
-    if (mag < 0.3f && wr_pad_dpad(&dx, &dy)) {   /* the d-pad as a full push in 8 directions */
-        sx = (float)dx;
-        sy = (float)dy;
-        mag = 1.0f;
-    }
+    float sx, sy, mag = left_push(&sx, &sy);   /* the d-pad / WASD as a full push in 8 directions */
     if (mag < 0.3f)
         return;   /* centred: nothing to steer */
     uint32_t obj = wr_rd32(ped + 0x168);

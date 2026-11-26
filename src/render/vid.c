@@ -115,6 +115,20 @@ VkCommandBuffer gfx_begin_drawing(void)
     return g_gfx.cmd;
 }
 
+static float g_centre_px[2];
+
+/* the game picture's centre in window points (the mouse's units) */
+int gta2_game_centre(float *x, float *y)
+{
+    SDL_Window *win = wr_main_window();
+    int pw = 0, ph = 0, ww = 0, wh = 0;
+    if (!win || !g_centre_px[0] || !SDL_GetWindowSizeInPixels(win, &pw, &ph) || !SDL_GetWindowSize(win, &ww, &wh) || !pw)
+        return 0;
+    *x = g_centre_px[0] * (float)ww / (float)pw;
+    *y = g_centre_px[1] * (float)wh / (float)ph;
+    return 1;
+}
+
 void gfx_flip(void)
 {
     g_gfx.frames++;
@@ -183,6 +197,8 @@ void gfx_flip(void)
     }
     int x, y, w, h;
     wr_vk_fit_rect(g_vk.extent.width, g_vk.extent.height, g_gfx.w, g_gfx.h, &x, &y, &w, &h);
+    g_centre_px[0] = (float)x + (float)w * 0.5f;
+    g_centre_px[1] = (float)y + (float)h * 0.5f;
     float black[4] = { 0, 0, 0, 1 };
     /* Slang shader chain (option-c's shader pass): game picture -> chain ->
      * swapchain image (the bars stay black), then a kept pass for overlays.

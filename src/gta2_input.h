@@ -15,5 +15,8 @@ void gta2_bind_set_key(int i, uint8_t dik);   /* then call sub_0044BF30 */
 void gta2_bind_defaults(int keyboard);        /* the keyboard: then call sub_0044BF30 */
 
 int  gta2_sprint_pressed(void);
+void gta2_keys_apply(void);
+int  gta2_kbm_sticks(float *lx, float *ly, float *rx, float *ry);
+int  gta2_game_centre(float *x, float *y);   /* the game picture's centre in window points (render/vid.c) */
 
 #endif

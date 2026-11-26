@@ -15,9 +15,13 @@
 #include "gta2_menu.h"
 #include "gta2_input.h"
 
+#include <SDL3/SDL.h>
+#include <math.h>
 #include <stdio.h>
 
 int wr_reg_get_dword(const char *key, const char *name, uint32_t *out);
+
+extern uint32_t g_gta2_frontend_ms;   /* gta2_manual.c: the frontend loop last ran */
 
 enum { ACT_UP, ACT_DOWN, ACT_LEFT, ACT_RIGHT, ACT_ATTACK, ACT_ENTER, ACT_JUMP, ACT_PREV, ACT_NEXT,
        ACT_SPECIAL, ACT_SPECIAL2, ACT_STATUS, ACT_N, ACT_ESCAPE = 100, ACT_RADIO_NEXT, ACT_RADIO_PREV, ACT_SPRINT };
@@ -47,8 +51,6 @@ static int pad_action(int c)
     }
 }
 
-
-extern uint32_t g_gta2_frontend_ms;
 
 /* In the menus (the frontend, and the port's own pages): A confirms, B goes
  * back, d-pad / left stick move, START confirms. The menus read these keys
@@ -302,4 +304,97 @@ int gta2_sprint_pressed(void)
     bind_load();
     int ctl = scheme == 1 ? WR_PAD_SOUTH : scheme == 2 ? g_bind[BIND_SPRINT] : WR_PAD_LSTICK;
     return (int)(c >> ctl & 1);
+}
+
+/* ---- KEYBOARD schemes (maintainer 2026-11-26) -----------------------------------------------
+ *   CLASSIC  the game's own keys (Control\0..11, CUSTOM MAPPING keyboard)
+ *   PAD      the keyboard as a controller (option-c's layout, runtime wr_pad):
+ *            WASD stick, arrows d-pad, Enter START, Backspace BACK, I/J/K/L = Y/X/A/B,
+ *            U/O = LB/RB, Z/P = LT/RT - the CONTROLLER scheme then applies
+ *   MODERN   mouse and keyboard:
+ *            on foot  WASD walk that way, the ped faces the mouse pointer
+ *            in a car W gas, S brake, A / D steer, arrows left / right radio
+ *            left button attack, right button or Space jump / handbrake, E enter / exit,
+ *            Q / R or the wheel previous / next weapon, F / G / C special 1 / 2 / 3,
+ *            Shift sprint, Esc the menu */
+
+static int kbm_active(void)
+{
+    return opt_get(OPT_KEY_SCHEME) == 1 && !gta2_pause_open() &&
+           !(g_gta2_frontend_ms && wr_time_ms() - g_gta2_frontend_ms < 250);
+}
+
+static int key_down(const bool *k, int n, int sc) { return sc < n && k[sc]; }
+
+static void kbm_hook(uint8_t st[256])
+{
+    if (!kbm_active())
+        return;
+    int n = 0;
+    const bool *k = SDL_WasInit(SDL_INIT_VIDEO) ? SDL_GetKeyboardState(&n) : NULL;
+    if (!k)
+        return;
+    float mx, my;
+    SDL_MouseButtonFlags mb = SDL_GetMouseState(&mx, &my);
+    int driving = gta2_player_driving();
+    /* the raw letters of this layout are not the game's keys */
+    static const uint8_t taken[] = { 0x11, 0x1E, 0x1F, 0x20, 0x12, 0x10, 0x13, 0x21, 0x22, 0x2E, 0x39 };
+    for (size_t i = 0; i < sizeof taken; i++)
+        st[taken[i]] = 0;
+    if (driving) {
+        st[0xCB] = st[0xCD] = 0;   /* arrows left / right: the radio */
+        if (key_down(k, n, SDL_SCANCODE_W)) st[key_of(ACT_UP)] = 0x80;
+        if (key_down(k, n, SDL_SCANCODE_S)) st[key_of(ACT_DOWN)] = 0x80;
+        if (key_down(k, n, SDL_SCANCODE_A)) st[key_of(ACT_LEFT)] = 0x80;
+        if (key_down(k, n, SDL_SCANCODE_D)) st[key_of(ACT_RIGHT)] = 0x80;
+        if (key_down(k, n, SDL_SCANCODE_LEFT)) st[0x3B] = 0x80;    /* F1 */
+        if (key_down(k, n, SDL_SCANCODE_RIGHT)) st[0x3C] = 0x80;   /* F2 */
+    }
+    if (mb & SDL_BUTTON_LMASK) st[key_of(ACT_ATTACK)] = 0x80;
+    if ((mb & SDL_BUTTON_RMASK) || key_down(k, n, SDL_SCANCODE_SPACE)) st[key_of(ACT_JUMP)] = 0x80;
+    if (key_down(k, n, SDL_SCANCODE_E)) st[key_of(ACT_ENTER)] = 0x80;
+    if (key_down(k, n, SDL_SCANCODE_Q)) st[key_of(ACT_PREV)] = 0x80;
+    if (key_down(k, n, SDL_SCANCODE_R)) st[key_of(ACT_NEXT)] = 0x80;
+    if (key_down(k, n, SDL_SCANCODE_F)) st[key_of(ACT_SPECIAL)] = 0x80;
+    if (key_down(k, n, SDL_SCANCODE_G)) st[key_of(ACT_SPECIAL2)] = 0x80;
+    if (key_down(k, n, SDL_SCANCODE_C)) st[key_of(ACT_STATUS)] = 0x80;
+    /* the wheel: one weapon step per notch, held for a few polls so the game sees it */
+    static int pulse_prev, pulse_next;
+    if (g_wr_mouse_wheel > 0) { pulse_next = 4; g_wr_mouse_wheel = 0; }
+    if (g_wr_mouse_wheel < 0) { pulse_prev = 4; g_wr_mouse_wheel = 0; }
+    if (pulse_next > 0) { if (pulse_next-- > 1) st[key_of(ACT_NEXT)] = 0x80; }
+    if (pulse_prev > 0) { if (pulse_prev-- > 1) st[key_of(ACT_PREV)] = 0x80; }
+}
+
+void gta2_keys_apply(void)
+{
+    int sc = opt_get(OPT_KEY_SCHEME);
+    wr_pad_keyboard_as_pad(sc == 2);
+    g_wr_dik_hook = sc == 1 ? kbm_hook : NULL;
+}
+
+/* MODERN keyboard on foot: WASD as the left stick, the mouse pointer (from
+ * the game picture's centre) as the right one; 0 = not this scheme */
+int gta2_kbm_sticks(float *lx, float *ly, float *rx, float *ry)
+{
+    *lx = *ly = *rx = *ry = 0;
+    if (!kbm_active())
+        return 0;
+    int n = 0;
+    const bool *k = SDL_WasInit(SDL_INIT_VIDEO) ? SDL_GetKeyboardState(&n) : NULL;
+    if (k) {
+        *lx = (float)(key_down(k, n, SDL_SCANCODE_D) - key_down(k, n, SDL_SCANCODE_A));
+        *ly = (float)(key_down(k, n, SDL_SCANCODE_S) - key_down(k, n, SDL_SCANCODE_W));
+    }
+    float mx, my;
+    SDL_GetMouseState(&mx, &my);
+    float cx, cy;
+    if (gta2_game_centre(&cx, &cy)) {
+        float dx = mx - cx, dy = my - cy, d = sqrtf(dx * dx + dy * dy);
+        if (d > 12.0f) {   /* a pointer on the ped: keep the heading */
+            *rx = dx / d;
+            *ry = dy / d;
+        }
+    }
+    return 1;
 }
