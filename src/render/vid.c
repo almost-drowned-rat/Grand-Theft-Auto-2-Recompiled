@@ -46,7 +46,6 @@ static void ensure_vk(void)
     if (!wr_vk_init(win, vsync))
         return;
     wr_overlay_set_tick_rate(1000.0 / 33.0);   /* one logic tick per 33 ms (docs/re/framerate.md) */
-    wr_overlay_set_top(0.26f);                 /* below the HUD bars top left (maintainer 2026-11-26) */
     const char *preset = getenv("WR_SHADER_PRESET");
     if ((!preset || !*preset) && wr_settings_get_int("shader_on", 0))
         preset = wr_settings_get("shader_preset", NULL);   /* SHADERS page */
@@ -210,6 +209,9 @@ void gfx_flip(void)
                           dt_ms > 0 && dt_ms < 1000 ? 1000.0f / (float)dt_ms : 30.0f, dt_ms);
         lx = x; ly = y; lw = w; lh = h;
     }
+    /* the PERFORMANCE panel right of the HUD bars top left (they end at ~22 % of the game
+     * picture's height; maintainer 2026-11-26) */
+    wr_overlay_set_pos(x + (int)(0.23f * (float)h), y + h / 96);
     wr_overlay_prepare();
     if (shaded) {
         wr_vk_present_begin(0, black);   /* keep the chain's picture; overlays go here */
