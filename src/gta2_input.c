@@ -508,3 +508,80 @@ void gta2_overview_value(int i, char *out, size_t cap)
     }
     snprintf(out, cap, "%s   |   %s", pad, key);
 }
+
+/* ---- CONTROLLER LAYOUT labels (gta2_padview.c): "LT  SPECIAL 2" for the scheme in use ---- */
+#include "gta2_padview.h"
+
+static const char *act_name(int a, int driving)
+{
+    switch (a) {
+    case ACT_UP: return driving ? "GAS" : "FORWARD";
+    case ACT_DOWN: return driving ? "BRAKE" : "BACK";
+    case ACT_LEFT: case ACT_RIGHT: return driving ? "STEER" : "TURN";
+    case ACT_ATTACK: return "ATTACK";
+    case ACT_ENTER: return driving ? "EXIT CAR" : "ENTER CAR";
+    case ACT_JUMP: return driving ? "HANDBRAKE" : "JUMP";
+    case ACT_PREV: return "PREV WEAPON";
+    case ACT_NEXT: return "NEXT WEAPON";
+    case ACT_SPECIAL: return "SPECIAL 1";
+    case ACT_SPECIAL2: return "SPECIAL 2";
+    case ACT_STATUS: return "SPECIAL 3";
+    case ACT_ESCAPE: return "MENU";
+    case ACT_RADIO_NEXT: case ACT_RADIO_PREV: return driving ? "RADIO" : NULL;
+    case ACT_SPRINT: return driving ? NULL : "SPRINT";
+    default: return NULL;
+    }
+}
+
+static int control_act(int c, int driving)
+{
+    int sc = opt_get(OPT_CONTROL_SCHEME);
+    if (opt_get(OPT_SPRINT) && !driving) {   /* SPRINT's button (gta2_sprint_pressed) */
+        bind_load();
+        int sp = sc == 1 ? WR_PAD_SOUTH : sc == 2 ? g_bind[BIND_SPRINT] : WR_PAD_LSTICK;
+        if (c == sp)
+            return ACT_SPRINT;
+    }
+    if (sc == 1)
+        return modern_action(c, driving);
+    if (sc == 2) {
+        bind_load();
+        for (int i = 0; i < GTA2_BIND_N; i++)
+            if (g_bind[i] == c && i != BIND_SPRINT)
+                return k_fn[i].act;
+        return -1;
+    }
+    return pad_action(c);
+}
+
+void gta2_pad_function(int id, int driving, char *out, size_t cap)
+{
+    static const struct { int ctl; const char *tok; } k[PV_N] = {
+        [PV_LT] = { WR_PAD_LT, "LT" }, [PV_LB] = { WR_PAD_LB, "LB" }, [PV_LSTICK] = { -1, "STICK" },
+        [PV_L3] = { WR_PAD_LSTICK, "L3" }, [PV_DPAD] = { -2, "D-PAD" }, [PV_SELECT] = { WR_PAD_BACK, "SELECT" },
+        [PV_RT] = { WR_PAD_RT, "RT" }, [PV_RB] = { WR_PAD_RB, "RB" }, [PV_Y] = { WR_PAD_NORTH, "Y" },
+        [PV_B] = { WR_PAD_EAST, "B" }, [PV_A] = { WR_PAD_SOUTH, "A" }, [PV_X] = { WR_PAD_WEST, "X" },
+        [PV_RSTICK] = { -3, "R-STICK" }, [PV_R3] = { WR_PAD_RSTICK, "R3" }, [PV_START] = { WR_PAD_START, "START" },
+    };
+    if (id < 0 || id >= PV_N) {
+        out[0] = 0;
+        return;
+    }
+    int sc = opt_get(OPT_CONTROL_SCHEME), c = k[id].ctl;
+    const char *f = NULL;
+    if (c == -1 || c == -2) {   /* the left stick, the d-pad */
+        if (sc == 1)
+            f = driving ? "STEER" : "WALK ANY WAY";
+        else if (driving)
+            f = "GAS BRAKE STEER";
+        else
+            f = "WALK AND TURN";
+    } else if (c == -3) {   /* the right stick */
+        if (sc == 1)
+            f = driving ? "RADIO LEFT RIGHT" : "AIM AND TURN";
+        else
+            f = driving ? "RADIO LEFT RIGHT" : NULL;
+    } else
+        f = act_name(control_act(c, driving), driving);
+    snprintf(out, cap, "%s  %s", k[id].tok, f ? f : "-");
+}

@@ -21,6 +21,8 @@ int  gta2_overview_count(void);
 const char *gta2_overview_label(int i);
 int  gta2_overview_is_head(int i);
 void gta2_overview_value(int i, char *out, size_t cap);
+/* CONTROLLER LAYOUT: "LT  SPECIAL 2" for picture item id (gta2_padview.h) */
+void gta2_pad_function(int id, int driving, char *out, size_t cap);
 int  gta2_kbm_sticks(float *lx, float *ly, float *rx, float *ry);
 int  gta2_game_centre(float *x, float *y);   /* the game picture's centre in window points (render/vid.c) */
 

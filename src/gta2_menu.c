@@ -26,6 +26,7 @@
 #include "gta2_state.h"
 #include "render/gta2_render.h"
 #include "gta2_input.h"
+#include "gta2_padview.h"
 #include "gta2_shaders.h"
 #include "gta2_gameplay.h"
 #include "platform/wr_platform.h"
@@ -64,8 +65,8 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 /* ---- pages -------------------------------------------------------------------------------- */
 
 enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
-       VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_OVERVIEW, VP_COUNT };
-enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM, L_OVR };
+       VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_OVERVIEW, VP_PADVIEW, VP_COUNT };
+enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM, L_OVR, L_PADVIEW };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
        ACT_RESTART_YES, ACT_NO, ACT_QUITPROG_YES };
 enum { VOL_MUSIC, VOL_SFX };
@@ -125,7 +126,10 @@ static const mline l_lang_changed[] = {
 static mline l_cheats[N_CHEATS + 1];
 static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME }, { NULL, L_OPT, OPT_KEY_SCHEME },
                                     { "CUSTOM MAPPING", L_PAGE, VP_MAPPING },
+                                    { "CONTROLLER LAYOUT", L_PAGE, VP_PADVIEW },
                                     { "CONTROL OVERVIEW", L_PAGE, VP_OVERVIEW } };
+static const mline l_padview[] = { { "VIEW", L_PADVIEW, 0 } };
+static int g_pv_car;   /* CONTROLLER LAYOUT shows IN A CAR */
 static mline l_overview[32];
 /* CUSTOM MAPPING (as option-p): DEVICE on top, then every function and its
  * button / key; Enter waits for the new one (5 s, keyboard Esc cancels) */
@@ -166,7 +170,8 @@ static mpage g_pages[VP_COUNT] = {
     [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 4 },
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 1 },
-    [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 4 },
+    [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 5 },
+    [VP_PADVIEW] = { "CONTROLLER LAYOUT", VP_CONTROLS, l_padview, 1 },
     [VP_OVERVIEW] = { "CONTROL OVERVIEW", VP_CONTROLS, l_overview, 0 },
     [VP_MAPPING] = { "CUSTOM MAPPING", VP_CONTROLS, l_mapping, 0 },
     [VP_GAMEPLAY] = { "GAMEPLAY", VP_ROOT, l_gameplay, 4 },
@@ -273,6 +278,7 @@ static void line_value(const mline *l, char *v, size_t cap)
     case L_SHRES: snprintf(v, cap, "%s", (const char *[]){ "ORIGINAL", "2X", "FULL" }[gta2_shader_resolution()]); break;
     case L_SHPARAMS: snprintf(v, cap, ">"); break;
     case L_SHPARAM: gta2_shader_param_value(l->arg, v, cap); break;
+    case L_PADVIEW: snprintf(v, cap, "%s", g_pv_car ? "< IN A CAR >" : "< ON FOOT >"); break;
     case L_OVR:
         if (gta2_overview_is_head(l->arg))
             snprintf(v, cap, "CONTROLLER %s   |   KEYBOARD %s", opt_choice_label(OPT_CONTROL_SCHEME, opt_get(OPT_CONTROL_SCHEME)),
@@ -533,6 +539,7 @@ static void change(X86Ctx *ctx, const mline *l, int d)
         break;
     }
     case L_CHEAT: cheat_set(l->arg, !cheat_on(l->arg)); break;
+    case L_PADVIEW: g_pv_car = !g_pv_car; break;
     case L_LANG: lang_step(d); break;
     case L_DEVICE:
         g_map_keyboard = !g_map_keyboard;
@@ -844,6 +851,27 @@ static void draw_overview_row(X86Ctx *ctx, const mline *l, const char *v, int x0
     put_text(ctx, bar + 7, x0 + w * 66 / 100, y, fo, sc);
 }
 
+/* CONTROLLER LAYOUT: the drawn pad over the whole screen (sw x sh), the labels at its lines */
+static int text_w(X86Ctx *ctx, const char *s, uint16_t font, uint32_t scale);
+static void draw_padview(X86Ctx *ctx, int sw, int sh, uint16_t font, uint16_t hi, uint32_t sc, uint32_t title_sc)
+{
+    float fx = (float)sw / 640.0f, fy = (float)sh / 480.0f;
+    gbh_port_image(gta2_pad_picture(), 640, 480, 0, 0, (float)sw, (float)sh);
+    put_text(ctx, "CONTROLLER LAYOUT", (int)(40 * fx), (int)(30 * fy), hi, title_sc);
+    char t[64];
+    snprintf(t, sizeof t, "CONTROLLER %s", opt_choice_label(OPT_CONTROL_SCHEME, opt_get(OPT_CONTROL_SCHEME)));
+    put_text(ctx, t, (int)(40 * fx), (int)(62 * fy), font, sc);
+    for (int i = 0; i < PV_N; i++) {
+        const pv_item *it = &g_pv_items[i];
+        gta2_pad_function(it->id, g_pv_car, t, sizeof t);
+        int y = (int)((float)it->ly * fy);
+        int x = it->right ? (int)(PV_RX * fx) : (int)(PV_LX * fx) - text_w(ctx, t, font, sc);
+        put_text(ctx, t, x, y, font, sc);
+    }
+    const char *v = g_pv_car ? "<  IN A CAR  >" : "<  ON FOOT  >";
+    put_text(ctx, v, (sw - text_w(ctx, v, hi, title_sc)) / 2, (int)(410 * fy), hi, title_sc);
+}
+
 #define X_LABEL 290
 #define X_RIGHT 615
 #define Y_FIRST 205
@@ -861,6 +889,10 @@ void gta2_menu_draw(X86Ctx *ctx)
     uint16_t font = wr_rd16(f + FE_FONT), hi = wr_rd16(FONT_HILITE);
     const mpage *pg = &g_pages[g_vp];
     int xl = X_LABEL, xr = X_RIGHT;
+    if (g_vp == VP_PADVIEW) {
+        draw_padview(ctx, 640, 480, font, hi, 0x2400u, 0x3000u);
+        return;
+    }
     if (g_vp == VP_SHADERS || g_vp == VP_SHBROWSE || g_vp == VP_SHPARAMS) {
         /* the shader pages: a test picture behind, the lines centred and wide on a dark panel so
          * long preset names fit (maintainer 2026-11-26) */
@@ -1020,6 +1052,10 @@ void gta2_pause_draw(X86Ctx *ctx)
     if (!g_strbuf)
         g_strbuf = wr_galloc(256);
     int sw = (int)g_gfx.w, sh = (int)g_gfx.h;
+    if (g_vp == VP_PADVIEW) {
+        draw_padview(ctx, sw, sh, P_FONT, P_HI, P_FONT_SCALE * 5 / 8, P_HI_SCALE);
+        return;
+    }
     gbh_port_rect(0, 0, (float)sw, (float)sh, 0xA0000000u);   /* dim the game */
     const mpage *pg = &g_pages[g_vp];
     int wide = g_vp == VP_SHADERS || g_vp == VP_SHBROWSE || g_vp == VP_SHPARAMS ||
