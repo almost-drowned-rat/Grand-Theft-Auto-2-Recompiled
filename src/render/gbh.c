@@ -682,6 +682,28 @@ void gbh_port_rect(float x, float y, float w, float h, uint32_t rgba)
     emit(g_white->set, BLEND_ALPHA, gv, 6);
 }
 
+/* A picture of the port's own (RGBA, made once per pixel buffer) over the
+ * given game screen rectangle - the SHADERS page's test picture. */
+void gbh_port_image(const uint32_t *rgba, uint32_t iw, uint32_t ih, float x, float y, float w, float h)
+{
+    static const uint32_t *src;
+    static wr_vk_texture *tex;
+    if (!pipes_init() || !rgba)
+        return;
+    if (src != rgba || !tex) {
+        if (tex)
+            wr_vk_texture_destroy(tex);
+        tex = wr_vk_texture_create(iw, ih, rgba, g_gfx.nearest);
+        src = rgba;
+        if (!tex)
+            return;
+    }
+    uint32_t c = 0xFFFFFFFFu;
+    gvert q[4] = { { x, y, 1, 0, 0, c }, { x + w, y, 1, 1, 0, c }, { x + w, y + h, 1, 1, 1, c }, { x, y + h, 1, 0, 1, c } };
+    gvert gv[6] = { q[0], q[1], q[2], q[0], q[2], q[3] };
+    emit(tex->set, BLEND_OPAQUE, gv, 6);
+}
+
 /* ---- exports: textures / palettes --------------------------------------------------------------- */
 
 WR_HANDLER(gbh_RegisterTexture)

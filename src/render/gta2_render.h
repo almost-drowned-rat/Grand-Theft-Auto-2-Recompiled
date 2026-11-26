@@ -66,6 +66,7 @@ void gfx_shutdown(void);
 void gbh_flush(void);
 extern float g_port_quad_scale;   /* 1 = normal; set around one sprite's draw */
 extern float g_port_quad_tint, g_port_quad_alpha;   /* colour factor and opacity, 1 = normal */
+void gbh_port_image(const uint32_t *rgba, uint32_t iw, uint32_t ih, float x, float y, float w, float h);
 void gbh_port_rect(float x, float y, float w, float h, uint32_t rgba);   /* rgba: R in the low byte */
 
 void gta2_register_video(void);

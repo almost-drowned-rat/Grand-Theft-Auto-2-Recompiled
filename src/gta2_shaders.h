@@ -25,4 +25,7 @@ void gta2_shader_param_reset(int i);
 int  gta2_shader_resolution(void);            /* 0 ORIGINAL, 1 2X, 2 FULL */
 void gta2_shader_set_resolution(int r);
 
+#include <stdint.h>
+const uint32_t *gta2_shader_test_picture(void);   /* 640x480 RGBA */
+
 #endif

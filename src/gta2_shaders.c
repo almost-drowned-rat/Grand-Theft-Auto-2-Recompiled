@@ -140,13 +140,13 @@ static void display(const char *path, char *out, size_t cap)
 {
     const char *b = strrchr(path, '/');
     b = b ? b + 1 : path;
+    size_t len = strlen(b);
+    if (len > 7 && !strcmp(b + len - 7, ".slangp"))
+        len -= 7;   /* the extension first, then the cut */
     size_t j = 0;
-    for (; b[j] && j + 1 < cap; j++)
-        out[j] = b[j] == '_' || b[j] == '-' ? ' ' : (char)toupper((unsigned char)b[j]);
+    for (; j < len && j + 1 < cap; j++)
+        out[j] = b[j] == '_' || b[j] == '-' || b[j] == '.' ? ' ' : (char)toupper((unsigned char)b[j]);
     out[j] = 0;
-    char *e = strstr(out, ".SLANGP");
-    if (e)
-        *e = 0;
 }
 
 void gta2_shader_preset_name(char *out, size_t cap)
@@ -196,7 +196,7 @@ int gta2_shader_browse(const gta2_shader_item **items)
     const ShaderIndex *ix = shader_pack_index();
     g_items[g_nitems++] = (gta2_shader_item){ "OFF", SI_NONE, -1, "" };
     if (g_dir[0])
-        g_items[g_nitems++] = (gta2_shader_item){ "..", SI_UP, -1, "" };
+        g_items[g_nitems++] = (gta2_shader_item){ "BACK", SI_UP, -1, "" };   /* the menu font has no dots */
     int first = g_nitems;
     size_t dl = strlen(g_dir);
     for (int i = 0; ix && i < ix->n && g_nitems < MAX_ITEMS; i++) {
@@ -221,7 +221,7 @@ int gta2_shader_browse(const gta2_shader_item **items)
                 continue;
         }
         char *lab = g_names[g_nitems];
-        display(name, lab, 30);   /* folders end in " >" (as the N64 recomps' "›") */
+        display(name, lab, 24);   /* folders end in " >" (as the N64 recomps' "›") */
         if (folder)
             snprintf(lab + strlen(lab), sizeof g_names[0] - strlen(lab), " >");
         gta2_shader_item it = { lab, folder ? SI_FOLDER : SI_PRESET, folder ? -1 : i, "" };
@@ -289,4 +289,58 @@ void gta2_shader_dir_title(char *out, size_t cap)
         return;
     }
     display(g_dir, out, cap);
+}
+
+/* ---- the test picture behind the SHADERS pages (frontend) ------------------------------ *
+ * Made here, no game data: colour bars, a grey ramp, fine line patterns,
+ * a checkerboard, circles and a small pixel-art city block - what shows
+ * scanlines, masks, sharpness, colour and gamma of a preset. */
+#define TW 640
+#define TH 480
+static uint32_t g_test[TW * TH];
+
+static uint32_t rgb(int r, int g, int b) { return (uint32_t)r | (uint32_t)g << 8 | (uint32_t)b << 16 | 0xFF000000u; }
+
+const uint32_t *gta2_shader_test_picture(void)
+{
+    static int made;
+    if (made)
+        return g_test;
+    made = 1;
+    static const int bars[8][3] = { { 192, 192, 192 }, { 192, 192, 0 }, { 0, 192, 192 }, { 0, 192, 0 },
+                                    { 192, 0, 192 }, { 192, 0, 0 }, { 0, 0, 192 }, { 16, 16, 16 } };
+    for (int y = 0; y < TH; y++)
+        for (int x = 0; x < TW; x++) {
+            uint32_t c;
+            if (y < 120) {                                   /* colour bars */
+                const int *b = bars[x * 8 / TW];
+                c = rgb(b[0], b[1], b[2]);
+            } else if (y < 160) {                            /* grey ramp */
+                int v = x * 255 / (TW - 1);
+                c = rgb(v, v, v);
+            } else if (y < 200) {                            /* red / green / blue ramps */
+                int v = (x % (TW / 3)) * 255 / (TW / 3 - 1), k = x * 3 / TW;
+                c = rgb(k == 0 ? v : 0, k == 1 ? v : 0, k == 2 ? v : 0);
+            } else if (y < 280) {                            /* fine lines: 1 px vertical, horizontal, checker */
+                int seg = x * 4 / TW;
+                int on = seg == 0 ? x & 1 : seg == 1 ? y & 1 : seg == 2 ? (x ^ y) & 1 : ((x >> 2) ^ (y >> 2)) & 1;
+                c = on ? rgb(235, 235, 235) : rgb(20, 20, 20);
+            } else {                                         /* a small pixel city: blocks, roads, circles */
+                int bx = x / 40, by = (y - 280) / 40, ix = x % 40, iy = (y - 280) % 40;
+                int road = ix < 6 || iy < 6;
+                int shade = (bx * 7 + by * 13) % 5;
+                c = road ? rgb(60, 60, 64) : rgb(90 + shade * 25, 50 + shade * 12, 40 + shade * 8);
+                if (!road && (ix == 6 || iy == 6))
+                    c = rgb(220, 200, 60);                   /* kerb */
+                int dx = x - 480, dy = y - 380, r2 = dx * dx + dy * dy;
+                if (r2 < 70 * 70 && r2 > 64 * 64)
+                    c = rgb(255, 255, 255);                  /* circles: aspect and smoothing */
+                dx = x - 160;
+                r2 = dx * dx + dy * dy;
+                if (r2 < 40 * 40)
+                    c = rgb(200, 30, 30);
+            }
+            g_test[y * TW + x] = c;
+        }
+    return g_test;
 }

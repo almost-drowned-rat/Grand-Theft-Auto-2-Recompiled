@@ -771,6 +771,13 @@ void gta2_menu_draw(X86Ctx *ctx)
         g_strbuf = wr_galloc(256);
     uint16_t font = wr_rd16(f + FE_FONT), hi = wr_rd16(FONT_HILITE);
     const mpage *pg = &g_pages[g_vp];
+    if (g_vp == VP_SHADERS || g_vp == VP_SHBROWSE || g_vp == VP_SHPARAMS) {
+        /* the shader pages: a test picture behind (maintainer 2026-11-26), the lines on a dark panel */
+        gbh_port_image(gta2_shader_test_picture(), 640, 480, 0, 0, 640, 480);
+        int rows = pg->n - g_top < VISIBLE ? pg->n - g_top : VISIBLE;
+        gbh_port_rect((float)(X_LABEL - 12), (float)(Y_FIRST - 48), (float)(X_RIGHT - X_LABEL + 24),
+                      (float)(48 + rows * Y_STEP + 30), 0xB0000000u);
+    }
     put_text(ctx, pg->title, X_LABEL, Y_FIRST - 38, font, 0x4000);
     char v[64];
     for (int i = g_top; i < pg->n && i < g_top + VISIBLE; i++) {
