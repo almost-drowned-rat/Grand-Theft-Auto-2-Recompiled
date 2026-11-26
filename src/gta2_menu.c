@@ -6,8 +6,8 @@
  *
  *   OPTIONS        SOUND / RECOMP OPTIONS / CHEATS
  *   SOUND          MUSIC VOLUME, EFFECTS VOLUME (the game's own registry values)
- *   RECOMP OPTIONS RENDERING (display mode, resolution, aspect, texture
- *                  filtering) / PERFORMANCE / LANGUAGE
+ *   RECOMP OPTIONS RENDERING (display mode, resolution, texture filtering,
+ *                  aspect) / PERFORMANCE / LANGUAGE
  *   CHEATS         the game's cheats as ON/OFF switches + UNLOCK ALL AREAS
  *
  * One game page holds them all: the port keeps the page it shows, handles
@@ -97,8 +97,8 @@ static const mline l_recomp[] = {
     { "BACK", L_BACK, 0 },
 };
 static const mline l_display[] = {
-    { NULL, L_OPT, OPT_DISPLAY_MODE }, { NULL, L_OPT, OPT_RENDER_RES }, { NULL, L_OPT, OPT_ASPECT },
-    { NULL, L_OPT, OPT_TEXTURE_FILTER }, { "BACK", L_BACK, 0 },
+    { NULL, L_OPT, OPT_DISPLAY_MODE }, { NULL, L_OPT, OPT_RENDER_RES }, { NULL, L_OPT, OPT_TEXTURE_FILTER },
+    { NULL, L_OPT, OPT_ASPECT }, { "BACK", L_BACK, 0 },
 };
 static const mline l_perf[] = {
     { NULL, L_OPT, OPT_VSYNC }, { NULL, L_OPT, OPT_PERF_FPS }, { NULL, L_OPT, OPT_PERF_FRAMETIME },
