@@ -72,7 +72,7 @@ static uint8_t map_menu(int control)
  * stick and  walk where it points          steer (left / right)
  * d-pad      (8 directions on the d-pad)
  * R-stick    turn / aim                    left / right: radio previous / next
- * A          sprint (2 s, every 10 s)      gas
+ * A          sprint (1.5 s, every 10 s)      gas
  * X          attack                        brake / reverse
  * B          jump                          handbrake
  * L3         special 1                     special 1

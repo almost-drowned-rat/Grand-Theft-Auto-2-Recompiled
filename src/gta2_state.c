@@ -106,11 +106,11 @@ int gta2_twin_move_angle(uint32_t obj)
  * Heading = u16 [[ped+0x168]+0x40], 1440 per turn, 0 = screen down,
  * growing counter-clockwise; player+8 = this tick's turn (signed, wrapped),
  * player+0xC = walk command (Q14). */
-/* SPRINT (MODERN, A on foot; maintainer 2026-11-26): 2 s faster, then 10 s
+/* SPRINT (MODERN, A on foot; maintainer 2026-11-26): 1.5 s at 1.2x, then 10 s
  * before the next one. Counted in on-foot steps (one per game tick). */
-#define SPRINT_TICKS   61     /* 2 s at 30.3 ticks/s */
+#define SPRINT_TICKS   45     /* 1.5 s at 30.3 ticks/s */
 #define SPRINT_REST   303     /* 10 s */
-#define SPRINT_FACTOR 1.5f
+#define SPRINT_FACTOR 1.2f
 static int g_sprint_left, g_sprint_rest;
 static int g_sprint_b_prev;
 
