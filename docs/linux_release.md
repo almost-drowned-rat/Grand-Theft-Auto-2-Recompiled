@@ -75,16 +75,26 @@ The steps (data/launcher.log names each one with its time):
    caps it further.
 5. Link, then copy `libSDL3.so.0` into data/.
 6. Copy the translations to `<root>/GTA2-translations.pak`, and write the stamp `data/build/stamp.txt`: the release,
-   plus the installer's SHA-256 (for a folder, its gta2.exe's).
+   plus the SHA-256 of `game/gta2.exe`.
 7. Start the game with `WR_ROOT=<root>`.
 
 The lifted C, the objects and the unpacked compiler are removed afterwards.
 
+**Portable** (the maintainer's rule): after the first start nothing refers to the player's installer or folder.
+
+- `game/` holds real copies of the game's files (no links).
+- A new release and `--repair` lift from `game/gta2.exe` and `game/binkw32.dll` (sha1-checked). They never ask for
+  the installer or read it again.
+- `data/launcher.ini` remembers the last installer or folder only to pre-fill the setup page. It is never taken by
+  itself, and nothing needs it.
+- The installer or folder is read again only when `game/` is missing or broken, and only when the player chooses it
+  again.
+
 Later starts:
 
 - The game starts at once.
-- After a new release, the game is rebuilt from `game/` and no installer is needed.
-- `--repair` builds again (from the installer when it is found).
+- After a new release, the game is rebuilt from `game/`.
+- `--repair` rebuilds from `game/`.
 - `--setup` shows the setup page.
 
 Non-interactive (tests, RecompLauncher):

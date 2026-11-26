@@ -1194,7 +1194,9 @@ static int move_to_target(L *l, const char *target, const char *file)
 }
 /* ── the installer ─────────────────────────────────────────────────────── */
 
-/* data/launcher.ini (the launcher's own, key=value lines): "installer", the installer the last build used */
+/* data/launcher.ini (the launcher's own, key=value lines): "installer", the copy the last build used - only the setup
+ * page's pre-fill (the maintainer's rule: after the first start nothing refers to the player's installer or folder;
+ * every file the game and a rebuild need is a real copy in game/) */
 static int ini_get(L *l, const char *key, char *out, size_t n)
 {
     char p[LP], *t, *line, *save = NULL;
@@ -1292,9 +1294,9 @@ static SDL_EnumerationResult SDLCALL game_dir_cb(void *u, const char *dir, const
     return SDL_ENUM_CONTINUE;
 }
 
-/* the player's copy: --installer / --folder, the one the last build used, GTA2.exe beside the AppImage (any case),
- * an installed GTA 2 folder beside it */
-static int find_installer(L *l, const char *arg)
+/* the player's copy: --installer / --folder, the one the last build used (prefill: only for the setup page, never
+ * taken by itself), GTA2.exe beside the AppImage (any case), an installed GTA 2 folder beside it */
+static int find_installer(L *l, const char *arg, int prefill)
 {
     FindFile f;
     FindGame g;
@@ -1303,7 +1305,7 @@ static int find_installer(L *l, const char *arg)
         snprintf(l->input, sizeof l->input, "%s", arg);
         return 1;
     }
-    if (ini_get(l, "installer", p, sizeof p) && is_input(p)) {
+    if (prefill && ini_get(l, "installer", p, sizeof p) && is_input(p)) {
         snprintf(l->input, sizeof l->input, "%s", p);
         return 1;
     }
@@ -1333,11 +1335,11 @@ static int sha_job(L *l, void *a)
     return file_sha256(s->path, s->hex) ? 0 : 1;
 }
 
-/* the build's stamp: the release and the copy it was built from (the installer's SHA-256, or for an installed GTA 2
- * folder its gta2.exe's; "game folder" when built from the game's files of an earlier build) */
+/* the build's stamp: the release and the game it was built from - game/gta2.exe's SHA-256 (the copy in the game's
+ * folder, the same whether it came from the installer, a folder or an earlier build) */
 static void stamp_text(L *l, const char *from, char *out, size_t n)
 {
-    snprintf(out, n, "%s\ninstaller %s\n", l->release, from && *from ? from : "?");
+    snprintf(out, n, "%s\ngta2.exe %s\n", l->release, from && *from ? from : "?");
 }
 
 /* built: the stamp's release is this one, the game and its files there */
@@ -1500,7 +1502,7 @@ int gta_launcher_main(const GtaLauncherConfig *cfg, int argc, char **argv)
         goto out;
     }
     lg(&l, "release %s", l.release);
-    found = find_installer(&l, input_arg);
+    found = find_installer(&l, input_arg, 0);
     if (input_arg && !found)
         lg(&l, "--installer / --folder %s: no such file or folder", input_arg);
     join(p, sizeof p, l.game, "gta2.exe");
@@ -1529,6 +1531,8 @@ int gta_launcher_main(const GtaLauncherConfig *cfg, int argc, char **argv)
     /* to be built: the setup page (the installer's line, the translations', the target folder, Go / Quit) - not when
        the game's files are there from an earlier build (a new release: built from them, no installer needed) */
     if (!go && (setup || !game_ready)) {
+        if (!found)
+            find_installer(&l, NULL, 1);    /* (the last one used: the line pre-filled, nothing more) */
         plain_dir(l.root, target, sizeof target);
         form = xr_setup_ui_form(l.ui, cfg->input, l.input, sizeof l.input, NULL, NULL, none, 0, target, sizeof target,
                                 &copy);
@@ -1581,17 +1585,24 @@ int gta_launcher_main(const GtaLauncherConfig *cfg, int argc, char **argv)
     SDL_CreateDirectory(l.build);
     SDL_CreateDirectory(l.obj);
     SDL_CreateDirectory(l.work);
-    /* the game's files: those of an earlier build when they are the supported gta2.exe (a new release, a repair
-       without the installer), else unpacked from the installer - the right one, else asked for again */
+    /* the game's files: game/ when it holds the supported gta2.exe (a new release, --repair: built from game/ alone,
+       the installer or folder not read again - the maintainer's rule), else unpacked from the installer / copied
+       from the folder - the right one, else asked for again */
     {
         LiftArg la;
         rc = 1;
-        if (game_ready && !(repair && found)) {
+        if (game_ready) {
             memset(&la, 0, sizeof la);
             la.only = "check";
             rc = run_job(&l, "Checking the game's files", 0.10, 0.01, lift_job, &la, NULL);
-            if (rc == 0)
-                snprintf(from_sha, sizeof from_sha, "game folder");
+            if (rc == 0) {
+                ShaArg sa;
+                memset(&sa, 0, sizeof sa);
+                join(p, sizeof p, l.game, "gta2.exe");
+                sa.path = p;
+                if (run_job(&l, "Checking the game's files", 0.11, 0.01, sha_job, &sa, NULL) == 0)
+                    snprintf(from_sha, sizeof from_sha, "%s", sa.hex);
+            }
         }
         while (rc != 0) {
             ShaArg sa;
@@ -1607,10 +1618,11 @@ int gta_launcher_main(const GtaLauncherConfig *cfg, int argc, char **argv)
                                     : "Unpacking the game's files from the installer", 0.10, 0.04, lift_job, &la, NULL);
             if (rc == 0) {
                 char exe[LP];
+                (void)folder;
                 memset(&sa, 0, sizeof sa);
                 join(exe, sizeof exe, l.game, "gta2.exe");
-                sa.path = folder ? exe : l.input;     /* a folder: its gta2.exe (copied, checked) */
-                if (run_job(&l, "Checking the installer", 0.14, 0.01, sha_job, &sa, NULL) == 0)
+                sa.path = exe;                        /* the stamp: game/gta2.exe's hash (its copy, checked) */
+                if (run_job(&l, "Checking the game's files", 0.14, 0.01, sha_job, &sa, NULL) == 0)
                     snprintf(from_sha, sizeof from_sha, "%s", sa.hex);
                 ini_set(&l, "installer", l.input);
                 break;
