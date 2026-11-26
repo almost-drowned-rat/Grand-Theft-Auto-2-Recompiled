@@ -17,6 +17,7 @@
 void wr_register_miles_bink_silent(void);
 void gta2_registry_defaults(void);
 void gta2_manual_register(void);
+void gta2_input_register(void);
 void w32_exit(uint32_t code);
 
 /* gta2.exe of the Rockstar freeware release (build 2004-04-27) */
@@ -49,6 +50,7 @@ int main(int argc, char **argv)
     wr_register_miles_bink_silent();
     gta2_registry_defaults();
     gta2_manual_register();
+    gta2_input_register();
     gta2_register_video();
     gta2_register_renderer();
 

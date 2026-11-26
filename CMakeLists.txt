@@ -29,6 +29,7 @@ add_executable(gta2_recomp
     src/main.c
     src/gta2_registry.c
     src/gta2_manual.c
+    src/gta2_input.c
     src/render/vid.c
     src/render/gbh.c
     $<TARGET_OBJECTS:gta2_gen>)
