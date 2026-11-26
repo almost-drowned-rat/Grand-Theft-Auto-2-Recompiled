@@ -35,7 +35,8 @@ static int g_listening;
 static MediaDecoder *g_dec;         /* the song playing (audio thread reads it) */
 static uint64_t g_dec_frames;       /* frames played of it */
 
-uint32_t gta2_game_ticks(void);
+static uint32_t g_clock;            /* radio ticks without the pause: the station's time */
+static int g_held;                  /* paused while listening: the song waits */
 
 static const char *song_path(int i)
 {
@@ -70,7 +71,7 @@ static void build(void)
     g_len_ms = calloc((size_t)g_pl.n, sizeof *g_len_ms);
     g_have = g_len_ms != NULL;
     g_pos_ms = 0;
-    g_at_tick = gta2_game_ticks();
+    g_at_tick = g_clock;
 }
 
 void gta2_mixtape_init(void)
@@ -118,7 +119,7 @@ static long feed(int16_t *out, long frames)
 /* the play head now: the song and ms into it, after the game time since the last mark */
 static void advance_to_now(void)
 {
-    uint32_t t = gta2_game_ticks();
+    uint32_t t = g_clock;
     uint64_t ms = (uint64_t)g_pos_ms + (uint64_t)(t - g_at_tick) * 33u;
     for (int guard = 0; guard < 10000 && ms >= song_len(g_pl.pos); guard++) {
         ms -= song_len(g_pl.pos);
@@ -134,6 +135,8 @@ void gta2_mixtape_listen(int on)
     on = on && g_have;
     if (on == g_listening)
         return;
+    if (!on)
+        g_held = 0;
     g_listening = on;
     if (on) {
         advance_to_now();
@@ -155,7 +158,7 @@ void gta2_mixtape_listen(int on)
     } else {
         wr_audio_music(NULL);   /* the mixer lets go of the decoder */
         g_pos_ms = (uint32_t)(g_dec_frames * 1000u / 44100u);
-        g_at_tick = gta2_game_ticks();
+        g_at_tick = g_clock;
         media_decoder_close(g_dec);
         g_dec = NULL;
         wr_log("mixtape: off at song %d, %u s", g_pl.pos, g_pos_ms / 1000);
@@ -163,6 +166,15 @@ void gta2_mixtape_listen(int on)
 }
 
 void gta2_mixtape_volume(float v) { wr_audio_music_volume(v); }
+
+/* the pause while MIXTAPE plays: the song stops where it is and goes on from there */
+static void hold(int on)
+{
+    if (on == g_held || !g_listening)
+        return;
+    g_held = on;
+    wr_audio_music(on ? NULL : feed);
+}
 
 /* SOURCE or PLAYBACK MODE changed: a new list (from its start) */
 void gta2_mixtape_rebuild(void)
@@ -271,7 +283,17 @@ void gta2_radio_after_tick(void)
         g_mix_car = g_mix_on ? car : (car == g_mix_car ? 0 : g_mix_car);
     if (was != 1 && in == 1)   /* got in: MIXTAPE again only in that car */
         g_mix_on = g_have && car && car == g_mix_car;
-    int listen = g_mix_on && in == 1 && wr_rd8(m + 0x54F7) < 5 && wr_rd8(0x0066BEECu) && !wr_rd8(m + 0x01);
+    int paused = wr_rd8(m + 0x01) != 0;
+    int tuned = g_mix_on && in == 1 && wr_rd8(m + 0x54F7) < 5 && wr_rd8(0x0066BEECu);
+    if (!paused)
+        g_clock++;
+    if (tuned && paused && g_listening) {   /* pause: the song waits, the game station stays silent */
+        hold(1);
+        g_audible = 1;
+        return;
+    }
+    hold(0);
+    int listen = tuned && !paused;
     {   /* the game station now (1..11), 0 = none / MIXTAPE: for its info label */
         uint8_t slot = wr_rd8(m + 0x54F7);
         g_station = !g_mix_on && in == 1 && slot < 5 ? wr_rd32(m + 0x5468 + slot * 0x1Cu + 0x0C) : 0;
