@@ -89,7 +89,7 @@ def build(texts, letter, version=100):
             raise ValueError(f"key {k!r} longer than 8")
         keys += struct.pack("<I8s", len(dat), kb)
         dat += v.encode("utf-16-le", "surrogatepass") + b"\0\0"
-    head = b"GBL" + letter.encode() + struct.pack("<H", version)
+    head = b"GBL" + letter.upper().encode() + struct.pack("<H", version)   # the game checks "GBLE" / "GBLS" ...
     return head + b"TKEY" + struct.pack("<I", len(keys)) + keys + b"TDAT" + struct.pack("<I", len(dat)) + dat
 
 
