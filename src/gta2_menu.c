@@ -304,46 +304,6 @@ static void build_params_page(void)
     g_pages[VP_SHPARAMS].n = n;
 }
 
-/* the browser: left / right jump to the previous / next initial letter
- * (OFF and BACK on top are not part of the letters) */
-static char item_letter(int i)
-{
-    const char *t = l_browse[i].label;
-    return (char)toupper((unsigned char)(t ? t[0] : 0));
-}
-
-static void browse_letter_jump(int d)
-{
-    int n = g_pages[VP_SHBROWSE].n, first = 0;
-    while (first < n && l_browse[first].kind == L_SHITEM &&
-           (g_browse_items[l_browse[first].arg].kind == SI_NONE || g_browse_items[l_browse[first].arg].kind == SI_UP))
-        first++;
-    if (first >= n)
-        return;
-    int i = g_cur < first ? (d > 0 ? first - 1 : first) : g_cur;
-    if (d > 0) {
-        char c = i >= first ? item_letter(i) : 0;
-        do i++; while (i < n && item_letter(i) == c);
-        if (i >= n)
-            return;   /* already at the last letter */
-    } else {
-        if (i <= first) {
-            g_cur = first;
-            return;
-        }
-        char c = item_letter(i);
-        while (i > first && item_letter(i - 1) == c)   /* to the start of this letter ... */
-            i--;
-        if (i == g_cur && i > first) {                 /* ... or of the one before */
-            c = item_letter(i - 1);
-            i--;
-            while (i > first && item_letter(i - 1) == c)
-                i--;
-        }
-    }
-    g_cur = i;
-}
-
 static void build_mapping_page(void)
 {
     int n = 0;
@@ -607,6 +567,30 @@ static int poll_wait(X86Ctx *ctx)
     return 1;
 }
 
+/* Held arrows repeat (maintainer 2026-11-26): after 350 ms, every 90 ms,
+ * after 1.5 s every 35 ms. held: the four DIK states. */
+static void key_repeat(const uint8_t held[4], int *up, int *down, int *left, int *right)
+{
+    static uint32_t t0[4], next[4];
+    int *e[4] = { up, down, left, right };
+    uint32_t now = wr_time_ms();
+    for (int i = 0; i < 4; i++) {
+        if (!(held[i] & 0x80)) {
+            t0[i] = 0;
+            continue;
+        }
+        if (*e[i] || !t0[i]) {   /* the press itself */
+            t0[i] = now;
+            next[i] = now + 350;
+            continue;
+        }
+        if ((int32_t)(now - next[i]) >= 0) {
+            *e[i] = 1;
+            next[i] = now + (now - t0[i] > 1500 ? 35 : 90);
+        }
+    }
+}
+
 /* One step of the port's menu (frontend page 12 or the pause menu). */
 static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int down, int enter, int esc,
                       int defaults)
@@ -696,7 +680,9 @@ static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int 
             change(ctx, l, 1);
         }
     } else if ((left || right) && g_vp == VP_SHBROWSE) {
-        browse_letter_jump(right ? 1 : -1);   /* letter by letter (maintainer 2026-11-26) */
+        g_cur += right ? 10 : -10;   /* ten at a time (maintainer 2026-11-26) */
+        if (g_cur >= pg->n) g_cur = pg->n - 1;
+        if (g_cur < 0) g_cur = 0;
         wr_wr32(FE_SOUND, right ? SND_DOWN : SND_UP);
     } else if (left || right) {
         change(ctx, l, right ? 1 : -1);
@@ -766,8 +752,12 @@ int gta2_menu_input(X86Ctx *ctx)
         g_cur = g_top = 0;
         g_last_page = PORT_PAGE;
     }
-    uint8_t left = wr_rd8(f + FE_EDGE + 0), right = wr_rd8(f + FE_EDGE + 1), up = wr_rd8(f + FE_EDGE + 2),
-            down = wr_rd8(f + FE_EDGE + 3), enter = wr_rd8(f + FE_EDGE + 4), esc = wr_rd8(f + FE_EDGE + 5);
+    int left = wr_rd8(f + FE_EDGE + 0), right = wr_rd8(f + FE_EDGE + 1), up = wr_rd8(f + FE_EDGE + 2),
+        down = wr_rd8(f + FE_EDGE + 3), enter = wr_rd8(f + FE_EDGE + 4), esc = wr_rd8(f + FE_EDGE + 5);
+    {
+        uint8_t held[4] = { wr_rd8(f + 8 + 0xC8), wr_rd8(f + 8 + 0xD0), wr_rd8(f + 8 + 0xCB), wr_rd8(f + 8 + 0xCD) };
+        key_repeat(held, &up, &down, &left, &right);
+    }
     for (int i = 0; i < 7; i++)
         wr_wr8(f + FE_EDGE + i, 0);
     /* Home (pad Y): the game's menus have no edge flag for it */
@@ -929,6 +919,10 @@ void gta2_pause_tick(X86Ctx *ctx)
         right = EDGE(0xCD), home = EDGE(0xC7);
 #undef EDGE
     memcpy(prev, st, sizeof prev);
+    if (g_pause_open) {
+        uint8_t held[4] = { st[0xC8], st[0xD0], st[0xCB], st[0xCD] };
+        key_repeat(held, &up, &down, &left, &right);
+    }
     if (!g_pause_open) {
         uint32_t player = gta2_player();
         if (!esc || (player && wr_rd8(player + 0x78A)))
