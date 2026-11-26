@@ -566,3 +566,5 @@ static const wr_export k_vid_exports[] = {
 static wr_module k_vid_module = { "dmavideo.dll", k_vid_exports, 0 };
 
 void gta2_register_video(void) { wr_module_register(&k_vid_module); }
+
+uint64_t gta2_frames_presented(void) { return g_gfx.frames; }
