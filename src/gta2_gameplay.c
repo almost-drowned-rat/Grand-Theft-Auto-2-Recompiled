@@ -38,6 +38,8 @@ static int near_player(int32_t x, int32_t y)
 }
 
 static void new_game_check(void);
+static int g_npale;
+static uint32_t g_life_spr[1024];
 
 /* ---- KEEP BODIES ---------------------------------------------------------------------------- */
 
@@ -93,15 +95,93 @@ int gta2_body_before_tick(uint32_t ped)
 
 
 /* Before the blood pool's particle tick (sub_0048BE60, thiscall particle). */
+/* sprite -> its pool's remaining life, for the drawing (a small open table) */
+#define LIFE_SLOTS 1024
+
+static uint16_t g_life[LIFE_SLOTS];
+
+static int life_slot(uint32_t spr, int add)
+{
+    uint32_t h = (spr * 2654435761u) >> 22;   /* 10 bits */
+    for (int i = 0; i < LIFE_SLOTS; i++) {
+        int k = (int)((h + (uint32_t)i) & (LIFE_SLOTS - 1));
+        if (g_life_spr[k] == spr)
+            return k;
+        if (!g_life_spr[k])
+            return add ? (g_life_spr[k] = spr, k) : -1;
+    }
+    return -1;
+}
+
+/* pale stains left at the end (they never go): oldest first */
+#define MAX_PALE 64
+#define PALE_LIFE 2         /* held here: the pool stays as a pale stain */
+#define FADE_TICKS 300      /* the last ~10 s: darker and fading */
+static uint32_t g_pale[MAX_PALE];
+
 void gta2_blood_before_tick(uint32_t p)
 {
-    if (!opt_get(OPT_MORE_BLOOD) || !wr_mem_valid(p, 0x50) || wr_rd32(p + 0x38) != 0x27 || wr_rd16(p + 0x2C) < 2)
+    if (!opt_get(OPT_MORE_BLOOD) || !wr_mem_valid(p, 0x50) || wr_rd32(p + 0x38) != 0x27)
         return;
-    /* dries in twice the original time (maintainer 2026-11-26): every
-     * other tick's decrement is given back. The pool's +0x48 counts 3..0
-     * every tick once it has grown, so two of its four steps qualify. */
-    if (wr_rd8(p + 0x48) & 1)
-        wr_wr16(p + 0x2C, (uint16_t)(wr_rd16(p + 0x2C) + 1));
+    uint16_t life = wr_rd16(p + 0x2C);   /* already decremented this tick */
+    uint32_t spr = wr_rd32(p + 0x30);
+    int pale = -1;
+    for (int i = 0; i < g_npale; i++)
+        if (g_pale[i] == p)
+            pale = i;
+    if (life == 0)
+        return;   /* a pale stain pushed out by newer ones: it goes now */
+    if (life <= PALE_LIFE) {
+        if (pale < 0) {   /* a new pale stain; the oldest one goes when there are too many */
+            if (g_npale == MAX_PALE) {
+                uint32_t old = g_pale[0];
+                memmove(&g_pale[0], &g_pale[1], (MAX_PALE - 1) * sizeof g_pale[0]);
+                g_npale--;
+                if (wr_mem_valid(old, 0x50) && wr_rd32(old + 0x38) == 0x27)
+                    wr_wr16(old + 0x2C, 1);   /* its next tick frees it */
+            }
+            g_pale[g_npale++] = p;
+        }
+        life = PALE_LIFE + 1;   /* held: the next decrement brings it back to PALE_LIFE */
+    } else if (wr_rd8(p + 0x48) & 1) {
+        life++;   /* dries in twice the original time: every other decrement given back */
+    }
+    wr_wr16(p + 0x2C, life);
+    if (spr) {
+        int k = life_slot(spr, 1);
+        if (k >= 0)
+            g_life[k] = life;
+    }
+}
+
+/* How a blood pool sprite is drawn: size, colour factor, opacity. */
+void gta2_sprite_look(uint32_t spr, float *scale, float *tint, float *alpha)
+{
+    *scale = *tint = *alpha = 1.0f;
+    if (!opt_get(OPT_MORE_BLOOD) || !wr_mem_valid(spr, 0x24))
+        return;
+    uint32_t st = wr_rd32(0x00665B40u);
+    if (!st)
+        return;
+    int f = (int)wr_rd16(spr + 0x22) - (int)(uint16_t)(wr_rd16(st + 0x8CA4) + 0xBF);
+    if (f < 0 || f > 5)
+        return;   /* not one of the six blood pool frames */
+    /* by chance (fixed per pool: from its position) the bigger pool */
+    uint32_t h = wr_rd32(spr + 0x14) * 2654435761u ^ wr_rd32(spr + 0x18) * 40503u;
+    h ^= h >> 15;
+    if ((h & 3) == 0)
+        *scale = 1.6f;
+    int k = life_slot(spr, 0);
+    if (k < 0)
+        return;
+    int life = g_life[k];
+    if (life >= FADE_TICKS)
+        return;
+    /* drying: from fresh (1) to the pale stain it ends as (darker, 40 % opaque) */
+    float t = (float)(life - PALE_LIFE) / (float)(FADE_TICKS - PALE_LIFE);
+    if (t < 0) t = 0;
+    *tint = 0.55f + 0.45f * t;
+    *alpha = 0.40f + 0.60f * t;
 }
 
 int gta2_more_blood(void) { return opt_get(OPT_MORE_BLOOD); }
@@ -113,37 +193,8 @@ static void new_game_check(void)
     if (g != g_game_seen) {
         g_game_seen = g;
         g_nbody = 0;
+        g_npale = 0;
+        memset(g_life_spr, 0, sizeof g_life_spr);
     }
 }
 
-/* ---- bigger pools: by chance a pool's sprite is drawn 1.6x about its centre
- * (one sprite; the game already places pools beside or under the body itself;
- * maintainer 2026-11-26) -------------------------------------------------------- */
-
-/* The scale to draw sprite spr with (1 = as the game draws it). */
-float gta2_sprite_scale(uint32_t spr)
-{
-    if (!opt_get(OPT_MORE_BLOOD) || !wr_mem_valid(spr, 0x24))
-        return 1.0f;
-    uint32_t st = wr_rd32(0x00665B40u);
-    if (!st)
-        return 1.0f;
-    int f = (int)wr_rd16(spr + 0x22) - (int)(uint16_t)(wr_rd16(st + 0x8CA4) + 0xBF);
-    if (getenv("WR_GAMEPLAY_LOG")) {
-        static int n;
-        if (n++ % 2000 == 0)
-            wr_log("scale: sprite %08X frame %u (blood base %u)", spr, wr_rd16(spr + 0x22),
-                   (unsigned)(uint16_t)(wr_rd16(st + 0x8CA4) + 0xBF));
-    }
-    if (f < 0 || f > 5)
-        return 1.0f;   /* not one of the six blood pool frames */
-    if (getenv("WR_GAMEPLAY_LOG")) {
-        static int m;
-        if (m++ % 300 == 0)
-            wr_log("scale: blood sprite %08X frame %d", spr, f);
-    }
-    /* by chance (fixed per pool: from its position) the normal or the bigger pool */
-    uint32_t h = wr_rd32(spr + 0x14) * 2654435761u ^ wr_rd32(spr + 0x18) * 40503u;
-    h ^= h >> 15;
-    return (h & 3) == 0 ? 1.6f : 1.0f;   /* about one pool in four is the big one */
-}

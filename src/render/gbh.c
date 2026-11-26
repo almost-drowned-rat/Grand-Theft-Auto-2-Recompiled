@@ -181,7 +181,7 @@ static int pipes_init(void)
     return 1;
 }
 
-extern float g_port_quad_scale;
+extern float g_port_quad_scale, g_port_quad_tint, g_port_quad_alpha;
 
 /* ---- batching --------------------------------------------------------------------------------- */
 
@@ -545,6 +545,18 @@ static void draw_core(uint32_t flags, uint32_t texva, uint32_t verts, uint32_t s
         q[i].v = rdf(v + 0x1C);
         q[i].rgba = (c & 0xFF00FF00u) | ((c >> 16) & 0xFFu) | ((c & 0xFFu) << 16);   /* ARGB -> RGBA bytes */
     }
+    if (g_port_quad_tint != 1.0f || g_port_quad_alpha != 1.0f) {   /* MORE BLOOD: drying pools */
+        for (int i = 0; i < n; i++) {
+            uint32_t c = q[i].rgba;
+            uint32_t r = (uint32_t)((float)(c & 0xFF) * g_port_quad_tint);
+            uint32_t g = (uint32_t)((float)(c >> 8 & 0xFF) * g_port_quad_tint);
+            uint32_t b = (uint32_t)((float)(c >> 16 & 0xFF) * g_port_quad_tint);
+            uint32_t a = (uint32_t)((float)(c >> 24) * g_port_quad_alpha);
+            q[i].rgba = r | g << 8 | b << 16 | a << 24;
+        }
+        if (g_port_quad_alpha < 1.0f && blend == BLEND_OPAQUE)
+            blend = BLEND_ALPHA;
+    }
     if (g_port_quad_scale != 1.0f && n == 4) {   /* the port draws this sprite bigger (MORE BLOOD) */
         float cx = (q[0].x + q[1].x + q[2].x + q[3].x) * 0.25f, cy = (q[0].y + q[1].y + q[2].y + q[3].y) * 0.25f;
         for (int i = 0; i < 4; i++) {
@@ -658,6 +670,7 @@ WR_HANDLER(gbh_DrawFlatRect)
 /* For the port's menus over the game: a see-through rectangle in game
  * screen pixels (rgba with alpha), drawn like gbh_DrawFlatRect but blended. */
 float g_port_quad_scale = 1.0f;   /* quads drawn meanwhile are scaled about their centre */
+float g_port_quad_tint = 1.0f, g_port_quad_alpha = 1.0f;   /* ... and darkened / see-through */
 
 void gbh_port_rect(float x, float y, float w, float h, uint32_t rgba)
 {

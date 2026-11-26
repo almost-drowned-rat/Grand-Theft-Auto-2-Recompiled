@@ -7,6 +7,6 @@
 int  gta2_body_before_tick(uint32_t ped);   /* 1: kept this tick (undo its count) */
 void gta2_blood_before_tick(uint32_t particle);
 int  gta2_more_blood(void);
-float gta2_sprite_scale(uint32_t sprite);
+void gta2_sprite_look(uint32_t sprite, float *scale, float *tint, float *alpha);
 
 #endif
