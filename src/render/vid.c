@@ -152,6 +152,14 @@ void gfx_flip(void)
         snprintf(path, sizeof path, "%s/frame_%06llu.png", g_wr_paths.data, (unsigned long long)g_gfx.frames);
         wr_vk_dump_target(g_gfx.target, path);
     }
+    if (g_wr_screenshot_request) {   /* F12: the game picture, no overlays, at the render resolution */
+        char path[1300];
+        g_wr_screenshot_request = 0;
+        if (wr_screenshot_path("gta2", path, sizeof path)) {
+            wr_vk_dump_target(g_gfx.target, path);
+            wr_log("screenshot: %s", path);
+        }
+    }
     int x, y, w, h;
     wr_vk_fit_rect(g_vk.extent.width, g_vk.extent.height, g_gfx.w, g_gfx.h, &x, &y, &w, &h);
     float black[4] = { 0, 0, 0, 1 };
