@@ -15,7 +15,7 @@ import sys
 sys.path.insert(0, __file__.rsplit("/", 1)[0])
 import gxt  # noqa: E402
 
-KEEP_ENGLISH = re.compile(r"^(credits|car\d+)$")
+KEEP_ENGLISH = re.compile(r"^credits$")   # vehicle names: per language (maintainer's choice)
 PORTRAIT = re.compile("[⅓Ⅻ-ⅺ]")
 
 

@@ -14,7 +14,9 @@ for pair in "$@"; do
     python3 -I - "$work/$lang" "$work/$lang.json" <<'P'
 import json, glob, sys
 d = {}
-for f in sorted(glob.glob(sys.argv[1] + "/part_*.json")) + [sys.argv[1] + "/keep_english.json"]:
+# parts, then the texts kept English, then the maintainer's choices for those (cars.json: vehicle names)
+for f in sorted(glob.glob(sys.argv[1] + "/part_*.json")) + [sys.argv[1] + "/keep_english.json"] + \
+        sorted(glob.glob(sys.argv[1] + "/cars.json")):
     d.update(json.load(open(f, encoding="utf-8")))
 json.dump(d, open(sys.argv[2], "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 P
