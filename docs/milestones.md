@@ -49,7 +49,7 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [x] Per-tick animations / HUD stay per tick; FRAME RATE line in the PERFORMANCE sub-menu
 
 ## M4c — Rumble + custom soundtracks (right after M4b, before M8; maintainer 2026-11-26)
-- [ ] Controller rumble: explosions make the controller rumble
+- [x] Controller rumble: explosions make the controller rumble (their sounds: 61182 / 127022 bytes, strength by volume; CONTROLS: RUMBLE; maintainer: "funktioniert alles", 2026-11-26)
 - [ ] Custom soundtracks
 
 ## M5 — Audio, video, input
