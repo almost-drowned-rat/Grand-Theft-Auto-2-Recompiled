@@ -634,6 +634,7 @@ void gta2_pause_tick(X86Ctx *ctx)
     /* Esc / START never reach the game in play: they open this menu (the
      * game's own "Is that it?" prompt is replaced by EXIT TO MAIN MENU) */
     g_wr_key_hidden[0x01] = (uint8_t)playing;
+    g_wr_key_hidden[0x42] = 1;   /* F8: the game would minimise and start the GTA2 Manager (gone) */
     if (!playing) {
         if (g_pause_open)
             pause_close(ctx, 0);

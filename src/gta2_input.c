@@ -19,7 +19,7 @@
 int wr_reg_get_dword(const char *key, const char *name, uint32_t *out);
 
 enum { ACT_UP, ACT_DOWN, ACT_LEFT, ACT_RIGHT, ACT_ATTACK, ACT_ENTER, ACT_JUMP, ACT_PREV, ACT_NEXT,
-       ACT_SPECIAL, ACT_SPECIAL2, ACT_STATUS, ACT_N, ACT_ESCAPE = 100 };
+       ACT_SPECIAL, ACT_SPECIAL2, ACT_STATUS, ACT_N, ACT_ESCAPE = 100, ACT_RADIO_NEXT, ACT_RADIO_PREV };
 
 static const uint8_t k_default_dik[ACT_N] = { 0xC8, 0xD0, 0xCB, 0xCD, 0x1D, 0x1C, 0x39, 0x2C, 0x2D, 0x0F, 0x38, 0x36 };
 
@@ -76,6 +76,7 @@ static uint8_t map_menu(int control)
  * Y          enter                         exit
  * B          special 1                     special 1
  * LB / RB    previous / next weapon
+ * d-pad up / down in a car: radio station next / previous (F2 / F1)
  * Back       special 3 (as CLASSIC), START the menu
  * The stick's direction on foot is set in the on-foot control step
  * (gta2_modern_on_foot, wrapper of sub_004A5C50); this table only presses
@@ -85,8 +86,10 @@ static int modern_action(int c, int driving)
     switch (c) {
     /* stick and d-pad alike (maintainer 2026-11-26) */
     case WR_PAD_LEFT_STICK_UP: case WR_PAD_LEFT_STICK_DOWN:
-    case WR_PAD_DPAD_UP: case WR_PAD_DPAD_DOWN:
         return driving ? -1 : ACT_UP;
+    /* in a car the d-pad's up / down change the radio station (F2 / F1) */
+    case WR_PAD_DPAD_UP: return driving ? ACT_RADIO_NEXT : ACT_UP;
+    case WR_PAD_DPAD_DOWN: return driving ? ACT_RADIO_PREV : ACT_UP;
     case WR_PAD_LEFT_STICK_LEFT: case WR_PAD_DPAD_LEFT: return driving ? ACT_LEFT : ACT_UP;
     case WR_PAD_LEFT_STICK_RIGHT: case WR_PAD_DPAD_RIGHT: return driving ? ACT_RIGHT : ACT_UP;
     case WR_PAD_RT: return driving ? ACT_UP : ACT_ATTACK;
@@ -110,6 +113,8 @@ static uint8_t map(int control)
         return 0;
     if (a == ACT_ESCAPE)
         return 0x01;
+    if (a == ACT_RADIO_NEXT || a == ACT_RADIO_PREV)
+        return a == ACT_RADIO_NEXT ? 0x3C : 0x3B;   /* F2 / F1 */
     uint32_t now = wr_time_ms();
     if (!g_dik_time || now - g_dik_time > 1000) {   /* follow the game's settings */
         g_dik_time = now;
