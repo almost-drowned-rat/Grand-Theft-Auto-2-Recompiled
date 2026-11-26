@@ -680,7 +680,7 @@ static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int 
             change(ctx, l, 1);
         }
     } else if ((left || right) && g_vp == VP_SHBROWSE) {
-        g_cur += right ? 10 : -10;   /* ten at a time (maintainer 2026-11-26) */
+        g_cur += right ? 5 : -5;   /* five at a time (maintainer 2026-11-26) */
         if (g_cur >= pg->n) g_cur = pg->n - 1;
         if (g_cur < 0) g_cur = 0;
         wr_wr32(FE_SOUND, right ? SND_DOWN : SND_UP);
