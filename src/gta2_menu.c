@@ -1152,10 +1152,20 @@ void gta2_pause_draw(X86Ctx *ctx)
  * centred near the top; MIXTAPE shows each new song too. Station numbers = the
  * GTAudio file numbers (docs/re/radio.md); 1 = Head Radio (the one file of double size,
  * two DJs). Unknown ones show their number until identified. */
-static const char *const k_station_name[12] = { "", "HEAD RADIO" };
+/* names and music from the maintainer's list (2026-11-26); numbers: 1 and 5 play in every
+ * district (Head Radio, Futuro FM), 2 / 3 / 4 are the district stations without a gang
+ * (Rockstar Radio downtown, KREZ residential, Lo-Fi FM industrial). 6..11 are the two gang
+ * stations of each district - which is which still to be heard (NULL: "STATION n"). */
+static const char *const k_station_name[12] = {
+    "", "HEAD RADIO", "ROCKSTAR RADIO", "KREZ", "LO-FI FM", "FUTURO FM",
+};
 static const char *const k_station_info[12][2] = {
     { "", "" },
     { "PHANNY JOE STYLES: FUNK, POP AND DANCE", "JOHNNY RICCARO: JAZZSTEP AND ROCK" },
+    { "ROCK, FUNK AND HOUSE", "" },
+    { "HIP HOP, RAP, JAZZSTEP AND INDUSTRIAL", "" },
+    { "FUNK, JAZZ, OLDIES AND CLASSIC ROCK", "" },
+    { "FUNK, DANCE AND CLASSIC ROCK", "" },
 };
 
 void gta2_radio_label_draw(X86Ctx *ctx)
