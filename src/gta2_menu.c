@@ -1193,10 +1193,10 @@ void gta2_radio_label_draw(X86Ctx *ctx)
         g_strbuf = wr_galloc(256);
     int sw = (int)g_gfx.w;
     /* small and high: above the game's own messages (maintainer 2026-11-26) */
-    uint32_t sc = P_FONT_SCALE / 2, tsc = P_HI_SCALE * 3 / 4;
+    uint32_t sc = P_FONT_SCALE * 3 / 4, tsc = P_HI_SCALE * 3 / 4;   /* the song line as it was (maintainer) */
     put_text(ctx, title, (sw - text_w(ctx, title, P_HI, tsc)) / 2, 22, P_HI, tsc);
     if (l1[0])
-        put_text(ctx, l1, (sw - text_w(ctx, l1, P_FONT, sc)) / 2, 38, P_FONT, sc);
+        put_text(ctx, l1, (sw - text_w(ctx, l1, P_FONT, sc)) / 2, 40, P_FONT, sc);
     if (l2[0])
-        put_text(ctx, l2, (sw - text_w(ctx, l2, P_FONT, sc)) / 2, 51, P_FONT, sc);
+        put_text(ctx, l2, (sw - text_w(ctx, l2, P_FONT, sc)) / 2, 62, P_FONT, sc);
 }
