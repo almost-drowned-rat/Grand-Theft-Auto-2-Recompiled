@@ -67,7 +67,8 @@ static uint8_t map_menu(int control)
 
 /* ---- MODERN (maintainer 2026-11-26) -----------------------------------------------------
  *            on foot                       in a car
- * stick      walk where it points          steer (left / right)
+ * stick and  walk where it points          steer (left / right)
+ * d-pad      (8 directions on the d-pad)
  * R2         attack                        gas
  * L2         -                             brake / reverse
  * A          jump                          handbrake
@@ -82,17 +83,19 @@ static uint8_t map_menu(int control)
 static int modern_action(int c, int driving)
 {
     switch (c) {
+    /* stick and d-pad alike (maintainer 2026-11-26) */
     case WR_PAD_LEFT_STICK_UP: case WR_PAD_LEFT_STICK_DOWN:
+    case WR_PAD_DPAD_UP: case WR_PAD_DPAD_DOWN:
         return driving ? -1 : ACT_UP;
-    case WR_PAD_LEFT_STICK_LEFT: return driving ? ACT_LEFT : ACT_UP;
-    case WR_PAD_LEFT_STICK_RIGHT: return driving ? ACT_RIGHT : ACT_UP;
+    case WR_PAD_LEFT_STICK_LEFT: case WR_PAD_DPAD_LEFT: return driving ? ACT_LEFT : ACT_UP;
+    case WR_PAD_LEFT_STICK_RIGHT: case WR_PAD_DPAD_RIGHT: return driving ? ACT_RIGHT : ACT_UP;
     case WR_PAD_RT: return driving ? ACT_UP : ACT_ATTACK;
     case WR_PAD_LT: return driving ? ACT_DOWN : -1;
     case WR_PAD_SOUTH: return ACT_JUMP;
     case WR_PAD_WEST: return ACT_ATTACK;
     case WR_PAD_NORTH: return ACT_ENTER;
     case WR_PAD_EAST: return ACT_SPECIAL;
-    default: return pad_action(c);   /* d-pad, LB/RB, Back, START as CLASSIC */
+    default: return pad_action(c);   /* LB/RB, Back, START as CLASSIC */
     }
 }
 

@@ -49,12 +49,17 @@ void gta2_modern_on_foot(uint32_t player, uint32_t ped)
 {
     if (opt_get(OPT_CONTROL_SCHEME) != 1 || !player || !ped || !wr_mem_valid(ped, 0x180))
         return;
-    float sx, sy;
-    if (!wr_pad_stick(&sx, &sy))
-        return;
+    float sx = 0, sy = 0;
+    wr_pad_stick(&sx, &sy);
     float mag = sqrtf(sx * sx + sy * sy);
+    int dx, dy;
+    if (mag < 0.3f && wr_pad_dpad(&dx, &dy)) {   /* the d-pad as a full push in 8 directions */
+        sx = (float)dx;
+        sy = (float)dy;
+        mag = 1.0f;
+    }
     if (mag < 0.3f)
-        return;   /* centred: the game's own result (d-pad tank controls) stays */
+        return;   /* centred: nothing to steer */
     uint32_t obj = wr_rd32(ped + 0x168);
     if (!obj || !wr_mem_valid(obj + 0x40, 2))
         return;
