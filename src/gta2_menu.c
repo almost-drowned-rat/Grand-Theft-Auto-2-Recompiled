@@ -728,10 +728,19 @@ int gta2_menu_input(X86Ctx *ctx)
             return 1;
         }
     }
+    if (g_after_quit && getenv("WR_MENU_LOG")) {
+        static uint16_t lp = 0xFFFF;
+        if (page != lp)
+            wr_log("menu: after quit, page %u", page);
+        lp = page;
+    }
     if (page == 11 && g_after_quit) {   /* PLAYER QUIT! after the pause menu's choice */
         if (g_after_quit == 1) {
             uint32_t a = 0;
             call_this(ctx, FN_GOTO_PAGE, f, 1, &a);
+            for (int i = 0; i < 7; i++)   /* the YES press must not also choose PLAY on the main menu */
+                wr_wr8(f + FE_EDGE + i, 0);
+            g_post_cursor = 0;
         } else if (g_after_quit == 3) {
             g_post_quit = 1;   /* EXIT GAME: the frontend's result "quit" */
         } else {   /* REPLAY PREVIOUS AREA: the game's own restart */
