@@ -67,6 +67,7 @@ int main(int argc, char **argv)
     wr_register_miles();
     gta2_rumble_init();
     gta2_mixtape_init();   /* MIXTAPE: the albums in media/ */
+    gta2_radio_test_init();
     wr_set_thread_hook(gta2_thread_hook);
     gta2_registry_defaults();
     opt_load_all();   /* RECOMP OPTIONS from settings.ini (sets the gameplay width) */

@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 static MediaLibrary g_lib;
 static MediaPlaylist g_pl;
@@ -205,7 +206,45 @@ const char *gta2_mixtape_song(void)
 #define MGR 0x005DCBC8u
 static int g_mix_on, g_key_dir, g_audible;
 static uint32_t g_station;
-uint32_t gta2_radio_station(void) { return g_station; }   /* the game station playing (1..11), 0 none */
+/* GTA2_RADIO_TEST=1 (maintainer 2026-11-26): Downtown's stations 1 5 7 6 play the files of 8 9 10 11, so the
+ * names of the Residential / Industrial gang stations can be told by ear at once; the label shows the file. */
+static int radio_test(void)
+{
+    static int t = -1;
+    if (t < 0) {
+        const char *e = getenv("GTA2_RADIO_TEST");
+        t = e && *e == '1';
+    }
+    return t;
+}
+
+static int test_map(uint32_t n) { return n == 1 ? 8 : n == 5 ? 9 : n == 7 ? 10 : n == 6 ? 11 : (int)n; }
+
+static const char *radio_test_map(const char *rel)
+{
+    /* data/gtaudio/<n>.wav or <n>a.wav, any case */
+    const char *f = strrchr(rel, '/');
+    f = f ? f + 1 : rel;
+    if (strncasecmp(rel, "data/gtaudio/", 13) != 0)
+        return NULL;
+    char *end;
+    long n = strtol(f, &end, 10);
+    if (end == f || test_map((uint32_t)n) == n)
+        return NULL;
+    static char out[64];
+    snprintf(out, sizeof out, "data/GTAudio/%d%s", test_map((uint32_t)n), end);
+    return out;
+}
+
+void gta2_radio_test_init(void)
+{
+    if (radio_test()) {
+        g_wr_read_map = radio_test_map;
+        wr_log("radio test: Downtown 1 5 7 6 play 8 9 10 11");
+    }
+}
+
+uint32_t gta2_radio_station(void) { return radio_test() ? (uint32_t)test_map(g_station) : g_station; }   /* 1..11, 0 none */
 static uint32_t g_mix_car;
 
 int gta2_mixtape_on(void) { return g_mix_on; }

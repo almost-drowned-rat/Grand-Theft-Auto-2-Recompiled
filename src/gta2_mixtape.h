@@ -20,4 +20,5 @@ void gta2_radio_before_volume(void);
 void gta2_radio_after_tick(void);
 void gta2_radio_stopped(void);
 uint32_t gta2_radio_station(void);
+void gta2_radio_test_init(void);   /* GTA2_RADIO_TEST=1 */
 #endif
