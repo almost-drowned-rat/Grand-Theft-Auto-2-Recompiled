@@ -468,22 +468,28 @@ void sub_0048CC50(RECOMP_PARAMS)   /* creates a blood pool at (x, y, z), stdcall
      * random side (two more pools leading away - e.g. next to the head;
      * maintainer 2026-11-26) */
     static uint32_t rnd = 0x2545F491u;
-    rnd = rnd * 1664525u + 1013904223u + x * 31u + y;
+    rnd ^= x * 2654435761u ^ y * 40503u;
+    rnd ^= rnd << 13; rnd ^= rnd >> 17; rnd ^= rnd << 5;   /* xorshift: a fresh coin each time */
     int32_t off[4][2];
     int n;
-    if (rnd >> 31) {
-        static const int32_t cross[4][2] = { { 3000, 0 }, { -3000, 0 }, { 0, 3000 }, { 0, -3000 } };
+    if (rnd & 1) {   /* around the body: four overlapping pools, 0.12 block each way */
+        static const int32_t cross[4][2] = { { 2000, 300 }, { -2000, -300 }, { -300, 2000 }, { 300, -2000 } };
         memcpy(off, cross, sizeof cross);
         n = 4;
-    } else {
+    } else {         /* beside it: two pools running off to one side, overlapping, slightly bent */
         static const int32_t dir[8][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
                                            { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } };
-        int d = (int)(rnd >> 8) & 7;
-        int32_t step = (d < 4 ? 3600 : 2550);   /* the same distance on the diagonals */
-        off[0][0] = dir[d][0] * step;     off[0][1] = dir[d][1] * step;
-        off[1][0] = dir[d][0] * step * 2; off[1][1] = dir[d][1] * step * 2;
+        int d = (int)(rnd >> 4) & 7;
+        int32_t step = d < 4 ? 2000 : 1420;            /* the same distance on the diagonals */
+        int32_t bend = ((int32_t)(rnd >> 8) & 1) ? 600 : -600;
+        off[0][0] = dir[d][0] * step + dir[d][1] * bend / 2;
+        off[0][1] = dir[d][1] * step - dir[d][0] * bend / 2;
+        off[1][0] = dir[d][0] * step * 2 + dir[d][1] * bend;
+        off[1][1] = dir[d][1] * step * 2 - dir[d][0] * bend;
         n = 2;
     }
+    if (getenv("WR_GAMEPLAY_LOG"))
+        wr_log("blood: %s", n == 4 ? "around" : "beside");
     for (int i = 0; i < n; i++) {
         uint32_t a[3] = { x + (uint32_t)off[i][0], y + (uint32_t)off[i][1], z };
         ctx->r_ecx = ecx;
