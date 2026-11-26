@@ -55,9 +55,9 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 
 /* ---- pages -------------------------------------------------------------------------------- */
 
-enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CHEATS, VP_COUNT };
+enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CHEATS, VP_EXIT, VP_COUNT };
 enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK };
-enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER };
+enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES };
 enum { VOL_MUSIC, VOL_SFX };
 
 typedef struct { const char *label; int kind, arg; } mline;
@@ -112,6 +112,9 @@ static const mline l_lang_changed[] = {
     { "RESTART LATER", L_ACTION, ACT_RESTART_LATER },
 };
 static mline l_cheats[N_CHEATS + 1];
+/* EXIT GAME? - B / Esc on the main menu and EXIT GAME ask first (maintainer
+ * 2026-11-26; the game quit at once, through the credits) */
+static const mline l_exit[] = { { "NO", L_ACTION, ACT_EXIT_NO }, { "YES", L_ACTION, ACT_EXIT_YES } };
 
 static mpage g_pages[VP_COUNT] = {
     [VP_ROOT]    = { "RECOMP OPTIONS", -1, l_root, 5 },
@@ -120,6 +123,7 @@ static mpage g_pages[VP_COUNT] = {
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 1 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
+    [VP_EXIT]    = { "EXIT GAME?", -1, l_exit, 2 },
 };
 
 /* ---- state --------------------------------------------------------------------------------- */
@@ -313,14 +317,32 @@ static void page_defaults(X86Ctx *ctx)
     wr_wr32(FE_SOUND, SND_VALUE);
 }
 
+static int g_post_cursor = -1, g_post_quit;
+
+/* After the game's own input step (it rewrites the result and the cursor). */
+void gta2_menu_after_input(void)
+{
+    uint32_t f = fe();
+    if (!f)
+        return;
+    if (g_post_cursor >= 0) {
+        wr_wr16(f + FE_PAGES + 0xBC6, (uint16_t)g_post_cursor);
+        g_post_cursor = -1;
+    }
+    if (g_post_quit) {
+        wr_wr32(f + 0x108, 1);   /* the frontend's result: quit the program */
+        g_post_quit = 0;
+    }
+}
+
 static void go_back(X86Ctx *ctx, uint32_t f)
 {
     int parent = g_pages[g_vp].parent;
     wr_wr32(FE_SOUND, SND_BACK);
-    if (parent < 0) {   /* leave to the main menu, cursor on OPTIONS */
+    if (parent < 0) {   /* leave to the main menu, cursor on the line that led here */
         uint32_t a = 0;
         call_this(ctx, FN_GOTO_PAGE, f, 1, &a);
-        wr_wr16(f + FE_PAGES + 0xBC6, 1);
+        g_post_cursor = g_vp == VP_EXIT ? 2 : 1;   /* set after the game's input step */
         return;
     }
     g_vp = parent;
@@ -365,6 +387,22 @@ int gta2_menu_input(X86Ctx *ctx)
         if (e && n++ < 50)
             wr_log("menu: page %u edges %08X %08X", page, wr_rd32(f + FE_EDGE), wr_rd32(f + FE_EDGE + 4));
     }
+    if (page == 0 && wr_rd16(f + 0x122) == 3) {   /* main menu: Esc, or Enter on EXIT GAME */
+        int esc0 = wr_rd8(f + FE_EDGE + 5);
+        int exit0 = wr_rd8(f + FE_EDGE + 4) && wr_rd16(f + FE_PAGES + 0xBC6) == 2;
+        if (esc0 || exit0) {
+            wr_wr8(f + FE_EDGE + 4, 0);
+            wr_wr8(f + FE_EDGE + 5, 0);
+            uint32_t a = PORT_PAGE;
+            call_this(ctx, FN_GOTO_PAGE, f, 1, &a);
+            lang_init();
+            g_vp = VP_EXIT;
+            g_cur = g_top = 0;   /* NO */
+            g_last_page = PORT_PAGE;
+            wr_wr32(FE_SOUND, SND_SELECT);
+            return 1;
+        }
+    }
     if (page != PORT_PAGE) {
         g_last_page = page;
         return 0;
@@ -399,6 +437,10 @@ int gta2_menu_input(X86Ctx *ctx)
             wr_wr32(FE_SOUND, SND_SELECT);
         } else if (l->kind == L_BACK) {
             go_back(ctx, f);
+        } else if (l->kind == L_ACTION && l->arg == ACT_EXIT_NO) {
+            go_back(ctx, f);
+        } else if (l->kind == L_ACTION && l->arg == ACT_EXIT_YES) {
+            g_post_quit = 1;   /* the frontend's result, set after the game's input step */
         } else if (l->kind == L_ACTION && l->arg == ACT_RESTART_NOW) {
             wr_restart();
         } else if (l->kind == L_ACTION && l->arg == ACT_RESTART_LATER) {

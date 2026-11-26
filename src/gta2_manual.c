@@ -340,6 +340,7 @@ void sub_004597C0(RECOMP_PARAMS)   /* menu input step (thiscall fe) */
     gta2_menu_input(ctx);          /* page 12: takes and clears the edge flags */
     ctx->r_ecx = self;
     sub_004597C0_gen(ctx, base);
+    gta2_menu_after_input();
 }
 
 extern void sub_00457920_gen(RECOMP_PARAMS);
