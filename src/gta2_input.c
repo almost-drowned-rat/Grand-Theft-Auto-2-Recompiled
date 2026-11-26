@@ -75,12 +75,13 @@ static uint8_t map_menu(int control)
  * A          sprint (1.5 s, every 10 s)      gas
  * X          attack                        brake / reverse
  * B          jump                          handbrake
- * L3         special 1                     special 1
+ * L3         special 3                     special 3
+ * R3         special 1                     special 1
  * R2         attack                        attack
  * L2         special 2                     special 1
  * Y          enter                         exit
  * LB / RB    previous / next weapon
- * R3 special 3, START the menu, Select unused
+ * START the menu, Select unused
  * The stick's direction on foot is set in the on-foot control step
  * (gta2_modern_on_foot, wrapper of sub_004A5C50); this table only presses
  * "forward" while the stick is pushed. */
@@ -102,7 +103,8 @@ static int modern_action(int c, int driving)
     case WR_PAD_SOUTH: return driving ? ACT_UP : -1;     /* on foot: SPRINT (gta2_state.c) */
     case WR_PAD_WEST: return driving ? ACT_DOWN : ACT_ATTACK;
     case WR_PAD_EAST: return ACT_JUMP;                   /* jump on foot, handbrake in a car */
-    case WR_PAD_LSTICK: return ACT_SPECIAL;              /* special 1 on L3 */
+    case WR_PAD_LSTICK: return ACT_STATUS;               /* special 3 on L3 */
+    case WR_PAD_RSTICK: return ACT_SPECIAL;              /* special 1 on R3 */
     case WR_PAD_LT: return driving ? ACT_SPECIAL : ACT_SPECIAL2;
     case WR_PAD_NORTH: return ACT_ENTER;
     default: return pad_action(c);   /* LB/RB, Back, START as CLASSIC */
