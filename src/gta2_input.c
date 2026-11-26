@@ -98,7 +98,9 @@ static int modern_action(int c, int driving)
 
 static uint8_t map(int control)
 {
-    if ((g_gta2_frontend_ms && wr_time_ms() - g_gta2_frontend_ms < 250) || gta2_pause_open())
+    if (gta2_pause_open())   /* the pause menu: START closes it again (it opened it) */
+        return control == WR_PAD_START ? 0x01 : map_menu(control);
+    if (g_gta2_frontend_ms && wr_time_ms() - g_gta2_frontend_ms < 250)
         return map_menu(control);
     int a = opt_get(OPT_CONTROL_SCHEME) == 1 ? modern_action(control, gta2_player_driving()) : pad_action(control);
     if (a < 0)

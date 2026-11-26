@@ -59,10 +59,10 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 /* ---- pages -------------------------------------------------------------------------------- */
 
 enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
-       VP_COUNT };
+       VP_QUITPROG, VP_COUNT };
 enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
-       ACT_RESTART_YES, ACT_NO };
+       ACT_RESTART_YES, ACT_NO, ACT_QUITPROG_YES };
 enum { VOL_MUSIC, VOL_SFX };
 
 typedef struct { const char *label; int kind, arg; } mline;
@@ -124,8 +124,10 @@ static const mline l_exit[] = { { "NO", L_ACTION, ACT_EXIT_NO }, { "YES", L_ACTI
 /* the pause menu over the game (START / Esc in play; maintainer 2026-11-26) */
 static const mline l_pause[] = {
     { "RESUME", L_ACTION, ACT_RESUME }, { "RECOMP OPTIONS", L_PAGE, VP_ROOT },
-    { "RESTART AREA", L_PAGE, VP_RESTART }, { "EXIT TO MAIN MENU", L_PAGE, VP_QUIT },
+    { "RESTART AREA", L_PAGE, VP_RESTART }, { "EXIT GAME", L_PAGE, VP_QUITPROG },
+    { "EXIT TO MAIN MENU", L_PAGE, VP_QUIT },
 };
+static const mline l_quitprog[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION, ACT_QUITPROG_YES } };
 static const mline l_quit[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION, ACT_QUIT_YES } };
 static const mline l_restart[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION, ACT_RESTART_YES } };
 
@@ -138,7 +140,8 @@ static mpage g_pages[VP_COUNT] = {
     [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 1 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
     [VP_EXIT]    = { "EXIT GAME?", -1, l_exit, 2 },
-    [VP_PAUSE]   = { "PAUSED", -1, l_pause, 4 },
+    [VP_PAUSE]   = { "PAUSED", -1, l_pause, 5 },
+    [VP_QUITPROG] = { "EXIT GAME?", VP_PAUSE, l_quitprog, 2 },
     [VP_QUIT]    = { "EXIT TO MAIN MENU?", VP_PAUSE, l_quit, 2 },
     [VP_RESTART] = { "RESTART AREA?", VP_PAUSE, l_restart, 2 },
 };
@@ -340,7 +343,7 @@ static int g_post_cursor = -1, g_post_quit;
 enum { HOST_FRONTEND, HOST_PAUSE };
 static int g_host = HOST_FRONTEND;
 static int g_pause_open;
-static int g_after_quit;   /* 1: land on the main menu, 2: restart the area (page 11 REPLAY) */
+static int g_after_quit;   /* 1: land on the main menu, 2: restart the area (page 11 REPLAY), 3: exit */
 
 #define FN_PAUSE      0x0045A6E0u   /* thiscall game: state 2 (single player) */
 #define FN_RESUME     0x0045BA60u   /* thiscall game: state 1, flushes input */
@@ -455,6 +458,16 @@ static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int 
                 g_after_quit = l->arg == ACT_QUIT_YES ? 1 : 2;
             }
             pause_close(ctx, 0);
+        } else if (l->kind == L_ACTION && l->arg == ACT_QUITPROG_YES) {
+            /* as EXIT TO MAIN MENU (the progress is stored), then the
+             * frontend quits at once (reason 1 "close the window" crashes
+             * from a running game) */
+            uint32_t g = gta2_game(), a2[2] = { 1, 2 };
+            if (g) {
+                call_this(ctx, FN_END_GAME, g, 2, a2);
+                g_after_quit = 3;
+            }
+            pause_close(ctx, 0);
         } else if (l->kind == L_ACTION && l->arg == ACT_UNLOCK_AREAS) {
             call_this(ctx, FN_UNLOCK_ALL, wr_rd32(PROFILES_PTR), 0, NULL);
             wr_wr32(FE_SOUND, 9);   /* the game's "cheat accepted" sound */
@@ -509,6 +522,8 @@ int gta2_menu_input(X86Ctx *ctx)
         if (g_after_quit == 1) {
             uint32_t a = 0;
             call_this(ctx, FN_GOTO_PAGE, f, 1, &a);
+        } else if (g_after_quit == 3) {
+            g_post_quit = 1;   /* EXIT GAME: the frontend's result "quit" */
         } else {   /* REPLAY PREVIOUS AREA: the game's own restart */
             wr_wr16(f + FE_PAGES + 11 * PAGE_SIZE + 0xBC6, 1);
             wr_wr8(f + FE_EDGE + 4, 1);
@@ -658,7 +673,7 @@ int gta2_pause_hide_panel(void) { return g_pause_open; }
 #define P_FONT  1      /* the level style's HUD font (fonts 3 and 4 do not exist in play: never use them) */
 #define P_HI    6      /* the "PAUSED" font for the title and the chosen line */
 #define P_FONT_SCALE 0x4000u   /* the look the maintainer chose (2026-11-26) */
-#define P_HI_SCALE   0x3000u
+#define P_HI_SCALE   0x2000u   /* font 6 at half size = font 1's height */
 
 /* After the game drew its HUD (sub_004CA440, inside Begin/EndScene). */
 void gta2_pause_draw(X86Ctx *ctx)
