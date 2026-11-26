@@ -38,7 +38,8 @@ static int pad_action(int c)
     case WR_PAD_RB: return ACT_NEXT;
     case WR_PAD_NORTH: return ACT_SPECIAL;
     case WR_PAD_LT: return ACT_SPECIAL2;
-    case WR_PAD_RSTICK: return ACT_STATUS;   /* special 3 on R3 (maintainer 2026-11-26) */
+    case WR_PAD_LSTICK: return ACT_STATUS;   /* special 3 on L3 (maintainer 2026-11-26, both schemes) */
+    case WR_PAD_BACK: return ACT_SPECIAL2;   /* special 2 on Select (both schemes) */
     /* the radio (it changes only in a car): right stick left / right (maintainer 2026-11-26) */
     case WR_PAD_RIGHT_STICK_LEFT: return ACT_RADIO_PREV;
     case WR_PAD_RIGHT_STICK_RIGHT: return ACT_RADIO_NEXT;
@@ -81,7 +82,7 @@ static uint8_t map_menu(int control)
  * L2         special 2                     special 1
  * Y          enter                         exit
  * LB / RB    previous / next weapon
- * START the menu, Select unused
+ * Select special 2, START the menu
  * The stick's direction on foot is set in the on-foot control step
  * (gta2_modern_on_foot, wrapper of sub_004A5C50); this table only presses
  * "forward" while the stick is pushed. */
@@ -103,8 +104,7 @@ static int modern_action(int c, int driving)
     case WR_PAD_SOUTH: return driving ? ACT_UP : -1;     /* on foot: SPRINT (gta2_state.c) */
     case WR_PAD_WEST: return driving ? ACT_DOWN : ACT_ATTACK;
     case WR_PAD_EAST: return ACT_JUMP;                   /* jump on foot, handbrake in a car */
-    case WR_PAD_LSTICK: return ACT_STATUS;               /* special 3 on L3 */
-    case WR_PAD_RSTICK: return ACT_SPECIAL;              /* special 1 on R3 */
+    case WR_PAD_RSTICK: return ACT_SPECIAL;              /* special 1 on R3 (L3 special 3, Select special 2: as CLASSIC) */
     case WR_PAD_LT: return driving ? ACT_SPECIAL : ACT_SPECIAL2;
     case WR_PAD_NORTH: return ACT_ENTER;
     default: return pad_action(c);   /* LB/RB, Back, START as CLASSIC */
@@ -127,7 +127,7 @@ static const struct { const char *label; int act; } k_fn[GTA2_BIND_N] = {
 };
 static const int k_bind_default[GTA2_BIND_N] = {
     WR_PAD_DPAD_UP, WR_PAD_DPAD_DOWN, WR_PAD_DPAD_LEFT, WR_PAD_DPAD_RIGHT, WR_PAD_WEST, WR_PAD_SOUTH,
-    WR_PAD_EAST, WR_PAD_LB, WR_PAD_RB, WR_PAD_NORTH, WR_PAD_LT, WR_PAD_RSTICK, WR_PAD_RIGHT_STICK_RIGHT,
+    WR_PAD_EAST, WR_PAD_LB, WR_PAD_RB, WR_PAD_NORTH, WR_PAD_BACK, WR_PAD_LSTICK, WR_PAD_RIGHT_STICK_RIGHT,
     WR_PAD_RIGHT_STICK_LEFT, WR_PAD_START,
 };
 static int g_bind[GTA2_BIND_N];
