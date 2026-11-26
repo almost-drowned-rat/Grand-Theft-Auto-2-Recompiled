@@ -411,26 +411,26 @@ typedef struct ov_row {
 
 static const ov_row k_ov[] = {
     { "ON FOOT", NULL, NULL, -1, NULL },
-    { "WALK", "D-PAD / STICK", "STICK / D-PAD (ANY WAY)", -2, "W A S D (ANY WAY)" },
-    { "TURN / AIM", "D-PAD / STICK", "R-STICK", -3, "MOUSE" },
-    { "ATTACK", "X / RT", "X / RT", ACT_ATTACK, "LEFT MOUSE" },
-    { "JUMP", "B", "B", ACT_JUMP, "RIGHT MOUSE / SPACE" },
+    { "WALK", "STICK / D-PAD", "STICK / D-PAD", -2, "W A S D" },
+    { "TURN / AIM", "STICK / D-PAD", "R-STICK", -3, "MOUSE" },
+    { "ATTACK", "X / RT", "X / RT", ACT_ATTACK, "L MOUSE" },
+    { "JUMP", "B", "B", ACT_JUMP, "R MOUSE / SPACE" },
     { "SPRINT", "L3", "A", BIND_SPRINT, "LEFT SHIFT" },
     { "ENTER VEHICLE", "A", "Y", ACT_ENTER, "E" },
-    { "PREVIOUS WEAPON", "LB", "LB", ACT_PREV, "Q / WHEEL DOWN" },
-    { "NEXT WEAPON", "RB", "RB", ACT_NEXT, "R / WHEEL UP" },
+    { "PREVIOUS WEAPON", "LB", "LB", ACT_PREV, "Q / WHEEL" },
+    { "NEXT WEAPON", "RB", "RB", ACT_NEXT, "R / WHEEL" },
     { "SPECIAL 1", "Y", "R3", ACT_SPECIAL, "F" },
     { "SPECIAL 2", "LT", "SELECT / LT", ACT_SPECIAL2, "G" },
     { "SPECIAL 3", "R3", "L3", ACT_STATUS, "C" },
     { "MENU", "START", "START", -4, "ESC" },
     { "IN A CAR", NULL, NULL, -1, NULL },
-    { "GAS", "D-PAD UP / STICK UP", "A", ACT_UP, "W" },
-    { "BRAKE / REVERSE", "D-PAD DOWN / STICK DOWN", "X", ACT_DOWN, "S" },
-    { "STEER", "D-PAD / STICK LEFT RIGHT", "STICK / D-PAD LEFT RIGHT", -5, "A / D" },
-    { "HANDBRAKE", "B", "B", ACT_JUMP, "RIGHT MOUSE / SPACE" },
-    { "ATTACK", "X / RT", "RT", ACT_ATTACK, "LEFT MOUSE" },
+    { "GAS", "STICK / D-PAD UP", "A", ACT_UP, "W" },
+    { "BRAKE / REVERSE", "STICK / D-PAD DOWN", "X", ACT_DOWN, "S" },
+    { "STEER", "STICK / D-PAD L R", "STICK / D-PAD L R", -5, "A / D" },
+    { "HANDBRAKE", "B", "B", ACT_JUMP, "R MOUSE / SPACE" },
+    { "ATTACK", "X / RT", "RT", ACT_ATTACK, "L MOUSE" },
     { "EXIT VEHICLE", "A", "Y", ACT_ENTER, "E" },
-    { "RADIO", "R-STICK LEFT RIGHT", "R-STICK LEFT RIGHT", -6, "ARROW LEFT / RIGHT" },
+    { "RADIO", "R-STICK L R", "R-STICK L R", -6, "ARROWS L R" },
     { "SPECIAL 1", "Y", "R3 / LT", ACT_SPECIAL, "F" },
 };
 
@@ -444,9 +444,9 @@ static const char *pad_key(const char *t)
     static const char *const m[][2] = {
         { "A", "K" }, { "B", "L" }, { "X", "J" }, { "Y", "I" }, { "LB", "U" }, { "RB", "O" }, { "LT", "Z" },
         { "RT", "P" }, { "START", "ENTER" }, { "SELECT", "BACKSPACE" }, { "D-PAD", "ARROWS" },
-        { "STICK", "W A S D" }, { "D-PAD UP", "ARROW UP" }, { "D-PAD DOWN", "ARROW DOWN" },
-        { "STICK UP", "W" }, { "STICK DOWN", "S" }, { "D-PAD LEFT RIGHT", "ARROWS LEFT RIGHT" },
-        { "STICK LEFT RIGHT", "A D" },
+        { "STICK", "W A S D" }, { "D-PAD UP", "ARROW UP" }, { "D-PAD DOWN", "ARROW DOWN" }, { "D-PAD L R", "ARROWS L R" },
+        { "STICK / D-PAD UP", "W" }, { "STICK / D-PAD DOWN", "S" }, { "R-STICK L R", NULL },
+        { "STICK UP", "W" }, { "STICK DOWN", "S" }, { "STICK L R", "A D" },
     };
     for (size_t i = 0; i < sizeof m / sizeof m[0]; i++)
         if (!strcmp(t, m[i][0]))
@@ -503,7 +503,7 @@ void gta2_overview_value(int i, char *out, size_t cap)
     else if (r->act >= 0)
         wr_key_name(key_of(r->act), key, sizeof key);
     else {
-        static const char *const fixed[] = { "", "", "ARROWS", "ARROWS", "ESC", "ARROW LEFT / RIGHT", "F1 / F2" };
+        static const char *const fixed[] = { "", "", "ARROWS", "ARROWS", "ESC", "ARROWS L R", "F1 / F2" };
         snprintf(key, sizeof key, "%s", fixed[-r->act]);
     }
     snprintf(out, cap, "%s   |   %s", pad, key);
