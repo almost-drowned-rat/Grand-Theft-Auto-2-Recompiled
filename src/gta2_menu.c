@@ -31,6 +31,7 @@
 #include "platform/wr_platform.h"
 #include "wr.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -301,6 +302,46 @@ static void build_params_page(void)
         l_shparams[n++] = (mline){ gta2_shader_on() ? "NO PARAMETERS OR STILL LOADING" : "NO SHADER IN USE",
                                    L_ACTION, 0 };
     g_pages[VP_SHPARAMS].n = n;
+}
+
+/* the browser: left / right jump to the previous / next initial letter
+ * (OFF and BACK on top are not part of the letters) */
+static char item_letter(int i)
+{
+    const char *t = l_browse[i].label;
+    return (char)toupper((unsigned char)(t ? t[0] : 0));
+}
+
+static void browse_letter_jump(int d)
+{
+    int n = g_pages[VP_SHBROWSE].n, first = 0;
+    while (first < n && l_browse[first].kind == L_SHITEM &&
+           (g_browse_items[l_browse[first].arg].kind == SI_NONE || g_browse_items[l_browse[first].arg].kind == SI_UP))
+        first++;
+    if (first >= n)
+        return;
+    int i = g_cur < first ? (d > 0 ? first - 1 : first) : g_cur;
+    if (d > 0) {
+        char c = i >= first ? item_letter(i) : 0;
+        do i++; while (i < n && item_letter(i) == c);
+        if (i >= n)
+            return;   /* already at the last letter */
+    } else {
+        if (i <= first) {
+            g_cur = first;
+            return;
+        }
+        char c = item_letter(i);
+        while (i > first && item_letter(i - 1) == c)   /* to the start of this letter ... */
+            i--;
+        if (i == g_cur && i > first) {                 /* ... or of the one before */
+            c = item_letter(i - 1);
+            i--;
+            while (i > first && item_letter(i - 1) == c)
+                i--;
+        }
+    }
+    g_cur = i;
 }
 
 static void build_mapping_page(void)
@@ -650,6 +691,9 @@ static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int 
         } else {
             change(ctx, l, 1);
         }
+    } else if ((left || right) && g_vp == VP_SHBROWSE) {
+        browse_letter_jump(right ? 1 : -1);   /* letter by letter (maintainer 2026-11-26) */
+        wr_wr32(FE_SOUND, right ? SND_DOWN : SND_UP);
     } else if (left || right) {
         change(ctx, l, right ? 1 : -1);
     }
