@@ -463,6 +463,17 @@ static void draw_core(uint32_t flags, uint32_t texva, uint32_t verts, uint32_t s
     }
     if (g_trace && (uint32_t)g_trace == (uint32_t)g_gfx.frames && wr_mem_valid(verts, 0x80))
         trace_draw(quad ? "quad" : "tri", flags, texva, verts, n);
+    if (g_trace && (uint32_t)g_trace == (uint32_t)g_gfx.frames && (flags & 0x10000u) && rdf(verts) > 420.0f &&
+        rdf(verts + 4) < 60.0f) {
+        char b[256];
+        size_t o = 0;
+        for (uint32_t k = 0; k < 64 && o < sizeof b - 12; k++) {
+            uint32_t w = MEM32(g_wr_main_ctx->r_esp + 4 * k);
+            if (w >= 0x401000 && w < 0x56E000)
+                o += (size_t)snprintf(b + o, sizeof b - o, " %08X", w);
+        }
+        wr_log("HUD sprite at %.1f,%.1f, guest stack code words:%s", rdf(verts), rdf(verts + 4), b);
+    }
     if (!wr_mem_valid(verts, 0x20u * (uint32_t)n))
         return;
     if (rdf(verts + 8) <= 0.0f)

@@ -35,8 +35,10 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [x] Native replacement for d3ddll.dll (gbh_*: textures, palettes, polygons, lights, DrawLine)
 - [x] Vulkan 1.1 backend (swapchain, pipelines, texture cache), no 1.2+ dependency
 - [x] Offscreen game image at RENDER RESOLUTION, final pass to the swapchain (ASPECT RATIO 4:3/16:9/16:10/21:9 as option-c/p: real wider view of the city, never stretched; frontend pillarboxed)
-- [ ] Slang shaders (RetroArch) via librashader, shader packs from media/shaders (option-c feature)
-- [ ] V-Sync, FRAME RATE 30/60/120 (PERFORMANCE sub-menu)
+- [x] Slang shaders (RetroArch) via librashader (built from source, Vulkan only); shader packs + menu with M6
+- [x] Real widescreen 16:9/16:10/21:9 (Hor+, all cameras, HUD anchored; 4:3 byte-identical to the original); verify pager/mission texts + fast-car zoom-out in M6
+- [x] No busy-wait: menu + game loop sleep to their deadline (100 % -> ~3 % of a core), timing exact (30.3 Hz)
+- [ ] V-Sync (done: WR_VSYNC), FRAME RATE 60/120 = interpolated extra frames between 30 Hz logic ticks (docs/re/framerate.md; logic is frame-locked)
 - [ ] Android: landscape, preTransform identity
 
 ## M5 — Audio, video, input

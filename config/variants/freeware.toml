@@ -3,3 +3,33 @@ schema_version = 1
 [[function]]
 at = 0x004504D0
 note = "SEH-framed destructor, reached only by `jmp` from the static-destructor thunks at 0x0056CF50+ (themselves found late, from data); a jump table right before it puts the sweep out of phase"
+
+# ---- widescreen (src/gta2_manual.c, docs/re/widescreen.md) ----
+[[hook]]
+at = 0x004721C2
+call = "gta2_ws_tile_span"
+
+[[hook]]
+at = 0x0046BB9A
+call = "gta2_ws_tile_guard"
+on_true = 0x0046BBE5
+
+[[hook]]
+at = 0x0041E72E
+call = "gta2_ws_vis_lo"
+after = true
+
+[[hook]]
+at = 0x0041E740
+call = "gta2_ws_vis_hi"
+after = true
+
+[[hook]]
+at = 0x004B9392
+call = "gta2_ws_cull_w"
+after = true
+
+[[hook]]
+at = 0x004B93C0
+call = "gta2_ws_cull_h"
+after = true
