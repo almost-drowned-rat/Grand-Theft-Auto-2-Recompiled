@@ -83,6 +83,10 @@ uint32_t g_gta2_frontend_ms;   /* last frontend step: the menus are on screen */
 void sub_0045A320(RECOMP_PARAMS)
 {
     g_gta2_frontend_ms = wr_time_ms();
+    /* in the menus Esc belongs to the game again (play keeps it for the pause menu;
+     * the game loop that sets it does not run here) */
+    g_wr_key_hidden[0x01] = 0;
+    g_wr_input_captured = 0;
     uint32_t self = ctx->r_ecx;
     uint64_t f0 = gta2_frames_presented();
     sub_0045A320_gen(ctx, base);

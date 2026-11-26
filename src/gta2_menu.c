@@ -123,7 +123,8 @@ static const mline l_lang_changed[] = {
     { "RESTART LATER", L_ACTION, ACT_RESTART_LATER },
 };
 static mline l_cheats[N_CHEATS + 1];
-static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME }, { "CUSTOM MAPPING", L_PAGE, VP_MAPPING } };
+static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME }, { NULL, L_OPT, OPT_KEY_SCHEME },
+                                    { "CUSTOM MAPPING", L_PAGE, VP_MAPPING } };
 /* CUSTOM MAPPING (as option-p): DEVICE on top, then every function and its
  * button / key; Enter waits for the new one (5 s, keyboard Esc cancels) */
 static mline l_mapping[1 + GTA2_BIND_N];
@@ -163,7 +164,7 @@ static mpage g_pages[VP_COUNT] = {
     [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 4 },
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 1 },
-    [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 2 },
+    [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 3 },
     [VP_MAPPING] = { "CUSTOM MAPPING", VP_CONTROLS, l_mapping, 0 },
     [VP_GAMEPLAY] = { "GAMEPLAY", VP_ROOT, l_gameplay, 4 },
     [VP_SHADERS] = { "SHADERS", VP_ROOT, l_shaders, 4 },

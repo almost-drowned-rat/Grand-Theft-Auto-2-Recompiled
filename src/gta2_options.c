@@ -34,6 +34,8 @@ static const char *const l_res[] = { "NATIVE", "480P", "720P", "1080P", "1440P",
 static const char *const v_aspect[] = { "4:3", "16:9", "16:10", "21:9" };
 static const char *const v_filter[] = { "original", "nearest", "bilinear" };
 static const char *const l_filter[] = { "ORIGINAL", "NEAREST", "BILINEAR" };
+static const char *const v_kscheme[] = { "classic", "modern", "pad" };
+static const char *const l_kscheme[] = { "CLASSIC", "MODERN", "PAD" };
 static const char *const v_scheme[] = { "classic", "modern", "custom" };
 static const char *const l_scheme[] = { "CLASSIC", "MODERN", "CUSTOM" };
 static const char *const v_factor[] = { "1", "2", "3", "4" };
@@ -48,6 +50,8 @@ static void apply_vsync(int c) { gfx_apply_vsync(c); }
 static void apply_radio(int c) { wr_miles_set_half_stereo_rate(c); }
 extern int g_gta2_peds_pending;
 static void apply_peds(int c) { (void)c; g_gta2_peds_pending = 1; }   /* live in a game (gta2_gameplay.c) */
+void gta2_keys_apply(void);
+static void apply_keys(int c) { (void)c; gta2_keys_apply(); }
 static void apply_nothing(int c) { (void)c; }   /* read by the renderer each frame */
 
 static void apply_perf(int c)
@@ -85,6 +89,7 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_PERF_SPEED]     = { "GAME SPEED", NULL, 2, v_onoff, l_onoff, 0, apply_perf },
     [OPT_RADIO_HALF_RATE] = { "RADIO RATE FIX", "radio_half_rate", 2, v_onoff, l_onoff, 1, apply_radio },
     [OPT_CONTROL_SCHEME] = { "CONTROLLER", "control_scheme", 3, v_scheme, l_scheme, 0, apply_nothing },
+    [OPT_KEY_SCHEME]     = { "KEYBOARD", "keyboard_scheme", 3, v_kscheme, l_kscheme, 0, apply_keys },
     [OPT_PEDESTRIANS]    = { "PEDESTRIANS", "pedestrians", 4, v_factor, l_factor, 0, apply_peds },
     [OPT_TRAFFIC]        = { "TRAFFIC", "traffic", 4, v_factor, l_factor, 0, apply_peds },
     [OPT_SPRINT]         = { "SPRINT", "sprint", 2, v_onoff, l_onoff, 1, apply_nothing },
@@ -116,6 +121,7 @@ void opt_load_all(void)
     wr_reg_set_dword(REG_SCREEN, "full_height", 480);
     wr_miles_set_half_stereo_rate(g_val[OPT_RADIO_HALF_RATE]);
     apply_perf(0);
+    gta2_keys_apply();
     wr_log("options: display %s, resolution %s, aspect %s, filter %s, vsync %d",
            v_display[g_val[OPT_DISPLAY_MODE]], v_res[g_val[OPT_RENDER_RES]], v_aspect[g_val[OPT_ASPECT]],
            v_filter[g_val[OPT_TEXTURE_FILTER]], g_val[OPT_VSYNC]);
