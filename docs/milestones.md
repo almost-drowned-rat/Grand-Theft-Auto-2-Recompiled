@@ -77,7 +77,7 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [ ] Test on the Odin 2
 
 ## After M8 (maintainer 2026-11-26; rumble + soundtracks moved to M4c)
-- [ ] Own milestone: complete translation of ALL story content and UI (game texts + our menus/launcher) into EN, FR, DE, IT, ES, JA, ZH, RU, PL; own text renderer + font (Latin-Ext, Cyrillic, CJK); shipped as a translations pak next to the launcher (like ZOE-subtitles.pak); LANGUAGE in the RECOMP menu
+- [ ] Own milestone (source texts: the game's e.gxt / bob_e.gxt, English, with s.gxt as a cross-check - the freeware edition ships only EN + ES; maintainer 2026-11-26: "das reicht"): complete translation of ALL story content and UI (game texts + our menus/launcher) into EN, FR, DE, IT, ES, JA, ZH, RU, PL; own text renderer + font (Latin-Ext, Cyrillic, CJK); shipped as a translations pak next to the launcher (like ZOE-subtitles.pak); LANGUAGE in the RECOMP menu
 
 ## M9 — Multiplayer (optional)
 - [ ] DirectPlay (DPLAYX) -> own network layer (LAN/IP)
