@@ -67,7 +67,7 @@ typedef struct { const char *title; int parent; const mline *l; int n; } mpage;
  * only exists in the frontend, so every flag is set before a level starts;
  * the level-start ones (lives, respect, cash, score, jail card) are applied
  * by the game at each level start while on. */
-typedef struct { const char *label; const char *key; uint32_t flag; } cheat;
+typedef struct { const char *label; const char *key; uint32_t flag; int def; } cheat;
 static const cheat g_cheats[] = {
     { "INVULNERABLE",        "cheat_invulnerable", 0x005EAD71u },
     { "ALL WEAPONS",         "cheat_all_weapons", 0x005EAD74u },
@@ -84,7 +84,7 @@ static const cheat g_cheats[] = {
     { "FREE SHOPPING",       "cheat_free_shopping", 0x005EAD84u },
     { "ENDLESS ELECTROGUN",  "cheat_electrogun", 0x005EAD70u },
     { "ENDLESS FLAMETHROWER", "cheat_flamethrower", 0x005EAD9Bu },
-    { "BLOOD",               "cheat_blood", 0x005EAD51u },
+    { "BLOOD",               "cheat_blood", 0x005EAD51u, 1 },   /* blood pools under the dead: on by default */
     { "ELVIS PEDS",          "cheat_elvis", 0x005EAD9Fu },
     { "NAKED PEDS",          "cheat_naked", 0x005EADA0u },
 };
@@ -309,7 +309,7 @@ static void page_defaults(X86Ctx *ctx)
         switch (l->kind) {
         case L_OPT: opt_set(l->arg, opt_default(l->arg)); break;
         case L_VOL: vol_set(ctx, l->arg, 127); break;
-        case L_CHEAT: if (cheat_on(l->arg)) cheat_set(l->arg, 0); break;
+        case L_CHEAT: if (cheat_on(l->arg) != g_cheats[l->arg].def) cheat_set(l->arg, g_cheats[l->arg].def); break;
         case L_LANG: if (g_lang_have[0] && g_lang_sel != 0) { g_lang_sel = 1; lang_step(-1); } break;
         default: break;
         }
@@ -528,6 +528,5 @@ void gta2_menu_draw(X86Ctx *ctx)
 void gta2_menu_apply_cheats(void)
 {
     for (int i = 0; i < N_CHEATS; i++)
-        if (wr_settings_get_int(g_cheats[i].key, 0))
-            wr_wr8(g_cheats[i].flag, 1);
+        wr_wr8(g_cheats[i].flag, (uint8_t)(wr_settings_get_int(g_cheats[i].key, g_cheats[i].def) != 0));
 }
