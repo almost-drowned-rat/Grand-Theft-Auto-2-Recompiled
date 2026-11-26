@@ -4,3 +4,4 @@ analysis/
 build*/
 __pycache__/
 run/
+private/
