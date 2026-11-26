@@ -44,6 +44,8 @@ static uint32_t g_life_spr[1024];
 /* ---- KEEP BODIES ---------------------------------------------------------------------------- */
 
 static uint32_t g_body[MAX_BODIES];   /* kept dead peds, oldest first */
+static uint32_t g_body_t0[MAX_BODIES];   /* when each was first kept (ms) */
+#define BODY_KEEP_MS 113000   /* about as long as its blood lasts (fresh, drying, pale) */
 static int g_nbody;
 
 static int body_index(uint32_t ped)
@@ -57,6 +59,7 @@ static int body_index(uint32_t ped)
 static void body_drop(int i)
 {
     memmove(&g_body[i], &g_body[i + 1], (size_t)(g_nbody - i - 1) * sizeof g_body[0]);
+    memmove(&g_body_t0[i], &g_body_t0[i + 1], (size_t)(g_nbody - i - 1) * sizeof g_body_t0[0]);
     g_nbody--;
 }
 
@@ -80,7 +83,12 @@ int gta2_body_before_tick(uint32_t ped)
     if (i < 0) {
         if (g_nbody == MAX_BODIES)
             body_drop(0);   /* the oldest is no longer kept */
+        g_body_t0[g_nbody] = wr_time_ms();
         g_body[g_nbody++] = ped;
+    } else if (wr_time_ms() - g_body_t0[i] > BODY_KEEP_MS) {
+        /* its time is up: the game's own rules again (it goes once off screen);
+         * the slot stays taken so it is not kept anew */
+        return 0;
     }
     wr_wr16(ped + 0x20E, 0);
     static uint32_t last;
@@ -118,6 +126,8 @@ static int life_slot(uint32_t spr, int add)
 #define PALE_LIFE 2         /* held here: the pool stays as a pale stain */
 #define FADE_TICKS 300      /* the last ~10 s: darker and fading */
 static uint32_t g_pale[MAX_PALE];
+static uint32_t g_pale_t0[MAX_PALE];   /* when each turned pale (ms) */
+#define PALE_KEEP_MS 60000
 
 void gta2_blood_before_tick(uint32_t p)
 {
@@ -136,11 +146,20 @@ void gta2_blood_before_tick(uint32_t p)
             if (g_npale == MAX_PALE) {
                 uint32_t old = g_pale[0];
                 memmove(&g_pale[0], &g_pale[1], (MAX_PALE - 1) * sizeof g_pale[0]);
+                memmove(&g_pale_t0[0], &g_pale_t0[1], (MAX_PALE - 1) * sizeof g_pale_t0[0]);
                 g_npale--;
                 if (wr_mem_valid(old, 0x50) && wr_rd32(old + 0x38) == 0x27)
                     wr_wr16(old + 0x2C, 1);   /* its next tick frees it */
             }
+            g_pale_t0[g_npale] = wr_time_ms();
             g_pale[g_npale++] = p;
+        } else if (wr_time_ms() - g_pale_t0[pale] > PALE_KEEP_MS) {
+            /* pale long enough: it goes (with its body, about) */
+            memmove(&g_pale[pale], &g_pale[pale + 1], (size_t)(g_npale - pale - 1) * sizeof g_pale[0]);
+            memmove(&g_pale_t0[pale], &g_pale_t0[pale + 1], (size_t)(g_npale - pale - 1) * sizeof g_pale_t0[0]);
+            g_npale--;
+            wr_wr16(p + 0x2C, 0);   /* freed by this tick (the game's test follows) */
+            return;
         }
         life = PALE_LIFE + 1;   /* held: the next decrement brings it back to PALE_LIFE */
     } else if (wr_rd8(p + 0x48) & 1) {
