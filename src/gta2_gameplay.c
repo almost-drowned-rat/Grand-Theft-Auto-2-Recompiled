@@ -1,7 +1,8 @@
 /*
  * GTA 2 Recompiled - GAMEPLAY options (docs/re/enhancements.md §2).
  *
- * KEEP BODIES: the dead stay while a player is near (they are removed by the
+ * MORE BLOOD is one setting (maintainer 2026-11-26): the dead stay with
+ * their blood and go together with its pale stain. Bodies: the dead stay while a player is near (they are removed by the
  * game once they have been off screen for 40..200 ticks). The ped tick
  * (sub_004454E0) gets the off-screen counter ped+0x20E reset first, so none
  * of the three removal tests fires, and the kept body does not count against
@@ -69,7 +70,7 @@ int gta2_body_before_tick(uint32_t ped)
 {
     new_game_check();
     int i = body_index(ped);
-    if (!opt_get(OPT_KEEP_BODIES) || !wr_mem_valid(ped, 0x280) || wr_rd32(ped + 0x278) != 9 ||
+    if (!opt_get(OPT_MORE_BLOOD) || !wr_mem_valid(ped, 0x280) || wr_rd32(ped + 0x278) != 9 ||
         wr_rd32(ped + 0x234) == 2) {   /* not dead (a reused slot), or already being removed */
         if (i >= 0)
             body_drop(i);

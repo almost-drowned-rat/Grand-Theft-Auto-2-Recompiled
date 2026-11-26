@@ -125,7 +125,7 @@ static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME }, { "CUST
  * button / key; Enter waits for the new one (5 s, keyboard Esc cancels) */
 static mline l_mapping[1 + GTA2_BIND_N];
 /* GAMEPLAY (maintainer 2026-11-26; PEDESTRIANS / TRAFFIC / SPRINT follow) */
-static const mline l_gameplay[] = { { NULL, L_OPT, OPT_KEEP_BODIES }, { NULL, L_OPT, OPT_MORE_BLOOD } };
+static const mline l_gameplay[] = { { NULL, L_OPT, OPT_MORE_BLOOD } };   /* bodies stay with their blood */
 static int g_map_keyboard;          /* DEVICE: 0 controller, 1 keyboard */
 static int g_wait = -1;             /* function waiting for a button / key */
 static uint32_t g_wait_t0;
@@ -153,7 +153,7 @@ static mpage g_pages[VP_COUNT] = {
     [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 1 },
     [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 2 },
     [VP_MAPPING] = { "CUSTOM MAPPING", VP_CONTROLS, l_mapping, 0 },
-    [VP_GAMEPLAY] = { "GAMEPLAY", VP_ROOT, l_gameplay, 2 },
+    [VP_GAMEPLAY] = { "GAMEPLAY", VP_ROOT, l_gameplay, 1 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
     [VP_EXIT]    = { "EXIT GAME?", -1, l_exit, 2 },
     [VP_PAUSE]   = { "PAUSED", -1, l_pause, 5 },
