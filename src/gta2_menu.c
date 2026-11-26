@@ -1164,7 +1164,7 @@ void gta2_pause_draw(X86Ctx *ctx)
  * Residential 8 / 9 = King 130.7 / Osmosis FM, Industrial 10 / 11 = Heavenly Radio / KGBH, in an
  * order still to be heard (until then "STATION n"). */
 static const char *const k_station_name[12] = {
-    "", "HEAD RADIO", "ROCKSTAR RADIO", "KREZ", "LO-FI FM", "FUTURO FM", "FUNAMI FM", "LITHIUM FM",
+    "", "HEAD RADIO", "ROCKSTAR RADIO", "KREZ", "LO-FI FM", "FUTURO FM", "FUNAMI FM", "LITHIUM FM", "KING 130.7", "OSMOSIS FM",
 };
 static const char *const k_station_info[12][2] = {
     { "", "" },
@@ -1175,6 +1175,8 @@ static const char *const k_station_info[12][2] = {
     { "FUNK, DANCE AND CLASSIC ROCK", "" },
     { "ACID, ELECTRONIC AND DRUM N BASS", "" },   /* 6: heard (Japanese commercials) */
     { "TECHNO, OLDIES, ELECTRONIC AND CHRISTIAN ROCK", "" },   /* 7: heard: oldies, electro, a Jesus song */
+    { "HARD ROCK AND SOFT ROCK", "" },   /* 8: heard (GTA2_RADIO_TEST): "Taxi Drivers" plays only on Head Radio + King */
+    { "DANCE, POP AND ALTERNATIVE ROCK", "" },   /* 9: King's pair in Residential */
 };
 
 void gta2_radio_label_draw(X86Ctx *ctx)
