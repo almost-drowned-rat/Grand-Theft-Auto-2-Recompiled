@@ -21,7 +21,9 @@ no emulator, no Windows layer and no original DLLs. Windows and Linux, and an
 
 Download the latest release from [Releases](https://github.com/almost-drowned-rat/Grand-Theft-Auto-2-Recompiled/releases).
 
-- **Windows:** unpack the zip into an empty folder and start the launcher in it.
+- **Windows:** `GTA2-windows-x86_64.zip` - unpack it into an empty folder and start `gta2_launcher.exe` in it (the
+  game itself is built into `data\gta2_recomp.exe`; keep starting the launcher). Windows 10 or 11, 64-bit, and a
+  Vulkan 1.1 driver. The files are not signed: Windows SmartScreen may ask once ("More info" -> "Run anyway").
 - **Linux:** `GTA2-x86_64.AppImage` (make it executable and start it), or `GTA2-linux-x86_64.tar.gz` if you cannot
   use AppImages (no FUSE). Needs glibc 2.35 or newer (Ubuntu 22.04, Debian 12, Fedora 36 or later) and a Vulkan 1.1
   driver.
@@ -74,7 +76,12 @@ cmake -S . -B build -G Ninja && ninja -C build
 WR_ROOT=run build/gta2_recomp
 ```
 
-The release packaging: `docs/linux_release.md`. Generated C, game files and builds are never committed.
+Windows: the same steps with [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) (`clang` on PATH), CMake, Ninja,
+the SDL3 mingw development files (`-DCMAKE_PREFIX_PATH=<SDL3-devel>/x86_64-w64-mingw32`) and the Vulkan SDK's
+headers (`VULKAN_SDK`); `unshield.exe` for the installer step. `SDL3.dll` goes beside the built exe.
+
+The release packaging: `docs/linux_release.md`, `docs/windows_release.md`. Generated C, game files and builds are
+never committed.
 
 ## Thanks
 
