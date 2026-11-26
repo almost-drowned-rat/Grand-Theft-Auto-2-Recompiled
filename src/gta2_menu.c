@@ -709,7 +709,7 @@ int gta2_menu_input(X86Ctx *ctx)
     if (getenv("WR_MENU_LOG")) {
         static int n;
         uint32_t e = wr_rd32(f + FE_EDGE) | wr_rd32(f + FE_EDGE + 4);
-        if (e && n++ < 50)
+        if (e && n++ < 5000)
             wr_log("menu: page %u edges %08X %08X", page, wr_rd32(f + FE_EDGE), wr_rd32(f + FE_EDGE + 4));
     }
     if (page == 0 && wr_rd16(f + 0x122) == 3) {   /* main menu: Esc, or Enter on EXIT GAME */
