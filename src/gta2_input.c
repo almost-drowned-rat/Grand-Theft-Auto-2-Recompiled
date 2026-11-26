@@ -10,6 +10,8 @@
  */
 #include "wr.h"
 #include "platform/wr_platform.h"
+#include "gta2_options.h"
+#include "gta2_state.h"
 
 #include <stdio.h>
 
@@ -62,11 +64,42 @@ static uint8_t map_menu(int control)
     }
 }
 
+/* ---- MODERN (maintainer 2026-11-26) -----------------------------------------------------
+ *            on foot                       in a car
+ * stick      walk where it points          steer (left / right)
+ * R2         attack                        gas
+ * L2         -                             brake / reverse
+ * A          jump                          handbrake
+ * X          attack                        attack
+ * Y          enter                         exit
+ * B          special 1                     special 1
+ * LB / RB    previous / next weapon
+ * Back       special 3 (as CLASSIC), START the menu
+ * The stick's direction on foot is set in the on-foot control step
+ * (gta2_modern_on_foot, wrapper of sub_004A5C50); this table only presses
+ * "forward" while the stick is pushed. */
+static int modern_action(int c, int driving)
+{
+    switch (c) {
+    case WR_PAD_LEFT_STICK_UP: case WR_PAD_LEFT_STICK_DOWN:
+        return driving ? -1 : ACT_UP;
+    case WR_PAD_LEFT_STICK_LEFT: return driving ? ACT_LEFT : ACT_UP;
+    case WR_PAD_LEFT_STICK_RIGHT: return driving ? ACT_RIGHT : ACT_UP;
+    case WR_PAD_RT: return driving ? ACT_UP : ACT_ATTACK;
+    case WR_PAD_LT: return driving ? ACT_DOWN : -1;
+    case WR_PAD_SOUTH: return ACT_JUMP;
+    case WR_PAD_WEST: return ACT_ATTACK;
+    case WR_PAD_NORTH: return ACT_ENTER;
+    case WR_PAD_EAST: return ACT_SPECIAL;
+    default: return pad_action(c);   /* d-pad, LB/RB, Back, START as CLASSIC */
+    }
+}
+
 static uint8_t map(int control)
 {
     if (g_gta2_frontend_ms && wr_time_ms() - g_gta2_frontend_ms < 250)
         return map_menu(control);
-    int a = pad_action(control);
+    int a = opt_get(OPT_CONTROL_SCHEME) == 1 ? modern_action(control, gta2_player_driving()) : pad_action(control);
     if (a < 0)
         return 0;
     if (a == ACT_ESCAPE)

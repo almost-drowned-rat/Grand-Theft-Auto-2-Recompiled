@@ -360,3 +360,16 @@ void sub_00451930(RECOMP_PARAMS)   /* reads the registry Debug flags at start */
     gta2_menu_apply_cheats();
     ctx->r_eax = eax;
 }
+
+/* ---- MODERN controls on foot (gta2_state.c) ----------------------------------------------- */
+void gta2_modern_on_foot(uint32_t player, uint32_t ped);
+
+extern void sub_004A5C50_gen(RECOMP_PARAMS);
+void sub_004A5C50(RECOMP_PARAMS)   /* on-foot control step (thiscall player, ped; ret 4) */
+{
+    uint32_t player = ctx->r_ecx, ped = MEM32(ctx->r_esp + 4);
+    sub_004A5C50_gen(ctx, base);
+    uint32_t eax = ctx->r_eax;
+    gta2_modern_on_foot(player, ped);
+    ctx->r_eax = eax;
+}

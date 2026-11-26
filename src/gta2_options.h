@@ -20,6 +20,7 @@ enum {
     OPT_PERF_FRAMETIME,    /* OFF / ON   } stored together: performance_overlay */
     OPT_PERF_SPEED,        /* OFF / ON  /                               */
     OPT_RADIO_HALF_RATE,   /* OFF / ON (stereo radio stream rate, see docs/re/audio.md) */
+    OPT_CONTROL_SCHEME,    /* CLASSIC / MODERN (controller) */
     OPT_COUNT
 };
 

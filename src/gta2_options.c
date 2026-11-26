@@ -34,6 +34,8 @@ static const char *const l_res[] = { "NATIVE", "480P", "720P", "1080P", "1440P",
 static const char *const v_aspect[] = { "4:3", "16:9", "16:10", "21:9" };
 static const char *const v_filter[] = { "original", "nearest", "bilinear" };
 static const char *const l_filter[] = { "ORIGINAL", "NEAREST", "BILINEAR" };
+static const char *const v_scheme[] = { "classic", "modern" };
+static const char *const l_scheme[] = { "CLASSIC", "MODERN" };
 static const char *const v_onoff[] = { "0", "1" };
 static const char *const l_onoff[] = { "OFF", "ON" };
 
@@ -74,6 +76,7 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_PERF_FRAMETIME] = { "FRAME TIME", NULL, 2, v_onoff, l_onoff, 0, apply_perf },
     [OPT_PERF_SPEED]     = { "GAME SPEED", NULL, 2, v_onoff, l_onoff, 0, apply_perf },
     [OPT_RADIO_HALF_RATE] = { "RADIO RATE FIX", "radio_half_rate", 2, v_onoff, l_onoff, 1, apply_radio },
+    [OPT_CONTROL_SCHEME] = { "CONTROLLER", "control_scheme", 2, v_scheme, l_scheme, 0, apply_nothing },
 };
 
 static int find_choice(int id, const char *v)

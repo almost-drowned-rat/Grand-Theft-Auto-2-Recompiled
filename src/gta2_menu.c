@@ -6,7 +6,7 @@
  *
  * The main menu reads PLAY / RECOMP OPTIONS / EXIT GAME (maintainer 2026-11-26).
  *
- *   RECOMP OPTIONS RENDERING / PERFORMANCE / SOUND / LANGUAGE / CHEATS
+ *   RECOMP OPTIONS RENDERING / PERFORMANCE / SOUND / LANGUAGE / CONTROLS / CHEATS
  *               (GTA 2 has no separate RECOMP OPTIONS page: the maintainer's
  *               decision 2026-11-26 - every line sits in OPTIONS)
  *   SOUND       MUSIC VOLUME, EFFECTS VOLUME (the game's own registry values)
@@ -55,7 +55,7 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 
 /* ---- pages -------------------------------------------------------------------------------- */
 
-enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CHEATS, VP_EXIT, VP_COUNT };
+enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_COUNT };
 enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES };
 enum { VOL_MUSIC, VOL_SFX };
@@ -92,7 +92,7 @@ static const cheat g_cheats[] = {
 
 static const mline l_root[] = {
     { "RENDERING", L_PAGE, VP_DISPLAY }, { "PERFORMANCE", L_PAGE, VP_PERF }, { "SOUND", L_PAGE, VP_SOUND },
-    { "LANGUAGE", L_PAGE, VP_LANG }, { "CHEATS", L_PAGE, VP_CHEATS },
+    { "LANGUAGE", L_PAGE, VP_LANG }, { "CONTROLS", L_PAGE, VP_CONTROLS }, { "CHEATS", L_PAGE, VP_CHEATS },
 };
 static const mline l_sound[] = {
     { "MUSIC VOLUME", L_VOL, VOL_MUSIC }, { "EFFECTS VOLUME", L_VOL, VOL_SFX },
@@ -112,16 +112,18 @@ static const mline l_lang_changed[] = {
     { "RESTART LATER", L_ACTION, ACT_RESTART_LATER },
 };
 static mline l_cheats[N_CHEATS + 1];
+static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME } };   /* BUTTON MAPPING follows */
 /* EXIT GAME? - B / Esc on the main menu and EXIT GAME ask first (maintainer
  * 2026-11-26; the game quit at once, through the credits) */
 static const mline l_exit[] = { { "NO", L_ACTION, ACT_EXIT_NO }, { "YES", L_ACTION, ACT_EXIT_YES } };
 
 static mpage g_pages[VP_COUNT] = {
-    [VP_ROOT]    = { "RECOMP OPTIONS", -1, l_root, 5 },
+    [VP_ROOT]    = { "RECOMP OPTIONS", -1, l_root, 6 },
     [VP_SOUND]   = { "SOUND", VP_ROOT, l_sound, 2 },
     [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 4 },
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 1 },
+    [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 1 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
     [VP_EXIT]    = { "EXIT GAME?", -1, l_exit, 2 },
 };
