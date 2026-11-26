@@ -64,8 +64,24 @@ def plain_key(key, path=""):
     return key.startswith("netui") or "bob_" in path
 
 
+# game font codes 0x80..0xB0 without a known letter (s.gxt uses 0xAD) are kept as private-use characters
+# U+E080..U+E0B0, so a real character in that range (°, «, », a no-break space ...) is never taken for one
+RAW_BASE = 0xE000
+
+
 def decode(s, plain=False):
-    return s if plain else "".join(CODE_TO_CHAR.get(ord(c), c) for c in s)
+    if plain:
+        return s
+    out = []
+    for c in s:
+        o = ord(c)
+        if o in CODE_TO_CHAR:
+            out.append(CODE_TO_CHAR[o])
+        elif 0x80 <= o <= 0xB0:
+            out.append(chr(RAW_BASE + o))
+        else:
+            out.append(c)
+    return "".join(out)
 
 
 def encode(s, where="", plain=False, unicode=False):
@@ -78,8 +94,10 @@ def encode(s, where="", plain=False, unicode=False):
         for c in s:
             if c in CHAR_TO_CODE:
                 out.append(chr(CHAR_TO_CODE[c]))
-            elif ord(c) < 0x20 and c != "\n":
-                raise ValueError(f"{where}: control character U+{ord(c):04X}")
+            elif RAW_BASE + 0x80 <= ord(c) <= RAW_BASE + 0xB0:
+                out.append(chr(ord(c) - RAW_BASE))
+            elif ord(c) < 0x20 and c != "\n" or 0x80 <= ord(c) <= 0xB0:
+                raise ValueError(f"{where}: U+{ord(c):04X} cannot be written (control character or a game font code)")
             else:
                 out.append(c)
         return "".join(out)
@@ -87,7 +105,9 @@ def encode(s, where="", plain=False, unicode=False):
     for c in s:
         if c in CHAR_TO_CODE:
             out.append(chr(CHAR_TO_CODE[c]))
-        elif 0x20 <= ord(c) < 0x7F or c in PASS or c == "\n" or 0x80 <= ord(c) <= 0xB0:
+        elif RAW_BASE + 0x80 <= ord(c) <= RAW_BASE + 0xB0:
+            out.append(chr(ord(c) - RAW_BASE))
+        elif 0x20 <= ord(c) < 0x7F or c in PASS or c == "\n":
             out.append(c)
         else:
             raise ValueError(f"{where}: {c!r} (U+{ord(c):04X}) is not in the game font")
