@@ -62,6 +62,7 @@ static int turn_toward(uint32_t player, int cur, int target)
  * the left stick says where it walks. The game moves a ped along its heading,
  * so the movement vector of the player's ped is computed from the left
  * stick's angle instead (gta2_twin_move_angle, wrapper of sub_0041FC20). */
+static void modern_on_foot_steer(uint32_t player, uint32_t ped);
 static uint32_t g_twin_obj;     /* the player ped's physics object while twin-stick walks */
 static int g_twin_angle;
 
@@ -105,7 +106,54 @@ int gta2_twin_move_angle(uint32_t obj)
  * Heading = u16 [[ped+0x168]+0x40], 1440 per turn, 0 = screen down,
  * growing counter-clockwise; player+8 = this tick's turn (signed, wrapped),
  * player+0xC = walk command (Q14). */
+/* SPRINT (MODERN, A on foot; maintainer 2026-11-26): 2 s faster, then 10 s
+ * before the next one. Counted in on-foot steps (one per game tick). */
+#define SPRINT_TICKS   61     /* 2 s at 30.3 ticks/s */
+#define SPRINT_REST   303     /* 10 s */
+#define SPRINT_FACTOR 1.5f
+static int g_sprint_left, g_sprint_rest;
+static int g_sprint_b_prev;
+
+static void sprint_step(uint32_t player)
+{
+    int b = (wr_pad_controls() >> WR_PAD_SOUTH) & 1;
+    if (getenv("WR_FAKE_SPRINT"))
+        b = 1;
+    if (g_sprint_rest > 0)
+        g_sprint_rest--;
+    if (b && !g_sprint_b_prev && g_sprint_rest == 0 && g_sprint_left == 0) {
+        g_sprint_left = SPRINT_TICKS;
+        g_sprint_rest = SPRINT_TICKS + SPRINT_REST;
+    }
+    g_sprint_b_prev = b;
+    if (g_sprint_left > 0)
+        g_sprint_left--;
+}
+
+/* The player ped's movement speed factor (the movement call scales its
+ * speed with it; a walk command above 1.0 is capped by the game). */
+float gta2_sprint_factor(uint32_t obj)
+{
+    if (g_sprint_left <= 0)
+        return 1.0f;
+    uint32_t ped = gta2_player_ped();
+    return ped && wr_mem_valid(ped, 0x170) && wr_rd32(ped + 0x168) == obj ? SPRINT_FACTOR : 1.0f;
+}
+
 void gta2_modern_on_foot(uint32_t player, uint32_t ped)
+{
+    g_twin_obj = 0;
+    if (opt_get(OPT_CONTROL_SCHEME) == 1 && player && ped)
+        modern_on_foot_steer(player, ped);
+    if (opt_get(OPT_CONTROL_SCHEME) == 1 && player)
+        sprint_step(player);
+    static int n;
+    if (getenv("WR_MODERN_LOG") && player && ped && n++ % 15 == 0)
+        wr_log("modern: walk %d sprint %d pos %d,%d", (int32_t)wr_rd32(player + 0xC), g_sprint_left,
+               (int32_t)wr_rd32(ped + 0x1AC), (int32_t)wr_rd32(ped + 0x1B0));
+}
+
+static void modern_on_foot_steer(uint32_t player, uint32_t ped)
 {
     g_twin_obj = 0;
     if (opt_get(OPT_CONTROL_SCHEME) != 1 || !player || !ped || !wr_mem_valid(ped, 0x180))

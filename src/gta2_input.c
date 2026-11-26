@@ -72,9 +72,10 @@ static uint8_t map_menu(int control)
  * stick and  walk where it points          steer (left / right)
  * d-pad      (8 directions on the d-pad)
  * R-stick    turn / aim                    left / right: radio previous / next
- * A          jump                          gas
+ * A          sprint (2 s, every 10 s)      gas
  * X          attack                        brake / reverse
- * B          special 1                     handbrake
+ * B          jump                          handbrake
+ * L3         special 1                     special 1
  * R2         attack                        attack
  * L2         special 2                     special 1
  * Y          enter                         exit
@@ -98,9 +99,10 @@ static int modern_action(int c, int driving)
     case WR_PAD_LEFT_STICK_RIGHT: case WR_PAD_DPAD_RIGHT: return driving ? ACT_RIGHT : ACT_UP;
     /* car buttons (maintainer 2026-11-26): A gas, X brake, B handbrake, R2 shoot */
     case WR_PAD_RT: return ACT_ATTACK;
-    case WR_PAD_SOUTH: return driving ? ACT_UP : ACT_JUMP;
+    case WR_PAD_SOUTH: return driving ? ACT_UP : -1;     /* on foot: SPRINT (gta2_state.c) */
     case WR_PAD_WEST: return driving ? ACT_DOWN : ACT_ATTACK;
-    case WR_PAD_EAST: return driving ? ACT_JUMP : ACT_SPECIAL;
+    case WR_PAD_EAST: return ACT_JUMP;                   /* jump on foot, handbrake in a car */
+    case WR_PAD_LSTICK: return ACT_SPECIAL;              /* special 1 on L3 */
     case WR_PAD_LT: return driving ? ACT_SPECIAL : ACT_SPECIAL2;
     case WR_PAD_NORTH: return ACT_ENTER;
     default: return pad_action(c);   /* LB/RB, Back, START as CLASSIC */

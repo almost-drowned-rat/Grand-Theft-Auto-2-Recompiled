@@ -403,6 +403,7 @@ void sub_004C9FA0(RECOMP_PARAMS)   /* the game's PAUSED panel (thiscall, plain r
 
 /* ---- twin-stick walking (gta2_state.c) ----------------------------------------------------- */
 int gta2_twin_move_angle(uint32_t obj);
+float gta2_sprint_factor(uint32_t obj);
 
 extern void sub_0041FC20_gen(RECOMP_PARAMS);
 void sub_0041FC20(RECOMP_PARAMS)   /* (u16 *angle, speed *, out dx *, out dy *) stdcall: a vector along an angle */
@@ -410,6 +411,16 @@ void sub_0041FC20(RECOMP_PARAMS)   /* (u16 *angle, speed *, out dx *, out dy *) 
     uint32_t ret = MEM32(ctx->r_esp);
     /* the player ped's walk step / velocity from its heading (object in
      * esi, angle = [esi+0x40]); measured: 0x0049ACBA and 0x0049AEA7 */
+    if ((ret == 0x0049ACBAu || ret == 0x0049AEA7u) && MEM32(ctx->r_esp + 4) == ctx->r_esi + 0x40u) {
+        float f = gta2_sprint_factor(ctx->r_esi);
+        if (f != 1.0f) {   /* SPRINT: the speed (arg 2, Q14) scaled for this call */
+            static uint32_t sp_tmp;
+            if (!sp_tmp)
+                sp_tmp = wr_galloc(16);
+            MEM32(sp_tmp) = (uint32_t)(int32_t)((float)(int32_t)MEM32(MEM32(ctx->r_esp + 8)) * f);
+            MEM32(ctx->r_esp + 8) = sp_tmp;
+        }
+    }
     if ((ret == 0x0049ACBAu || ret == 0x0049AEA7u || ret == 0x0049A80Bu) &&
         MEM32(ctx->r_esp + 4) == ctx->r_esi + 0x40u) {
         int a = gta2_twin_move_angle(ctx->r_esi);
