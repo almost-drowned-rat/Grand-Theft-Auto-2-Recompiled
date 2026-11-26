@@ -41,7 +41,7 @@ if(NOT MSVC)
     target_compile_options(bink_gen PRIVATE -O2 -w -fwrapv -fno-strict-aliasing)
 endif()
 
-add_executable(gta2_recomp
+set(GTA2_PORT_SOURCES
     src/main.c
     src/gta2_registry.c
     src/gta2_manual.c
@@ -62,6 +62,14 @@ add_executable(gta2_recomp
     src/render/bink_buffer.c
     $<TARGET_OBJECTS:gta2_gen>
     $<TARGET_OBJECTS:bink_gen>)
+if(ANDROID)
+    # Android: SDL's Java side (SDLActivity) loads libmain.so and calls SDL_main (M8)
+    add_library(gta2_recomp SHARED ${GTA2_PORT_SOURCES})
+    set_target_properties(gta2_recomp PROPERTIES OUTPUT_NAME main)
+    target_link_libraries(gta2_recomp PRIVATE android log)
+else()
+    add_executable(gta2_recomp ${GTA2_PORT_SOURCES})
+endif()
 target_link_libraries(gta2_recomp PRIVATE winrecomp_rt)
 add_dependencies(gta2_recomp gta2_git_id)
 target_include_directories(gta2_recomp PRIVATE ${CMAKE_BINARY_DIR})

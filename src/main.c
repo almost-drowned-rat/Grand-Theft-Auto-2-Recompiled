@@ -17,6 +17,9 @@
 #include "render/gta2_render.h"
 
 #include <SDL3/SDL.h>
+#if defined(__ANDROID__)
+#include <SDL3/SDL_main.h>   /* main -> SDL_main, called by SDLActivity */
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,7 +46,12 @@ int main(int argc, char **argv)
     if (env && *env) {
         snprintf(root, sizeof root, "%s", env);
     } else {
+#if defined(__ANDROID__)
+        /* the app's shared-storage folder: Android/data/<app id>/files (game/, saves/, data/, media/) */
+        const char *b = SDL_GetAndroidExternalStoragePath();
+#else
         const char *b = SDL_GetBasePath();
+#endif
         snprintf(root, sizeof root, "%s", b ? b : ".");
     }
     size_t l = strlen(root);
