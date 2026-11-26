@@ -8,6 +8,7 @@
 #include "wr.h"
 #include "vk/wr_vk.h"
 #include "gta2_menu.h"
+#include "gta2_gameplay.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -48,8 +49,10 @@ void sub_00462A30(RECOMP_PARAMS)
     uint64_t f0 = gta2_frames_presented();
     sub_00462A30_gen(ctx, base);
     uint32_t next = MEM32(0x00662748u);
-    if (next != next0)
+    if (next != next0) {
         wr_overlay_game_tick();   /* GAME SPEED */
+        gta2_traffic_tick();      /* TRAFFIC: more spawn credit */
+    }
     if (next != next0 && getenv("WR_TICK_LOG")) {
         static uint64_t last;
         uint64_t t = wr_time_ns();
@@ -436,7 +439,6 @@ void sub_0041FC20(RECOMP_PARAMS)   /* (u16 *angle, speed *, out dx *, out dy *) 
 }
 
 /* ---- GAMEPLAY: KEEP BODIES, MORE BLOOD (gta2_gameplay.c) ----------------------------------- */
-#include "gta2_gameplay.h"
 
 extern void sub_004454E0_gen(RECOMP_PARAMS);
 void sub_004454E0(RECOMP_PARAMS)   /* one ped's tick (thiscall ped) */
@@ -542,4 +544,26 @@ void sub_004415E0(RECOMP_PARAMS)   /* the ambient ped spawner (plain ret) */
         MEM8(mgr + 6) = shown;
     }
     ctx->r_esp += 4;   /* ret */
+}
+
+/* ---- TRAFFIC 1x..4x (gta2_gameplay.c) ------------------------------------------------------ */
+extern void sub_004B4A60_gen(RECOMP_PARAMS);
+void sub_004B4A60(RECOMP_PARAMS)   /* the traffic generator for one player camera */
+{
+    int k = gta2_traffic_factor();
+    uint32_t m = MEM32(0x005E4CA4u);
+    if (k == 1 || !m) {
+        sub_004B4A60_gen(ctx, base);
+        return;
+    }
+    /* the cap "+0x40 + +0x28 == 16" sees the counts divided by K */
+    int32_t a = (int32_t)MEM32(m + 0x40), b = (int32_t)MEM32(m + 0x28), total = a + b;
+    int32_t sa = 0, sb = total >= 16 * k ? 16 : total / k;
+    MEM32(m + 0x40) = (uint32_t)sa;
+    MEM32(m + 0x28) = (uint32_t)sb;
+    sub_004B4A60_gen(ctx, base);
+    uint32_t eax = ctx->r_eax;
+    MEM32(m + 0x40) = (uint32_t)(a + ((int32_t)MEM32(m + 0x40) - sa));   /* plus what it spawned */
+    MEM32(m + 0x28) = (uint32_t)(b + ((int32_t)MEM32(m + 0x28) - sb));
+    ctx->r_eax = eax;
 }

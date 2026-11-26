@@ -277,7 +277,8 @@ static void peds_apply(X86Ctx *ctx, uint32_t mgr)
         wr_log("pedestrians: %dx not applied (pools %08X %08X %08X, manager %08X)", k, pool, phys, nodes, mgr);
         return;
     }
-    int want = 136 * (k - 1);
+    int kt = opt_get(OPT_TRAFFIC) + 1;   /* traffic drivers come from the same pool */
+    int want = 136 * ((k > kt ? k : kt) - 1);
     if (want > g_n_extra_ped && g_nextra[0] < MAX_EXTRA) {
         uint32_t n = (uint32_t)(want - g_n_extra_ped);
         uint32_t a = prepend(ctx, pool, n, PED_SIZE, 0x160u, FN_PED_CTOR);
@@ -326,4 +327,27 @@ int gta2_peds_spawn_ok(void)
         return 0;
     int total = 200 + g_n_extra_ped;
     return total - (int)wr_rd16(pool + 0x203A8u) >= 40;
+}
+
+/* ---- TRAFFIC 1x..4x (docs/re/enhancements.md §1.6; maintainer 2026-11-26) ------------- *
+ * The traffic cap is "recycled + protected recycled cars == 16" (an equality
+ * test); around the generator the two counts are shown divided by K. The
+ * spawn interval: every tick a player gains 1 credit (up to 100) and a car
+ * costs a zone-dependent amount; K-1 more credit per tick = K times the cars. */
+int gta2_traffic_factor(void)
+{
+    if (wr_rd32(0x00673E2Cu))
+        return 1;   /* network game: every player must run the same simulation */
+    return opt_get(OPT_TRAFFIC) + 1;
+}
+
+/* once per game tick */
+void gta2_traffic_tick(void)
+{
+    int k = gta2_traffic_factor();
+    uint32_t p = gta2_player();
+    if (k == 1 || !p || !wr_mem_valid(p + 0x680, 2))
+        return;
+    uint32_t c = wr_rd16(p + 0x680) + (uint32_t)(k - 1);
+    wr_wr16(p + 0x680, (uint16_t)(c > 100 ? 100 : c));
 }

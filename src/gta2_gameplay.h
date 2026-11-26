@@ -16,5 +16,7 @@ int  gta2_ped_factor(void);
 int  gta2_peds_spawn_ok(void);
 void gta2_peds_live(X86Ctx *ctx);          /* between loop steps */
 extern int g_gta2_peds_pending;
+int  gta2_traffic_factor(void);
+void gta2_traffic_tick(void);            /* once per game tick */
 
 #endif
