@@ -35,8 +35,8 @@ static int g_listening;
 static MediaDecoder *g_dec;         /* the song playing (audio thread reads it) */
 static uint64_t g_dec_frames;       /* frames played of it */
 
-static uint32_t g_clock;            /* radio ticks without the pause: the station's time */
-static int g_held;                  /* paused while listening: the song waits */
+static uint32_t g_clock;            /* radio ticks: the station's time */
+static int g_held;                  /* paused while listening: the song plays on silently */
 
 static const char *song_path(int i)
 {
@@ -167,13 +167,14 @@ void gta2_mixtape_listen(int on)
 
 void gta2_mixtape_volume(float v) { wr_audio_music_volume(v); }
 
-/* the pause while MIXTAPE plays: the song stops where it is and goes on from there */
+/* the pause while MIXTAPE plays: the song plays on, silent (maintainer 2026-11-26) */
 static void hold(int on)
 {
     if (on == g_held || !g_listening)
         return;
     g_held = on;
-    wr_audio_music(on ? NULL : feed);
+    if (on)
+        wr_audio_music_volume(0);
 }
 
 /* SOURCE or PLAYBACK MODE changed: a new list (from its start) */
@@ -285,9 +286,8 @@ void gta2_radio_after_tick(void)
         g_mix_on = g_have && car && car == g_mix_car;
     int paused = wr_rd8(m + 0x01) != 0;
     int tuned = g_mix_on && in == 1 && wr_rd8(m + 0x54F7) < 5 && wr_rd8(0x0066BEECu);
-    if (!paused)
-        g_clock++;
-    if (tuned && paused && g_listening) {   /* pause: the song waits, the game station stays silent */
+    g_clock++;   /* the station's time runs in the pause too */
+    if (tuned && paused && g_listening) {   /* pause: the song plays on silently, the game station stays silent */
         hold(1);
         g_audible = 1;
         return;
