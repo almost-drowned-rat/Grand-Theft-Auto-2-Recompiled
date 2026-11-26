@@ -309,3 +309,50 @@ void gta2_manual_register(void)
     wr_manual_register(0x004031C0u, sub_004031C0);
     wr_manual_register(0x004CB150u, sub_004CB150);
 }
+
+/* ---- OPTIONS menu in the frontend (gta2_menu.c, docs/re/frontend.md) ---------------------- */
+#include "gta2_menu.h"
+
+extern void sub_00453E20_gen(RECOMP_PARAMS);
+void sub_00453E20(RECOMP_PARAMS)   /* builds every frontend page */
+{
+    uint32_t self = ctx->r_ecx;
+    sub_00453E20_gen(ctx, base);
+    uint32_t eax = ctx->r_eax;
+    gta2_menu_frontend_built(self);
+    ctx->r_eax = eax;
+}
+
+extern void sub_00455F90_gen(RECOMP_PARAMS);
+void sub_00455F90(RECOMP_PARAMS)   /* picks the background picture */
+{
+    sub_00455F90_gen(ctx, base);
+    gta2_menu_background();
+}
+
+extern void sub_004597C0_gen(RECOMP_PARAMS);
+void sub_004597C0(RECOMP_PARAMS)   /* menu input step (thiscall fe) */
+{
+    uint32_t self = ctx->r_ecx;
+    gta2_menu_input(ctx);          /* page 12: takes and clears the edge flags */
+    ctx->r_ecx = self;
+    sub_004597C0_gen(ctx, base);
+}
+
+extern void sub_00457920_gen(RECOMP_PARAMS);
+void sub_00457920(RECOMP_PARAMS)   /* draws the page's lines (inside Begin/EndScene) */
+{
+    sub_00457920_gen(ctx, base);
+    uint32_t eax = ctx->r_eax;
+    gta2_menu_draw(ctx);
+    ctx->r_eax = eax;
+}
+
+extern void sub_00451930_gen(RECOMP_PARAMS);
+void sub_00451930(RECOMP_PARAMS)   /* reads the registry Debug flags at start */
+{
+    sub_00451930_gen(ctx, base);
+    uint32_t eax = ctx->r_eax;
+    gta2_menu_apply_cheats();
+    ctx->r_eax = eax;
+}

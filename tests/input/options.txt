@@ -1,0 +1,27 @@
+# main menu -> OPTIONS -> RECOMP OPTIONS -> DISPLAY (change aspect), back x2, CHEATS (scroll, toggle), back x2
+3000 Return
+6000 Down
+6500 Return
+8000 Down
+8500 Return
+10000 Return
+11000 Down
+11300 Down
+11600 Right
+13000 Escape
+14000 Escape
+15000 Down
+15500 Return
+16500 Down
+16800 Down
+17100 Down
+17400 Down
+17700 Down
+18000 Down
+18300 Down
+18600 Down
+18900 Down
+19200 Down
+19500 Return
+21000 Escape
+22000 Escape
