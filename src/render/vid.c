@@ -211,7 +211,10 @@ void gfx_flip(void)
     }
     /* the PERFORMANCE panel right of the HUD bars top left (they end at ~22 % of the game
      * picture's height; maintainer 2026-11-26) */
-    wr_overlay_set_pos(x + (int)(0.23f * (float)h), y + h / 96);
+    if (wr_rd8(0x00595018u))   /* the menus (frontend up): the top left corner */
+        wr_overlay_set_pos(-1, -1);
+    else
+        wr_overlay_set_pos(x + (int)(0.23f * (float)h), y + h / 96);
     wr_overlay_prepare();
     if (shaded) {
         wr_vk_present_begin(0, black);   /* keep the chain's picture; overlays go here */
