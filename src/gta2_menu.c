@@ -1152,7 +1152,7 @@ void gta2_pause_draw(X86Ctx *ctx)
  * centred near the top; MIXTAPE shows each new song too. Station numbers = the
  * GTAudio file numbers (docs/re/radio.md); 1 = Head Radio (the one file of double size,
  * two DJs). Unknown ones show their number until identified. */
-/* names and music from the maintainer's list (2026-11-26); numbers: 1 and 5 play in every
+/* names and music from the maintainer's list (2026-11-26) - English in every language, never translated; numbers: 1 and 5 play in every
  * district (Head Radio, Futuro FM), 2 / 3 / 4 are the district stations without a gang
  * (Rockstar Radio downtown, KREZ residential, Lo-Fi FM industrial). 6..11 are the two gang
  * stations of each district: Downtown 6 Funami FM (Japanese), 7 Lithium FM (oldies, electro, a
