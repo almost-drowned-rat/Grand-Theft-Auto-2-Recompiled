@@ -58,11 +58,16 @@ static int turn_toward(uint32_t player, int cur, int target)
     return d;
 }
 
-/* Right stick held: face where it points; the left stick walks forward when
- * it points the same way (within 90 degrees), backward when it points away -
- * the game has no sideways walk. */
+/* Twin-stick (maintainer 2026-11-26): the right stick only turns the ped,
+ * the left stick says where it walks. The game moves a ped along its heading,
+ * so the movement vector of the player's ped is computed from the left
+ * stick's angle instead (gta2_twin_move_angle, wrapper of sub_0041FC20). */
+static uint32_t g_twin_obj;     /* the player ped's physics object while twin-stick walks */
+static int g_twin_angle;
+
 static void modern_aim(uint32_t player, uint32_t ped, float rx, float ry)
 {
+    g_twin_obj = 0;
     uint32_t obj = wr_rd32(ped + 0x168);
     if (!obj || !wr_mem_valid(obj + 0x40, 2))
         return;
@@ -75,19 +80,24 @@ static void modern_aim(uint32_t player, uint32_t ped, float rx, float ry)
         sx = (float)dx;
         sy = (float)dy;
     }
-    int32_t speed = (int32_t)wr_rd32(0x0066B0F8u);   /* +1.0 (Q14) */
     if (sqrtf(sx * sx + sy * sy) < 0.49f) {
         wr_wr32(player + 0xC, 0);   /* aim in place */
         return;
     }
-    int d = angle_of(sx, sy) - cur;
-    if (d >= 720) d -= 1440;
-    if (d < -720) d += 1440;
-    wr_wr32(player + 0xC, (uint32_t)((d > -360 && d < 360) ? speed : -speed));
+    wr_wr32(player + 0xC, wr_rd32(0x0066B0F8u));   /* walk (+1.0) ... */
+    g_twin_obj = obj;                               /* ... where the left stick points */
+    g_twin_angle = angle_of(sx, sy);
     static int n;
     if (getenv("WR_MODERN_LOG") && n++ % 15 == 0)
-        wr_log("modern aim: heading %d walk %s pos %d,%d", cur, (d > -360 && d < 360) ? "fwd" : "back",
-               (int32_t)wr_rd32(ped + 0x1AC), (int32_t)wr_rd32(ped + 0x1B0));
+        wr_log("modern twin: heading %d move %d pos %d,%d", cur, g_twin_angle, (int32_t)wr_rd32(ped + 0x1AC),
+               (int32_t)wr_rd32(ped + 0x1B0));
+}
+
+/* For the ped movement call (sub_0041FC20 returning to 0x0049A80B, the
+ * object in esi): the angle to move along, or -1 to keep the heading. */
+int gta2_twin_move_angle(uint32_t obj)
+{
+    return g_twin_obj && obj == g_twin_obj ? g_twin_angle : -1;
 }
 
 /* MODERN on foot, after the game's own on-foot step (sub_004A5C50, thiscall
@@ -97,6 +107,7 @@ static void modern_aim(uint32_t player, uint32_t ped, float rx, float ry)
  * player+0xC = walk command (Q14). */
 void gta2_modern_on_foot(uint32_t player, uint32_t ped)
 {
+    g_twin_obj = 0;
     if (opt_get(OPT_CONTROL_SCHEME) != 1 || !player || !ped || !wr_mem_valid(ped, 0x180))
         return;
     float rx = 0, ry = 0;
@@ -105,6 +116,7 @@ void gta2_modern_on_foot(uint32_t player, uint32_t ped)
         modern_aim(player, ped, rx, ry);
         return;
     }
+    g_twin_obj = 0;
     float sx = 0, sy = 0;
     wr_pad_stick(&sx, &sy);
     float mag = sqrtf(sx * sx + sy * sy);
