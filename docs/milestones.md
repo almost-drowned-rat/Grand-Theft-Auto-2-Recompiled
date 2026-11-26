@@ -43,6 +43,7 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [ ] Android: landscape, preTransform identity
 
 ## M4b — FRAME RATE 60/120 (after M6)
+- [ ] Menu labels make the interpolation visible (maintainer 2026-11-26): FRAME RATE = 30 / 60 INTERPOLATED / 120 INTERPOLATED (first line of PERFORMANCE, shown once 60/120 work)
 - [ ] Keep the 30 Hz logic tick; render interpolated frames in between (camera + object positions/angles lerped, restored after the draw)
 - [ ] Make the render path re-runnable within a tick (sprite lists are cleared after each draw, 0x004C4D6E)
 - [ ] Per-tick animations / HUD stay per tick; FRAME RATE line in the PERFORMANCE sub-menu
