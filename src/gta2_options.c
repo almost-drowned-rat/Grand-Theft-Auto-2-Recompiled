@@ -34,8 +34,8 @@ static const char *const l_res[] = { "NATIVE", "480P", "720P", "1080P", "1440P",
 static const char *const v_aspect[] = { "4:3", "16:9", "16:10", "21:9" };
 static const char *const v_filter[] = { "original", "nearest", "bilinear" };
 static const char *const l_filter[] = { "ORIGINAL", "NEAREST", "BILINEAR" };
-static const char *const v_kscheme[] = { "classic", "modern", "pad" };
-static const char *const l_kscheme[] = { "CLASSIC", "MODERN", "PAD" };
+static const char *const v_kscheme[] = { "classic", "modern", "mouse" };   /* modern = keyboard only (the pad layout) */
+static const char *const l_kscheme[] = { "CLASSIC", "MODERN", "KEYBOARD + MOUSE" };
 static const char *const v_scheme[] = { "classic", "modern", "custom" };
 static const char *const l_scheme[] = { "CLASSIC", "MODERN", "CUSTOM" };
 static const char *const v_factor[] = { "1", "2", "3", "4" };

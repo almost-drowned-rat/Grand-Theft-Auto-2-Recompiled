@@ -281,8 +281,8 @@ static void line_value(const mline *l, char *v, size_t cap)
     case L_PADVIEW: snprintf(v, cap, "%s", g_pv_car ? "< IN A CAR >" : "< ON FOOT >"); break;
     case L_OVR:
         if (gta2_overview_is_head(l->arg))
-            snprintf(v, cap, "CONTROLLER %s   |   KEYBOARD %s", opt_choice_label(OPT_CONTROL_SCHEME, opt_get(OPT_CONTROL_SCHEME)),
-                     opt_choice_label(OPT_KEY_SCHEME, opt_get(OPT_KEY_SCHEME)));
+            snprintf(v, cap, "CONTROLLER %s   |   %s%s", opt_choice_label(OPT_CONTROL_SCHEME, opt_get(OPT_CONTROL_SCHEME)),
+                     opt_get(OPT_KEY_SCHEME) == 2 ? "" : "KEYBOARD ", opt_choice_label(OPT_KEY_SCHEME, opt_get(OPT_KEY_SCHEME)));
         else
             gta2_overview_value(l->arg, v, cap);
         break;

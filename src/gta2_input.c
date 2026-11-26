@@ -307,11 +307,12 @@ int gta2_sprint_pressed(void)
 }
 
 /* ---- KEYBOARD schemes (maintainer 2026-11-26) -----------------------------------------------
+ *   (maintainer 2026-11-26: MODERN = keyboard only, the old MODERN is KEYBOARD + MOUSE)
  *   CLASSIC  the game's own keys (Control\0..11, CUSTOM MAPPING keyboard)
- *   PAD      the keyboard as a controller (option-c's layout, runtime wr_pad):
+ *   MODERN   the keyboard as a controller (option-c's layout, runtime wr_pad):
  *            WASD stick, arrows d-pad, Enter START, Backspace BACK, I/J/K/L = Y/X/A/B,
  *            U/O = LB/RB, Z/P = LT/RT - the CONTROLLER scheme then applies
- *   MODERN   mouse and keyboard:
+ *   KEYBOARD + MOUSE:
  *            on foot  WASD walk that way, the ped faces the mouse pointer
  *            in a car W gas, S brake, A / D steer, arrows left / right radio
  *            left button attack, right button or Space jump / handbrake, E enter / exit,
@@ -320,7 +321,7 @@ int gta2_sprint_pressed(void)
 
 static int kbm_active(void)
 {
-    return opt_get(OPT_KEY_SCHEME) == 1 && !gta2_pause_open() &&
+    return opt_get(OPT_KEY_SCHEME) == 2 && !gta2_pause_open() &&
            !(g_gta2_frontend_ms && wr_time_ms() - g_gta2_frontend_ms < 250);
 }
 
@@ -369,8 +370,8 @@ static void kbm_hook(uint8_t st[256])
 void gta2_keys_apply(void)
 {
     int sc = opt_get(OPT_KEY_SCHEME);
-    wr_pad_keyboard_as_pad(sc == 2);
-    g_wr_dik_hook = sc == 1 ? kbm_hook : NULL;
+    wr_pad_keyboard_as_pad(sc == 1);
+    g_wr_dik_hook = sc == 2 ? kbm_hook : NULL;
 }
 
 /* MODERN keyboard on foot: WASD as the left stick, the mouse pointer (from
@@ -503,9 +504,9 @@ void gta2_overview_value(int i, char *out, size_t cap)
         snprintf(pad, sizeof pad, "%s %s", wr_pad_control_name(g_bind[14]), wr_pad_control_name(g_bind[13]));
     else
         snprintf(pad, sizeof pad, "%s", ps == 1 ? r->modern : r->classic);
-    if (ks == 1)
+    if (ks == 2)
         snprintf(key, sizeof key, "%s", r->kbm);
-    else if (ks == 2)
+    else if (ks == 1)
         to_pad_keys(pad, key, sizeof key);
     else if (r->act >= 0)
         wr_key_name(key_of(r->act), key, sizeof key);
