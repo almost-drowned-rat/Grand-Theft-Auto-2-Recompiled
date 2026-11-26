@@ -1155,9 +1155,11 @@ void gta2_pause_draw(X86Ctx *ctx)
 /* names and music from the maintainer's list (2026-11-26); numbers: 1 and 5 play in every
  * district (Head Radio, Futuro FM), 2 / 3 / 4 are the district stations without a gang
  * (Rockstar Radio downtown, KREZ residential, Lo-Fi FM industrial). 6..11 are the two gang
- * stations of each district - which is which still to be heard (NULL: "STATION n"). */
+ * stations of each district: Downtown 6 Funami FM, 7 Lithium FM (heard by the maintainer);
+ * Residential 8 / 9 = King 130.7 / Osmosis FM and Industrial 10 / 11 = Heavenly Radio / KGBH
+ * in an order still to be heard (until then "STATION n"). */
 static const char *const k_station_name[12] = {
-    "", "HEAD RADIO", "ROCKSTAR RADIO", "KREZ", "LO-FI FM", "FUTURO FM", "FUNAMI FM", "KING 130.7",
+    "", "HEAD RADIO", "ROCKSTAR RADIO", "KREZ", "LO-FI FM", "FUTURO FM", "FUNAMI FM", "LITHIUM FM",
 };
 static const char *const k_station_info[12][2] = {
     { "", "" },
@@ -1167,7 +1169,7 @@ static const char *const k_station_info[12][2] = {
     { "FUNK, JAZZ, OLDIES AND CLASSIC ROCK", "" },
     { "FUNK, DANCE AND CLASSIC ROCK", "" },
     { "ACID, ELECTRONIC AND DRUM N BASS", "" },   /* 6: heard (Japanese commercials) */
-    { "HARD ROCK AND SOFT ROCK", "" },   /* 7: heard by the maintainer in Downtown (Southern host, soft rock) - to confirm */
+    { "TECHNO, OLDIES, ELECTRONIC AND CHRISTIAN ROCK", "" },   /* 7: heard (electro; its host plays many voices) */
 };
 
 void gta2_radio_label_draw(X86Ctx *ctx)
