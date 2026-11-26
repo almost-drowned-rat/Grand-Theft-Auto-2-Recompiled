@@ -455,15 +455,15 @@ void sub_0048BE60(RECOMP_PARAMS)   /* the blood pool particle's tick (thiscall p
 
 #include "render/gta2_render.h"
 
-extern void sub_004B94B0_gen(RECOMP_PARAMS);
-void sub_004B94B0(RECOMP_PARAMS)   /* draws one sprite (thiscall sprite) */
+extern void sub_004BE060_gen(RECOMP_PARAMS);
+void sub_004BE060(RECOMP_PARAMS)   /* draws one sprite through gbh_DrawQuad (thiscall sprite) */
 {
     float sc = gta2_sprite_scale(ctx->r_ecx);
     if (sc == 1.0f) {
-        sub_004B94B0_gen(ctx, base);
+        sub_004BE060_gen(ctx, base);
         return;
     }
     g_port_quad_scale = sc;
-    sub_004B94B0_gen(ctx, base);   /* its quads are scaled as they are emitted */
+    sub_004BE060_gen(ctx, base);   /* its quads are scaled as they are emitted */
     g_port_quad_scale = 1.0f;
 }

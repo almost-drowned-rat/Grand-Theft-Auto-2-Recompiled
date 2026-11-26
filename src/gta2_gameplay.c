@@ -150,8 +150,19 @@ float gta2_sprite_scale(uint32_t spr)
     if (!st)
         return 1.0f;
     int f = (int)wr_rd16(spr + 0x22) - (int)(uint16_t)(wr_rd16(st + 0x8CA4) + 0xBF);
+    if (getenv("WR_GAMEPLAY_LOG")) {
+        static int n;
+        if (n++ % 2000 == 0)
+            wr_log("scale: sprite %08X frame %u (blood base %u)", spr, wr_rd16(spr + 0x22),
+                   (unsigned)(uint16_t)(wr_rd16(st + 0x8CA4) + 0xBF));
+    }
     if (f < 0 || f > 5)
         return 1.0f;   /* not one of the six blood pool frames */
+    if (getenv("WR_GAMEPLAY_LOG")) {
+        static int m;
+        if (m++ % 300 == 0)
+            wr_log("scale: blood sprite %08X frame %d", spr, f);
+    }
     /* by chance (fixed per pool: from its position) the normal or the bigger pool */
     uint32_t h = wr_rd32(spr + 0x14) * 2654435761u ^ wr_rd32(spr + 0x18) * 40503u;
     h ^= h >> 15;
