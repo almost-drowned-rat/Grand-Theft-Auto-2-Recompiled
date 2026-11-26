@@ -19,9 +19,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <stdint.h>
 
-static char g_dir[512];   /* the browser's folder: "" = the packs, else "<pack>/<path>" */
+static char g_dir[512];
+static const char *single_pack(void);   /* the browser's folder: "" = the packs, else "<pack>/<path>" */
 
 /* settings key of a parameter: kept per preset (as the N64 recomps) */
 static void param_key(const char *preset, const char *name, char *out, size_t cap)
@@ -146,7 +148,7 @@ static void display(const char *path, char *out, size_t cap)
         len -= 7;   /* the extension first, then the cut */
     size_t j = 0;
     for (; j < len && j + 1 < cap; j++)
-        out[j] = b[j] == '_' || b[j] == '-' || b[j] == '.' ? ' ' : (char)toupper((unsigned char)b[j]);
+        out[j] = b[j] == '_' || b[j] == '.' ? ' ' : (char)toupper((unsigned char)b[j]);
     out[j] = 0;
 }
 
@@ -188,18 +190,18 @@ static int item_cmp(const void *a, const void *b)
     const gta2_shader_item *x = a, *y = b;
     if (x->kind != y->kind)
         return x->kind - y->kind;
-    return strcmp(x->label, y->label);
+    return strcasecmp(x->key, y->key);   /* the file names, as the N64 recomps */
 }
 
 int gta2_shader_browse(const gta2_shader_item **items)
 {
     g_nitems = 0;
     const ShaderIndex *ix = shader_pack_index();
-    g_items[g_nitems++] = (gta2_shader_item){ "OFF", SI_NONE, -1, "" };
-    if (g_dir[0])
+    if (g_dir[0] && strcmp(g_dir, single_pack()))
         g_items[g_nitems++] = (gta2_shader_item){ "BACK", SI_UP, -1, "" };   /* the menu font has no dots */
     int first = g_nitems;
     size_t dl = strlen(g_dir);
+    const char *cur = wr_settings_get("shader_preset", NULL);
     for (int i = 0; ix && i < ix->n && g_nitems < MAX_ITEMS; i++) {
         const char *rel = ix->p[i].rel;
         if (dl && (strncmp(rel, g_dir, dl) || rel[dl] != '/'))
@@ -222,7 +224,10 @@ int gta2_shader_browse(const gta2_shader_item **items)
                 continue;
         }
         char *lab = g_names[g_nitems];
-        display(name, lab, 44);   /* the shader pages are wide; folders end in " >" */
+        int chosen = !folder && cur && !strcmp(ix->p[i].path, cur);
+        if (chosen)
+            snprintf(lab, 3, "* ");   /* the preset in use (the N64 recomps' bullet) */
+        display(name, lab + (chosen ? 2 : 0), 44 - (chosen ? 2 : 0));
         if (folder)
             snprintf(lab + strlen(lab), sizeof g_names[0] - strlen(lab), " >");
         gta2_shader_item it = { lab, folder ? SI_FOLDER : SI_PRESET, folder ? -1 : i, "" };
@@ -266,10 +271,29 @@ int gta2_shader_pick(const gta2_shader_item *it)
     }
 }
 
+/* With one pack only, its folders are the top level (no extra "pack" step). */
+static const char *single_pack(void)
+{
+    static char one[256];
+    const ShaderIndex *ix = shader_pack_index();
+    one[0] = 0;
+    for (int i = 0; ix && i < ix->n; i++) {
+        const char *rel = ix->p[i].rel, *sl = strchr(rel, '/');
+        size_t n = sl ? (size_t)(sl - rel) : strlen(rel);
+        if (!one[0]) {
+            snprintf(one, sizeof one, "%.*s", (int)n, rel);
+        } else if (strlen(one) != n || strncmp(one, rel, n)) {
+            one[0] = 0;
+            return "";   /* several packs: they are the top level */
+        }
+    }
+    return one;
+}
+
 /* the browser opens on the folder of the preset in use */
 void gta2_shader_browse_open(void)
 {
-    g_dir[0] = 0;
+    snprintf(g_dir, sizeof g_dir, "%s", single_pack());
     const char *p = wr_settings_get("shader_preset", NULL);
     const ShaderIndex *ix = shader_pack_index();
     for (int i = 0; p && *p && ix && i < ix->n; i++)
@@ -281,12 +305,14 @@ void gta2_shader_browse_open(void)
             else
                 g_dir[0] = 0;
         }
+    if (!g_dir[0])
+        snprintf(g_dir, sizeof g_dir, "%s", single_pack());
 }
 
 void gta2_shader_dir_title(char *out, size_t cap)
 {
-    if (!g_dir[0]) {
-        snprintf(out, cap, "SHADER PACKS");
+    if (!g_dir[0] || !strcmp(g_dir, single_pack())) {
+        snprintf(out, cap, "SHADER SELECTION");
         return;
     }
     display(g_dir, out, cap);
