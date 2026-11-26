@@ -21,6 +21,8 @@ enum {
     OPT_PERF_SPEED,        /* OFF / ON  /                               */
     OPT_RADIO_HALF_RATE,   /* OFF / ON (stereo radio stream rate, see docs/re/audio.md) */
     OPT_CONTROL_SCHEME,    /* CLASSIC / MODERN / CUSTOM (controller) */
+    OPT_KEEP_BODIES,       /* OFF / ON */
+    OPT_MORE_BLOOD,        /* OFF / ON */
     OPT_COUNT
 };
 

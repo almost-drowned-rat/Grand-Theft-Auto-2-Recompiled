@@ -81,6 +81,8 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_PERF_SPEED]     = { "GAME SPEED", NULL, 2, v_onoff, l_onoff, 0, apply_perf },
     [OPT_RADIO_HALF_RATE] = { "RADIO RATE FIX", "radio_half_rate", 2, v_onoff, l_onoff, 1, apply_radio },
     [OPT_CONTROL_SCHEME] = { "CONTROLLER", "control_scheme", 3, v_scheme, l_scheme, 0, apply_nothing },
+    [OPT_KEEP_BODIES]    = { "KEEP BODIES", "keep_bodies", 2, v_onoff, l_onoff, 0, apply_nothing },
+    [OPT_MORE_BLOOD]     = { "MORE BLOOD", "more_blood", 2, v_onoff, l_onoff, 0, apply_nothing },
 };
 
 static int find_choice(int id, const char *v)

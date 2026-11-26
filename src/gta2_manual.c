@@ -10,6 +10,7 @@
 #include "gta2_menu.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 
@@ -421,4 +422,77 @@ void sub_0041FC20(RECOMP_PARAMS)   /* (u16 *angle, speed *, out dx *, out dy *) 
         }
     }
     sub_0041FC20_gen(ctx, base);
+}
+
+/* ---- GAMEPLAY: KEEP BODIES, MORE BLOOD (gta2_gameplay.c) ----------------------------------- */
+#include "gta2_gameplay.h"
+
+extern void sub_004454E0_gen(RECOMP_PARAMS);
+void sub_004454E0(RECOMP_PARAMS)   /* one ped's tick (thiscall ped) */
+{
+    uint32_t ped = ctx->r_ecx;
+    if (!gta2_body_before_tick(ped)) {
+        sub_004454E0_gen(ctx, base);
+        return;
+    }
+    uint8_t all = MEM8(0x005E5BEAu);
+    uint16_t shown = MEM16(0x005E5BF4u);
+    ctx->r_ecx = ped;
+    sub_004454E0_gen(ctx, base);
+    MEM8(0x005E5BEAu) = all;      /* a kept body does not count against the ped limits */
+    MEM16(0x005E5BF4u) = shown;
+}
+
+extern void sub_0048BE60_gen(RECOMP_PARAMS);
+void sub_0048BE60(RECOMP_PARAMS)   /* the blood pool particle's tick (thiscall particle) */
+{
+    uint32_t p = ctx->r_ecx;
+    gta2_blood_before_tick(p);
+    ctx->r_ecx = p;
+    sub_0048BE60_gen(ctx, base);
+}
+
+extern void sub_0048CC50_gen(RECOMP_PARAMS);
+void sub_0048CC50(RECOMP_PARAMS)   /* creates a blood pool at (x, y, z), stdcall 0xC */
+{
+    uint32_t x = MEM32(ctx->r_esp + 4), y = MEM32(ctx->r_esp + 8), z = MEM32(ctx->r_esp + 12);
+    uint32_t ecx = ctx->r_ecx;
+    if (getenv("WR_GAMEPLAY_LOG"))
+        wr_log("blood: created at %d,%d,%d", (int32_t)x, (int32_t)y, (int32_t)z);
+    sub_0048CC50_gen(ctx, base);
+    if (!gta2_more_blood())
+        return;
+    uint32_t eax = ctx->r_eax;
+    /* MORE BLOOD: a bigger stain, by chance either around the body (a cross
+     * of four more pools, 0.18 block each way) or beside it, towards a
+     * random side (two more pools leading away - e.g. next to the head;
+     * maintainer 2026-11-26) */
+    static uint32_t rnd = 0x2545F491u;
+    rnd = rnd * 1664525u + 1013904223u + x * 31u + y;
+    int32_t off[4][2];
+    int n;
+    if (rnd >> 31) {
+        static const int32_t cross[4][2] = { { 3000, 0 }, { -3000, 0 }, { 0, 3000 }, { 0, -3000 } };
+        memcpy(off, cross, sizeof cross);
+        n = 4;
+    } else {
+        static const int32_t dir[8][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
+                                           { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } };
+        int d = (int)(rnd >> 8) & 7;
+        int32_t step = (d < 4 ? 3600 : 2550);   /* the same distance on the diagonals */
+        off[0][0] = dir[d][0] * step;     off[0][1] = dir[d][1] * step;
+        off[1][0] = dir[d][0] * step * 2; off[1][1] = dir[d][1] * step * 2;
+        n = 2;
+    }
+    for (int i = 0; i < n; i++) {
+        uint32_t a[3] = { x + (uint32_t)off[i][0], y + (uint32_t)off[i][1], z };
+        ctx->r_ecx = ecx;
+        uint32_t sp = ctx->r_esp;
+        for (int k = 2; k >= 0; k--) { ctx->r_esp -= 4; MEM32(ctx->r_esp) = a[k]; }
+        ctx->r_esp -= 4;
+        MEM32(ctx->r_esp) = 0;   /* return address (unused by the callee) */
+        sub_0048CC50_gen(ctx, base);
+        ctx->r_esp = sp;
+    }
+    ctx->r_eax = eax;
 }

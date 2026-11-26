@@ -6,7 +6,7 @@
  *
  * The main menu reads PLAY / RECOMP OPTIONS / EXIT GAME (maintainer 2026-11-26).
  *
- *   RECOMP OPTIONS RENDERING / PERFORMANCE / SOUND / LANGUAGE / CONTROLS / CHEATS
+ *   RECOMP OPTIONS RENDERING / PERFORMANCE / SOUND / LANGUAGE / CONTROLS / GAMEPLAY / CHEATS
  *               (GTA 2 has no separate RECOMP OPTIONS page: the maintainer's
  *               decision 2026-11-26 - every line sits in OPTIONS)
  *   SOUND       MUSIC VOLUME, EFFECTS VOLUME (the game's own registry values)
@@ -61,7 +61,7 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 /* ---- pages -------------------------------------------------------------------------------- */
 
 enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
-       VP_QUITPROG, VP_MAPPING, VP_COUNT };
+       VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_COUNT };
 enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
        ACT_RESTART_YES, ACT_NO, ACT_QUITPROG_YES };
@@ -99,7 +99,8 @@ static const cheat g_cheats[] = {
 
 static const mline l_root[] = {
     { "RENDERING", L_PAGE, VP_DISPLAY }, { "PERFORMANCE", L_PAGE, VP_PERF }, { "SOUND", L_PAGE, VP_SOUND },
-    { "LANGUAGE", L_PAGE, VP_LANG }, { "CONTROLS", L_PAGE, VP_CONTROLS }, { "CHEATS", L_PAGE, VP_CHEATS },
+    { "LANGUAGE", L_PAGE, VP_LANG }, { "CONTROLS", L_PAGE, VP_CONTROLS }, { "GAMEPLAY", L_PAGE, VP_GAMEPLAY },
+    { "CHEATS", L_PAGE, VP_CHEATS },
 };
 static const mline l_sound[] = {
     { "MUSIC VOLUME", L_VOL, VOL_MUSIC }, { "EFFECTS VOLUME", L_VOL, VOL_SFX },
@@ -123,6 +124,8 @@ static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME }, { "CUST
 /* CUSTOM MAPPING (as option-p): DEVICE on top, then every function and its
  * button / key; Enter waits for the new one (5 s, keyboard Esc cancels) */
 static mline l_mapping[1 + GTA2_BIND_N];
+/* GAMEPLAY (maintainer 2026-11-26; PEDESTRIANS / TRAFFIC / SPRINT follow) */
+static const mline l_gameplay[] = { { NULL, L_OPT, OPT_KEEP_BODIES }, { NULL, L_OPT, OPT_MORE_BLOOD } };
 static int g_map_keyboard;          /* DEVICE: 0 controller, 1 keyboard */
 static int g_wait = -1;             /* function waiting for a button / key */
 static uint32_t g_wait_t0;
@@ -143,13 +146,14 @@ static const mline l_quit[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION, A
 static const mline l_restart[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION, ACT_RESTART_YES } };
 
 static mpage g_pages[VP_COUNT] = {
-    [VP_ROOT]    = { "RECOMP OPTIONS", -1, l_root, 6 },
+    [VP_ROOT]    = { "RECOMP OPTIONS", -1, l_root, 7 },
     [VP_SOUND]   = { "SOUND", VP_ROOT, l_sound, 2 },
     [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 4 },
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 1 },
     [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 2 },
     [VP_MAPPING] = { "CUSTOM MAPPING", VP_CONTROLS, l_mapping, 0 },
+    [VP_GAMEPLAY] = { "GAMEPLAY", VP_ROOT, l_gameplay, 2 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
     [VP_EXIT]    = { "EXIT GAME?", -1, l_exit, 2 },
     [VP_PAUSE]   = { "PAUSED", -1, l_pause, 5 },
@@ -772,6 +776,22 @@ void gta2_pause_tick(X86Ctx *ctx)
         return;
     }
     apply_aspect_live(ctx, g);
+    {   /* dev: WR_TEST_BLOOD=1 - one blood pool at the player after 12 s of play */
+        static int done;
+        static uint32_t t0;
+        if (!done && getenv("WR_TEST_BLOOD") && gta2_player_ped()) {
+            if (!t0)
+                t0 = wr_time_ms();
+            else if (wr_time_ms() - t0 > 12000) {
+                uint32_t pp = gta2_player_ped(), a[3] = { wr_rd32(pp + 0x1AC), wr_rd32(pp + 0x1B0), wr_rd32(pp + 0x1B4) };
+                uint32_t ecx = ctx->r_ecx;
+                ctx->r_ecx = wr_rd32(0x00669E74u);
+                wr_call_guest(ctx, 0x0048CC50u, 3, a);
+                ctx->r_ecx = ecx;
+                done = 1;
+            }
+        }
+    }
     static uint8_t prev[256];
     uint8_t st[256];
     wr_keys_dik_state(st);
