@@ -55,6 +55,7 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 
 ## M6 — Playable on Linux
 - [ ] Frontend/menu, missions load, saves (POSIX-safe writes)
+- [ ] RECOMP OPTIONS and CHEATS lines in the game's own options menu (CHEATS: the game's cheats as ON/OFF switches, one-shot cheats as actions; maintainer 2026-11-26)
 - [ ] Play through all three districts, fix crashes
 - [ ] Performance: constant 60 FPS, game logic speed correct
 
