@@ -48,9 +48,12 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [x] Make the render path re-runnable within a tick (sprite lists are cleared after each draw, 0x004C4D6E)
 - [x] Per-tick animations / HUD stay per tick; FRAME RATE line in the PERFORMANCE sub-menu
 
-## M4c — Rumble + custom soundtracks (right after M4b, before M8; maintainer 2026-11-26)
+## M4c — Rumble + custom soundtracks (DONE 2026-11-26)
 - [x] Controller rumble: explosions make the controller rumble (their sounds: 61182 / 127022 bytes, strength by volume; CONTROLS: RUMBLE; maintainer: "funktioniert alles", 2026-11-26)
-- [ ] Custom soundtracks
+- [x] Custom soundtracks: radio station MIXTAPE after the last station (own albums from media/, plays on like a radio
+      station, silent in the pause), SOUND > CUSTOM SOUNDTRACK: SOURCE (ALL ALBUMS / album) + PLAYBACK MODE (PLAY IN
+      ORDER / SHUFFLE); station info label for every station (6 Funami FM / 7 Lithium FM heard; 8..11 order still
+      to be heard in Residential / Industrial) - maintainer OK 2026-11-26
 
 ## M5 — Audio, video, input
 - [x] Miles (mss32): samples, streams, 3D sound, MSSDS3DH -> SDL3 audio (native libs/miles.c, 2026-11-26)
