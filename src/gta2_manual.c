@@ -452,54 +452,6 @@ void sub_0048BE60(RECOMP_PARAMS)   /* the blood pool particle's tick (thiscall p
     sub_0048BE60_gen(ctx, base);
 }
 
-extern void sub_0048CC50_gen(RECOMP_PARAMS);
-void sub_0048CC50(RECOMP_PARAMS)   /* creates a blood pool at (x, y, z), stdcall 0xC */
-{
-    uint32_t x = MEM32(ctx->r_esp + 4), y = MEM32(ctx->r_esp + 8), z = MEM32(ctx->r_esp + 12);
-    uint32_t ecx = ctx->r_ecx;
-    if (!gta2_more_blood()) {
-        sub_0048CC50_gen(ctx, base);
-        return;
-    }
-    /* MORE BLOOD (maintainer 2026-11-26), by chance:
-     *  under the body: one pool drawn bigger (overlapping sprites show their
-     *  bright rims) - see gta2_sprite_scale / sub_004B94B0
-     *  beside it: two pools overlapping at one spot to a random side -
- *  bleeding from one place (e.g. the head), not bleeding out */
-    static uint32_t rnd = 0x2545F491u;
-    rnd ^= x * 2654435761u ^ y * 40503u;
-    rnd ^= rnd << 13; rnd ^= rnd >> 17; rnd ^= rnd << 5;
-    if (!(rnd & 1)) {
-        static const int32_t dir[8][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
-                                           { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } };
-        int d = (int)(rnd >> 4) & 7;
-        int32_t step = d < 4 ? 3600 : 2550;   /* about 0.22 block, the same on the diagonals */
-        MEM32(ctx->r_esp + 4) = x + (uint32_t)(dir[d][0] * step);
-        MEM32(ctx->r_esp + 8) = y + (uint32_t)(dir[d][1] * step);
-        if (getenv("WR_GAMEPLAY_LOG"))
-            wr_log("blood: beside");
-        sub_0048CC50_gen(ctx, base);
-        /* a second pool overlapping it, a little further and to the side:
-         * bleeding from one spot (e.g. the head) */
-        uint32_t eax = ctx->r_eax;
-        int32_t s2 = step * 5 / 3, bend = ((rnd >> 8) & 1) ? 900 : -900;
-        uint32_t a[3] = { x + (uint32_t)(dir[d][0] * s2 + dir[d][1] * bend),
-                          y + (uint32_t)(dir[d][1] * s2 - dir[d][0] * bend), z };
-        ctx->r_ecx = ecx;
-        uint32_t sp = ctx->r_esp;
-        for (int k = 2; k >= 0; k--) { ctx->r_esp -= 4; MEM32(ctx->r_esp) = a[k]; }
-        ctx->r_esp -= 4;
-        MEM32(ctx->r_esp) = 0;
-        sub_0048CC50_gen(ctx, base);
-        ctx->r_esp = sp;
-        ctx->r_eax = eax;
-        return;
-    }
-    if (getenv("WR_GAMEPLAY_LOG"))
-        wr_log("blood: under");
-    gta2_blood_mark_big(x, y);   /* one pool, drawn bigger (gta2_sprite_scale) */
-    sub_0048CC50_gen(ctx, base);
-}
 
 #include "render/gta2_render.h"
 
