@@ -68,16 +68,15 @@ static uint8_t map_menu(int control)
 /* ---- MODERN (maintainer 2026-11-26) -----------------------------------------------------
  *            on foot                       in a car
  * stick and  walk where it points          steer (left / right)
- * d-pad      (8 directions on the d-pad)
- * R2         attack                        gas
- * L2         -                             brake / reverse
- * A          jump                          handbrake
- * X          attack                        attack
+ * d-pad      (8 directions on the d-pad)   d-pad up / down: radio next / previous
+ * A          jump                          gas
+ * X          attack                        brake / reverse
+ * B          special 1                     handbrake
+ * R2         attack                        attack
+ * L2         special 2                     special 1
  * Y          enter                         exit
- * B          special 1                     special 1
  * LB / RB    previous / next weapon
- * d-pad up / down in a car: radio station next / previous (F2 / F1)
- * R3 special 3, Select the next radio station (both schemes), START the menu
+ * R3 special 3, Select the next radio station, START the menu
  * The stick's direction on foot is set in the on-foot control step
  * (gta2_modern_on_foot, wrapper of sub_004A5C50); this table only presses
  * "forward" while the stick is pushed. */
@@ -92,12 +91,13 @@ static int modern_action(int c, int driving)
     case WR_PAD_DPAD_DOWN: return driving ? ACT_RADIO_PREV : ACT_UP;
     case WR_PAD_LEFT_STICK_LEFT: case WR_PAD_DPAD_LEFT: return driving ? ACT_LEFT : ACT_UP;
     case WR_PAD_LEFT_STICK_RIGHT: case WR_PAD_DPAD_RIGHT: return driving ? ACT_RIGHT : ACT_UP;
-    case WR_PAD_RT: return driving ? ACT_UP : ACT_ATTACK;
-    case WR_PAD_LT: return driving ? ACT_DOWN : -1;
-    case WR_PAD_SOUTH: return ACT_JUMP;
-    case WR_PAD_WEST: return ACT_ATTACK;
+    /* car buttons (maintainer 2026-11-26): A gas, X brake, B handbrake, R2 shoot */
+    case WR_PAD_RT: return ACT_ATTACK;
+    case WR_PAD_SOUTH: return driving ? ACT_UP : ACT_JUMP;
+    case WR_PAD_WEST: return driving ? ACT_DOWN : ACT_ATTACK;
+    case WR_PAD_EAST: return driving ? ACT_JUMP : ACT_SPECIAL;
+    case WR_PAD_LT: return driving ? ACT_SPECIAL : ACT_SPECIAL2;
     case WR_PAD_NORTH: return ACT_ENTER;
-    case WR_PAD_EAST: return ACT_SPECIAL;
     default: return pad_action(c);   /* LB/RB, Back, START as CLASSIC */
     }
 }
