@@ -47,6 +47,7 @@ int main(int argc, char **argv)
     snprintf(g_wr_exe_name, sizeof g_wr_exe_name, "%s", "gta2.exe");
     wr_paths_init(root);
     wr_log_init();
+    wr_settings_init("GTA2");   /* saves/settings.ini, GTA2_<KEY> overrides */
     wr_crash_init();
     wr_log("GTA 2 Recompiled, layout %s", root);
 
@@ -54,6 +55,9 @@ int main(int argc, char **argv)
         return 1;
     wr_win32_register();
     wr_register_miles();
+    /* stereo radio: MSS 5 is assumed to report half the stream rate (GTA 2
+     * doubles it); radio_half_rate=0 plays the rate as the file states */
+    wr_miles_set_half_stereo_rate(wr_settings_get_int("radio_half_rate", 1));
     wr_set_thread_hook(gta2_thread_hook);
     gta2_registry_defaults();
     gta2_manual_register();
