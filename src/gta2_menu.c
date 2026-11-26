@@ -25,6 +25,7 @@
 #include "gta2_options.h"
 #include "gta2_state.h"
 #include "render/gta2_render.h"
+#include "gta2_input.h"
 #include "platform/wr_platform.h"
 #include "wr.h"
 
@@ -53,14 +54,15 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 #define AUDIO_OBJ     0x005D85A0u
 #define FN_UNLOCK_ALL 0x004A8B00u   /* thiscall [0x66B404] */
 #define PROFILES_PTR  0x0066B404u
+#define FN_READ_CONTROLS 0x0044BF30u   /* reads Control\\0..11 again */
 
 #define REG_GTA2 "HKEY_LOCAL_MACHINE\\SOFTWARE\\DMA Design Ltd\\GTA2"
 
 /* ---- pages -------------------------------------------------------------------------------- */
 
 enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
-       VP_QUITPROG, VP_COUNT };
-enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK };
+       VP_QUITPROG, VP_MAPPING, VP_COUNT };
+enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
        ACT_RESTART_YES, ACT_NO, ACT_QUITPROG_YES };
 enum { VOL_MUSIC, VOL_SFX };
@@ -117,7 +119,16 @@ static const mline l_lang_changed[] = {
     { "RESTART LATER", L_ACTION, ACT_RESTART_LATER },
 };
 static mline l_cheats[N_CHEATS + 1];
-static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME } };   /* BUTTON MAPPING follows */
+static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME }, { "CUSTOM MAPPING", L_PAGE, VP_MAPPING } };
+/* CUSTOM MAPPING (as option-p): DEVICE on top, then every function and its
+ * button / key; Enter waits for the new one (5 s, keyboard Esc cancels) */
+static mline l_mapping[1 + GTA2_BIND_N];
+static int g_map_keyboard;          /* DEVICE: 0 controller, 1 keyboard */
+static int g_wait = -1;             /* function waiting for a button / key */
+static uint32_t g_wait_t0;
+static uint64_t g_wait_pad_base;    /* held when the wait began */
+static uint8_t g_wait_key_base[256];
+static int g_wait_hold;   /* after a pad binding: ignore keys until released */
 /* EXIT GAME? - B / Esc on the main menu and EXIT GAME ask first (maintainer
  * 2026-11-26; the game quit at once, through the credits) */
 static const mline l_exit[] = { { "NO", L_ACTION, ACT_EXIT_NO }, { "YES", L_ACTION, ACT_EXIT_YES } };
@@ -137,7 +148,8 @@ static mpage g_pages[VP_COUNT] = {
     [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 4 },
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 1 },
-    [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 1 },
+    [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 2 },
+    [VP_MAPPING] = { "CUSTOM MAPPING", VP_CONTROLS, l_mapping, 0 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
     [VP_EXIT]    = { "EXIT GAME?", -1, l_exit, 2 },
     [VP_PAUSE]   = { "PAUSED", -1, l_pause, 5 },
@@ -232,11 +244,34 @@ static void line_value(const mline *l, char *v, size_t cap)
     case L_VOL: snprintf(v, cap, "%u", (vol_get(l->arg) * 10 + 63) / 127); break;
     case L_CHEAT: snprintf(v, cap, "%s", cheat_on(l->arg) ? "ON" : "OFF"); break;
     case L_LANG: snprintf(v, cap, "%s", g_lang_name[g_lang_sel]); break;
+    case L_DEVICE: snprintf(v, cap, "%s", g_map_keyboard ? "KEYBOARD" : "CONTROLLER"); break;
+    case L_BIND:
+        if (g_wait == l->arg)
+            snprintf(v, cap, "%s", g_map_keyboard ? "PRESS A KEY" : "PRESS A BUTTON");
+        else
+            gta2_bind_value(g_map_keyboard, l->arg, v, cap);
+        break;
     default: break;
     }
 }
 
-static const char *line_label(const mline *l) { return l->kind == L_OPT ? opt_label(l->arg) : l->label; }
+static void build_mapping_page(void)
+{
+    int n = 0;
+    l_mapping[n++] = (mline){ "DEVICE", L_DEVICE, 0 };
+    for (int i = 0; i < gta2_bind_count(g_map_keyboard); i++)
+        l_mapping[n++] = (mline){ NULL, L_BIND, i };
+    g_pages[VP_MAPPING].n = n;
+}
+
+static const char *line_label(const mline *l)
+{
+    if (l->kind == L_OPT)
+        return opt_label(l->arg);
+    if (l->kind == L_BIND)
+        return gta2_bind_label(l->arg);
+    return l->label;
+}
 
 /* ---- the game's page 12 --------------------------------------------------------------------- */
 
@@ -261,6 +296,8 @@ static void prepare_page(uint32_t f)
     wr_wr8(p + 0xB8E, 1);
 }
 
+static void build_mapping_page(void);
+
 static void build_cheat_page(void)
 {
     if (g_pages[VP_CHEATS].n)
@@ -270,6 +307,7 @@ static void build_cheat_page(void)
         l_cheats[n++] = (mline){ g_cheats[i].label, L_CHEAT, i };
     l_cheats[n++] = (mline){ "UNLOCK ALL AREAS", L_ACTION, ACT_UNLOCK_AREAS };
     g_pages[VP_CHEATS].n = n;
+    build_mapping_page();
 }
 
 static void open_vpage(int vp)
@@ -333,6 +371,11 @@ static void page_defaults(X86Ctx *ctx)
         case L_LANG: if (g_lang_have[0] && g_lang_sel != 0) { g_lang_sel = 1; lang_step(-1); } break;
         default: break;
         }
+    }
+    if (g_vp == VP_MAPPING) {   /* the device's default layout */
+        gta2_bind_defaults(g_map_keyboard);
+        if (g_map_keyboard)
+            wr_call_guest(ctx, FN_READ_CONTROLS, 0, NULL);
     }
     wr_wr32(FE_SOUND, SND_VALUE);
 }
@@ -415,15 +458,71 @@ static void change(X86Ctx *ctx, const mline *l, int d)
     }
     case L_CHEAT: cheat_set(l->arg, !cheat_on(l->arg)); break;
     case L_LANG: lang_step(d); break;
+    case L_DEVICE:
+        g_map_keyboard = !g_map_keyboard;
+        build_mapping_page();
+        break;
     default: return;
     }
     wr_wr32(FE_SOUND, d > 0 ? SND_VALUE : SND_VALUE + 1);
+}
+
+/* Waiting for the new button / key of a CUSTOM MAPPING line: 1 while it
+ * waits (the menu's own keys are ignored meanwhile). */
+static int poll_wait(X86Ctx *ctx)
+{
+    if (g_wait < 0)
+        return 0;
+    if (wr_time_ms() - g_wait_t0 > 5000) {   /* nothing pressed: cancel */
+        g_wait = -1;
+        return 1;
+    }
+    if (g_map_keyboard) {
+        uint8_t st[256];
+        wr_keys_keyboard_dik(st);
+        for (int k = 1; k < 256; k++) {
+            if (!(st[k] & 0x80)) {
+                g_wait_key_base[k] = 0;   /* released since the wait began */
+                continue;
+            }
+            if (g_wait_key_base[k])
+                continue;
+            if (k != 0x01) {   /* Esc cancels */
+                gta2_bind_set_key(g_wait, (uint8_t)k);
+                wr_call_guest(ctx, FN_READ_CONTROLS, 0, NULL);
+            }
+            g_wait = -1;
+            return 1;
+        }
+        return 1;
+    }
+    uint64_t now = wr_pad_controls();
+    g_wait_pad_base &= now;   /* released ones may count again */
+    uint64_t fresh = now & ~g_wait_pad_base;
+    if (fresh) {
+        int c = 0;
+        while (!(fresh >> c & 1))
+            c++;
+        gta2_bind_set_pad(g_wait, c);
+        if (opt_get(OPT_CONTROL_SCHEME) != 2)
+            opt_set(OPT_CONTROL_SCHEME, 2);   /* a custom binding: CONTROLLER becomes CUSTOM */
+        g_wait = -1;
+        g_wait_hold = 1;   /* the menu ignores keys until everything is released */
+    }
+    return 1;
 }
 
 /* One step of the port's menu (frontend page 12 or the pause menu). */
 static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int down, int enter, int esc,
                       int defaults)
 {
+    if (poll_wait(ctx))
+        return;
+    if (g_wait_hold) {
+        if (wr_pad_controls())
+            return;
+        g_wait_hold = 0;
+    }
     const mpage *pg = &g_pages[g_vp];
     const mline *l = &pg->l[g_cur];
     if (esc) {
@@ -447,6 +546,12 @@ static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int 
             wr_restart();
         } else if (l->kind == L_ACTION && l->arg == ACT_RESTART_LATER) {
             go_back(ctx, f);
+        } else if (l->kind == L_BIND) {
+            g_wait = l->arg;
+            g_wait_t0 = wr_time_ms();
+            g_wait_pad_base = wr_pad_controls();
+            wr_keys_keyboard_dik(g_wait_key_base);
+            wr_wr32(FE_SOUND, SND_SELECT);
         } else if (l->kind == L_ACTION && l->arg == ACT_RESUME) {
             pause_close(ctx, 1);
         } else if (l->kind == L_ACTION && l->arg == ACT_NO) {

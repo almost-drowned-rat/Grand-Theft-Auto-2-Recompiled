@@ -13,6 +13,7 @@
 #include "gta2_options.h"
 #include "gta2_state.h"
 #include "gta2_menu.h"
+#include "gta2_input.h"
 
 #include <stdio.h>
 
@@ -44,8 +45,6 @@ static int pad_action(int c)
     }
 }
 
-static uint8_t g_dik[ACT_N];
-static uint32_t g_dik_time;
 
 extern uint32_t g_gta2_frontend_ms;
 
@@ -103,6 +102,131 @@ static int modern_action(int c, int driving)
     }
 }
 
+static uint8_t g_dik[ACT_N];
+static uint32_t g_dik_time;
+
+/* ---- CUSTOM (maintainer 2026-11-26): every function on a button of the
+ * player's choice, one button per function; the left stick always acts
+ * as the d-pad. Kept in settings.ini as pad_bind_<n> = control number. The
+ * keyboard's bindings are the game's own (registry Control\0..11). */
+static const struct { const char *label; int act; } k_fn[GTA2_BIND_N] = {
+    { "FORWARD", ACT_UP }, { "BACKWARD", ACT_DOWN }, { "LEFT", ACT_LEFT }, { "RIGHT", ACT_RIGHT },
+    { "ATTACK", ACT_ATTACK }, { "ENTER / EXIT", ACT_ENTER }, { "JUMP / HANDBRAKE", ACT_JUMP },
+    { "PREVIOUS WEAPON", ACT_PREV }, { "NEXT WEAPON", ACT_NEXT }, { "SPECIAL 1", ACT_SPECIAL },
+    { "SPECIAL 2", ACT_SPECIAL2 }, { "SPECIAL 3", ACT_STATUS }, { "RADIO", ACT_RADIO_NEXT },
+    { "MENU", ACT_ESCAPE },
+};
+static const int k_bind_default[GTA2_BIND_N] = {
+    WR_PAD_DPAD_UP, WR_PAD_DPAD_DOWN, WR_PAD_DPAD_LEFT, WR_PAD_DPAD_RIGHT, WR_PAD_WEST, WR_PAD_SOUTH,
+    WR_PAD_EAST, WR_PAD_LB, WR_PAD_RB, WR_PAD_NORTH, WR_PAD_LT, WR_PAD_RSTICK, WR_PAD_BACK, WR_PAD_START,
+};
+static int g_bind[GTA2_BIND_N];
+static int g_bind_loaded;
+
+static void bind_load(void)
+{
+    if (g_bind_loaded)
+        return;
+    g_bind_loaded = 1;
+    for (int i = 0; i < GTA2_BIND_N; i++) {
+        char key[24];
+        snprintf(key, sizeof key, "pad_bind_%d", i);
+        int c = wr_settings_get_int(key, k_bind_default[i]);
+        g_bind[i] = c >= 0 && c < WR_PAD_N ? c : k_bind_default[i];
+    }
+}
+
+int gta2_bind_count(int keyboard) { return keyboard ? ACT_N : GTA2_BIND_N; }
+const char *gta2_bind_label(int i) { return i >= 0 && i < GTA2_BIND_N ? k_fn[i].label : ""; }
+
+static uint8_t key_of(int act)
+{
+    char name[8];
+    uint32_t v;
+    snprintf(name, sizeof name, "%d", act);
+    return wr_reg_get_dword("HKEY_LOCAL_MACHINE\\SOFTWARE\\DMA Design Ltd\\GTA2\\Control", name, &v) && v < 256
+               ? (uint8_t)v : k_default_dik[act];
+}
+
+void gta2_bind_value(int keyboard, int i, char *out, size_t cap)
+{
+    bind_load();
+    if (keyboard)
+        wr_key_name(key_of(k_fn[i].act), out, cap);
+    else
+        snprintf(out, cap, "%s", wr_pad_control_name(g_bind[i]));
+}
+
+/* a pad control for function i; the function that had it gets i's old one */
+void gta2_bind_set_pad(int i, int control)
+{
+    bind_load();
+    char key[24];
+    for (int j = 0; j < GTA2_BIND_N; j++)
+        if (j != i && g_bind[j] == control) {
+            g_bind[j] = g_bind[i];
+            snprintf(key, sizeof key, "pad_bind_%d", j);
+            wr_settings_set_int(key, g_bind[j]);
+        }
+    g_bind[i] = control;
+    snprintf(key, sizeof key, "pad_bind_%d", i);
+    wr_settings_set_int(key, control);
+}
+
+/* a key for game action i (Control\i); swapped like the pad. The caller
+ * makes the game read its controls again (sub_0044BF30). */
+void gta2_bind_set_key(int i, uint8_t dik)
+{
+    const char *k = "HKEY_LOCAL_MACHINE\\SOFTWARE\\DMA Design Ltd\\GTA2\\Control";
+    char name[8];
+    uint8_t old = key_of(i);
+    for (int j = 0; j < ACT_N; j++)
+        if (j != i && key_of(j) == dik) {
+            snprintf(name, sizeof name, "%d", j);
+            wr_reg_set_dword(k, name, old);
+        }
+    snprintf(name, sizeof name, "%d", i);
+    wr_reg_set_dword(k, name, dik);
+    g_dik_time = 0;   /* the pad follows at once */
+}
+
+void gta2_bind_defaults(int keyboard)
+{
+    if (keyboard) {
+        const char *k = "HKEY_LOCAL_MACHINE\\SOFTWARE\\DMA Design Ltd\\GTA2\\Control";
+        char name[8];
+        for (int j = 0; j < ACT_N; j++) {
+            snprintf(name, sizeof name, "%d", j);
+            wr_reg_set_dword(k, name, k_default_dik[j]);
+        }
+        g_dik_time = 0;
+        return;
+    }
+    bind_load();
+    for (int i = 0; i < GTA2_BIND_N; i++) {
+        char key[24];
+        snprintf(key, sizeof key, "pad_bind_%d", i);
+        g_bind[i] = k_bind_default[i];
+        wr_settings_set_int(key, g_bind[i]);
+    }
+}
+
+static int custom_action(int c)
+{
+    bind_load();
+    switch (c) {   /* the stick as the d-pad */
+    case WR_PAD_LEFT_STICK_UP: c = WR_PAD_DPAD_UP; break;
+    case WR_PAD_LEFT_STICK_DOWN: c = WR_PAD_DPAD_DOWN; break;
+    case WR_PAD_LEFT_STICK_LEFT: c = WR_PAD_DPAD_LEFT; break;
+    case WR_PAD_LEFT_STICK_RIGHT: c = WR_PAD_DPAD_RIGHT; break;
+    default: break;
+    }
+    for (int i = 0; i < GTA2_BIND_N; i++)
+        if (g_bind[i] == c)
+            return k_fn[i].act;
+    return -1;
+}
+
 static uint8_t map(int control)
 {
     if (gta2_pause_open())   /* the pause menu: START closes it again (it opened it) */
@@ -110,7 +234,8 @@ static uint8_t map(int control)
     if (g_gta2_frontend_ms && wr_time_ms() - g_gta2_frontend_ms < 250)
         return map_menu(control);
     int driving = gta2_player_driving();
-    int a = opt_get(OPT_CONTROL_SCHEME) == 1 ? modern_action(control, driving) : pad_action(control);
+    int scheme = opt_get(OPT_CONTROL_SCHEME);
+    int a = scheme == 1 ? modern_action(control, driving) : scheme == 2 ? custom_action(control) : pad_action(control);
     if (a < 0)
         return 0;
     if (a == ACT_ESCAPE)
