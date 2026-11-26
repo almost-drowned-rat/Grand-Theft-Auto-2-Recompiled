@@ -6,6 +6,7 @@
  * direct calls bind to it; wr_manual_register covers indirect calls.
  */
 #include "wr.h"
+#include "vk/wr_vk.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -39,6 +40,8 @@ void sub_00462A30(RECOMP_PARAMS)
     uint64_t f0 = gta2_frames_presented();
     sub_00462A30_gen(ctx, base);
     uint32_t next = MEM32(0x00662748u);
+    if (next != next0)
+        wr_overlay_game_tick();   /* GAME SPEED */
     if (next != next0 && getenv("WR_TICK_LOG")) {
         static uint64_t last;
         uint64_t t = wr_time_ns();

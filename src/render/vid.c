@@ -38,10 +38,16 @@ static void ensure_vk(void)
     SDL_Window *win = wr_main_window();
     if (!win)
         return;
+    /* settings.ini (GTA2_<KEY> overrides; the old WR_* names still work) */
     const char *vs = getenv("WR_VSYNC");
-    if (!wr_vk_init(win, !(vs && *vs == '0')))
+    int vsync = vs && *vs ? *vs != '0' : wr_settings_get_int("vsync", 1);
+    if (!wr_vk_init(win, vsync))
         return;
+    wr_overlay_set_tick_rate(1000.0 / 33.0);   /* one logic tick per 33 ms (docs/re/framerate.md) */
+    wr_overlay_set(wr_overlay_parse(wr_settings_get("performance_overlay", "off")));
     const char *preset = getenv("WR_SHADER_PRESET");
+    if (!preset || !*preset)
+        preset = wr_settings_get("shader_preset", NULL);
     if (preset && *preset)
         sp_set_preset(preset);
     g_gfx.nearest = wr_vk_sampler(VK_FILTER_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
@@ -171,12 +177,14 @@ void gfx_flip(void)
                           dt_ms > 0 && dt_ms < 1000 ? 1000.0f / (float)dt_ms : 30.0f, dt_ms);
         lx = x; ly = y; lw = w; lh = h;
     }
+    wr_overlay_prepare();
     if (shaded) {
         wr_vk_present_begin(0, black);   /* keep the chain's picture; overlays go here */
     } else {
         wr_vk_present_begin(1, black);
         wr_vk_blit(g_gfx.cmd, g_gfx.target, x, y, w, h, g_gfx.gamma);
     }
+    wr_overlay_draw(g_gfx.cmd);
     wr_vk_present_end();
     /* WR_DUMP_PRESENT=N: every N-th shown picture to data/present_<n>.png */
     static int dump_present = -1;
@@ -630,8 +638,10 @@ void gfx_show_frame_bgrx(const uint8_t *px, uint32_t w, uint32_t h, uint32_t pit
     int x, y, ww, hh;
     wr_vk_fit_rect(g_vk.extent.width, g_vk.extent.height, w, h, &x, &y, &ww, &hh);
     float black[4] = { 0, 0, 0, 1 };
+    wr_overlay_prepare();
     wr_vk_present_begin(1, black);
     wr_vk_blit_texture(cmd, tex, x, y, ww, hh, 1.0f);
+    wr_overlay_draw(cmd);
     wr_vk_present_end();
     const char *d = getenv("WR_DUMP_PRESENT");
     if (d && *d && atoi(d) > 0 && g_gfx.frames % (uint64_t)atoi(d) == 0) {
