@@ -178,6 +178,7 @@ void gfx_flip(void)
     if (g_wr_screenshot_request) {
         g_wr_screenshot_request = 0;
         if (wr_capture_dir(g_gfx.frames, capture, sizeof capture)) {
+            wr_log("F12 capture: %s", capture);   /* a time mark in the log */
             char path[1300];
             snprintf(path, sizeof path, "%s/screen.png", capture);
             wr_vk_dump_target(g_gfx.target, path);
