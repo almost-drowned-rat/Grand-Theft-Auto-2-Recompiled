@@ -12,6 +12,7 @@
 #include "platform/wr_platform.h"
 #include "gta2_options.h"
 #include "gta2_state.h"
+#include "gta2_menu.h"
 
 #include <stdio.h>
 
@@ -97,7 +98,7 @@ static int modern_action(int c, int driving)
 
 static uint8_t map(int control)
 {
-    if (g_gta2_frontend_ms && wr_time_ms() - g_gta2_frontend_ms < 250)
+    if ((g_gta2_frontend_ms && wr_time_ms() - g_gta2_frontend_ms < 250) || gta2_pause_open())
         return map_menu(control);
     int a = opt_get(OPT_CONTROL_SCHEME) == 1 ? modern_action(control, gta2_player_driving()) : pad_action(control);
     if (a < 0)

@@ -646,6 +646,18 @@ WR_HANDLER(gbh_DrawFlatRect)
     WR_RET(0, 2);
 }
 
+/* For the port's menus over the game: a see-through rectangle in game
+ * screen pixels (rgba with alpha), drawn like gbh_DrawFlatRect but blended. */
+void gbh_port_rect(float x, float y, float w, float h, uint32_t rgba)
+{
+    if (!pipes_init())
+        return;
+    gvert q[4] = { { x, y, 1, 0, 0, rgba }, { x + w, y, 1, 0, 0, rgba }, { x + w, y + h, 1, 0, 0, rgba },
+                   { x, y + h, 1, 0, 0, rgba } };
+    gvert gv[6] = { q[0], q[1], q[2], q[0], q[2], q[3] };
+    emit(g_white->set, BLEND_ALPHA, gv, 6);
+}
+
 /* ---- exports: textures / palettes --------------------------------------------------------------- */
 
 WR_HANDLER(gbh_RegisterTexture)

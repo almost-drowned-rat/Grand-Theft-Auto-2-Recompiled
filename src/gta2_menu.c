@@ -23,6 +23,9 @@
  */
 #include "gta2_menu.h"
 #include "gta2_options.h"
+#include "gta2_state.h"
+#include "render/gta2_render.h"
+#include "platform/wr_platform.h"
 #include "wr.h"
 
 #include <stdio.h>
@@ -55,9 +58,11 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 
 /* ---- pages -------------------------------------------------------------------------------- */
 
-enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_COUNT };
+enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
+       VP_COUNT };
 enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK };
-enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES };
+enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
+       ACT_RESTART_YES, ACT_NO };
 enum { VOL_MUSIC, VOL_SFX };
 
 typedef struct { const char *label; int kind, arg; } mline;
@@ -116,6 +121,13 @@ static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME } };   /* 
 /* EXIT GAME? - B / Esc on the main menu and EXIT GAME ask first (maintainer
  * 2026-11-26; the game quit at once, through the credits) */
 static const mline l_exit[] = { { "NO", L_ACTION, ACT_EXIT_NO }, { "YES", L_ACTION, ACT_EXIT_YES } };
+/* the pause menu over the game (START / Esc in play; maintainer 2026-11-26) */
+static const mline l_pause[] = {
+    { "RESUME", L_ACTION, ACT_RESUME }, { "RECOMP OPTIONS", L_PAGE, VP_ROOT },
+    { "RESTART AREA", L_PAGE, VP_RESTART }, { "EXIT TO MAIN MENU", L_PAGE, VP_QUIT },
+};
+static const mline l_quit[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION, ACT_QUIT_YES } };
+static const mline l_restart[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION, ACT_RESTART_YES } };
 
 static mpage g_pages[VP_COUNT] = {
     [VP_ROOT]    = { "RECOMP OPTIONS", -1, l_root, 6 },
@@ -126,6 +138,9 @@ static mpage g_pages[VP_COUNT] = {
     [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 1 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
     [VP_EXIT]    = { "EXIT GAME?", -1, l_exit, 2 },
+    [VP_PAUSE]   = { "PAUSED", -1, l_pause, 4 },
+    [VP_QUIT]    = { "EXIT TO MAIN MENU?", VP_PAUSE, l_quit, 2 },
+    [VP_RESTART] = { "RESTART AREA?", VP_PAUSE, l_restart, 2 },
 };
 
 /* ---- state --------------------------------------------------------------------------------- */
@@ -321,6 +336,28 @@ static void page_defaults(X86Ctx *ctx)
 
 static int g_post_cursor = -1, g_post_quit;
 
+/* where the menu is shown: the frontend's page 12, or over the paused game */
+enum { HOST_FRONTEND, HOST_PAUSE };
+static int g_host = HOST_FRONTEND;
+static int g_pause_open;
+static int g_after_quit;   /* 1: land on the main menu, 2: restart the area (page 11 REPLAY) */
+
+#define FN_PAUSE      0x0045A6E0u   /* thiscall game: state 2 (single player) */
+#define FN_RESUME     0x0045BA60u   /* thiscall game: state 1, flushes input */
+#define FN_END_GAME   0x0045A4B0u   /* thiscall game (delay, reason 2 = quit) */
+
+static void pause_close(X86Ctx *ctx, int resume)
+{
+    uint32_t g = gta2_game();
+    if (resume && g && wr_rd32(g) == 2)
+        call_this(ctx, FN_RESUME, g, 0, NULL);
+    g_pause_open = 0;
+    g_host = HOST_FRONTEND;
+    g_wr_input_captured = 0;
+}
+
+int gta2_pause_open(void) { return g_pause_open; }
+
 /* After the game's own input step (it rewrites the result and the cursor). */
 void gta2_menu_after_input(void)
 {
@@ -340,7 +377,13 @@ void gta2_menu_after_input(void)
 static void go_back(X86Ctx *ctx, uint32_t f)
 {
     int parent = g_pages[g_vp].parent;
+    if (g_vp == VP_ROOT && g_host == HOST_PAUSE)
+        parent = VP_PAUSE;
     wr_wr32(FE_SOUND, SND_BACK);
+    if (parent < 0 && g_host == HOST_PAUSE) {   /* B / Esc on PAUSED: back to the game */
+        pause_close(ctx, 1);
+        return;
+    }
     if (parent < 0) {   /* leave to the main menu, cursor on the line that led here */
         uint32_t a = 0;
         call_this(ctx, FN_GOTO_PAGE, f, 1, &a);
@@ -374,6 +417,63 @@ static void change(X86Ctx *ctx, const mline *l, int d)
     wr_wr32(FE_SOUND, d > 0 ? SND_VALUE : SND_VALUE + 1);
 }
 
+/* One step of the port's menu (frontend page 12 or the pause menu). */
+static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int down, int enter, int esc,
+                      int defaults)
+{
+    const mpage *pg = &g_pages[g_vp];
+    const mline *l = &pg->l[g_cur];
+    if (esc) {
+        go_back(ctx, f);
+    } else if (defaults) {
+        page_defaults(ctx);
+    } else if (up || down) {
+        g_cur = (g_cur + (down ? 1 : pg->n - 1)) % pg->n;
+        wr_wr32(FE_SOUND, down ? SND_DOWN : SND_UP);
+    } else if (enter) {
+        if (l->kind == L_PAGE) {
+            open_vpage(l->arg);
+            wr_wr32(FE_SOUND, SND_SELECT);
+        } else if (l->kind == L_BACK) {
+            go_back(ctx, f);
+        } else if (l->kind == L_ACTION && l->arg == ACT_EXIT_NO) {
+            go_back(ctx, f);
+        } else if (l->kind == L_ACTION && l->arg == ACT_EXIT_YES) {
+            g_post_quit = 1;   /* the frontend's result, set after the game's input step */
+        } else if (l->kind == L_ACTION && l->arg == ACT_RESTART_NOW) {
+            wr_restart();
+        } else if (l->kind == L_ACTION && l->arg == ACT_RESTART_LATER) {
+            go_back(ctx, f);
+        } else if (l->kind == L_ACTION && l->arg == ACT_RESUME) {
+            pause_close(ctx, 1);
+        } else if (l->kind == L_ACTION && l->arg == ACT_NO) {
+            go_back(ctx, f);
+        } else if (l->kind == L_ACTION && (l->arg == ACT_QUIT_YES || l->arg == ACT_RESTART_YES)) {
+            uint32_t g = gta2_game(), a2[2] = { 1, 2 };   /* end the game: reason 2 = quit (the prompt's yes) */
+            if (g) {
+                call_this(ctx, FN_END_GAME, g, 2, a2);
+                g_after_quit = l->arg == ACT_QUIT_YES ? 1 : 2;
+            }
+            pause_close(ctx, 0);
+        } else if (l->kind == L_ACTION && l->arg == ACT_UNLOCK_AREAS) {
+            call_this(ctx, FN_UNLOCK_ALL, wr_rd32(PROFILES_PTR), 0, NULL);
+            wr_wr32(FE_SOUND, 9);   /* the game's "cheat accepted" sound */
+        } else {
+            change(ctx, l, 1);
+        }
+    } else if (left || right) {
+        change(ctx, l, right ? 1 : -1);
+    }
+    lang_page_update();
+    pg = &g_pages[g_vp];
+    if (g_cur >= pg->n)
+        g_cur = pg->n - 1;
+    if (g_cur < g_top)
+        g_top = g_cur;
+    if (g_cur >= g_top + VISIBLE)
+        g_top = g_cur - VISIBLE + 1;
+}
+
 /* The game's menu input step (sub_004597C0): on page 12 the port takes every
  * key; returns 1 when it did (the caller then runs the original with all
  * edge flags cleared). */
@@ -405,6 +505,18 @@ int gta2_menu_input(X86Ctx *ctx)
             return 1;
         }
     }
+    if (page == 11 && g_after_quit) {   /* PLAYER QUIT! after the pause menu's choice */
+        if (g_after_quit == 1) {
+            uint32_t a = 0;
+            call_this(ctx, FN_GOTO_PAGE, f, 1, &a);
+        } else {   /* REPLAY PREVIOUS AREA: the game's own restart */
+            wr_wr16(f + FE_PAGES + 11 * PAGE_SIZE + 0xBC6, 1);
+            wr_wr8(f + FE_EDGE + 4, 1);
+        }
+        g_after_quit = 0;
+        g_last_page = page;
+        return 0;
+    }
     if (page != PORT_PAGE) {
         g_last_page = page;
         return 0;
@@ -415,7 +527,6 @@ int gta2_menu_input(X86Ctx *ctx)
         g_cur = g_top = 0;
         g_last_page = PORT_PAGE;
     }
-    const mpage *pg = &g_pages[g_vp];
     uint8_t left = wr_rd8(f + FE_EDGE + 0), right = wr_rd8(f + FE_EDGE + 1), up = wr_rd8(f + FE_EDGE + 2),
             down = wr_rd8(f + FE_EDGE + 3), enter = wr_rd8(f + FE_EDGE + 4), esc = wr_rd8(f + FE_EDGE + 5);
     for (int i = 0; i < 7; i++)
@@ -425,45 +536,7 @@ int gta2_menu_input(X86Ctx *ctx)
     uint8_t home = wr_rd8(f + 8 + 0xC7) & 0x80;
     int defaults = home && !home_prev;
     home_prev = home;
-    const mline *l = &pg->l[g_cur];
-    if (esc) {
-        go_back(ctx, f);
-    } else if (defaults) {
-        page_defaults(ctx);
-    } else if (up || down) {
-        g_cur = (g_cur + (down ? 1 : pg->n - 1)) % pg->n;
-        wr_wr32(FE_SOUND, down ? SND_DOWN : SND_UP);
-    } else if (enter) {
-        if (l->kind == L_PAGE) {
-            open_vpage(l->arg);
-            wr_wr32(FE_SOUND, SND_SELECT);
-        } else if (l->kind == L_BACK) {
-            go_back(ctx, f);
-        } else if (l->kind == L_ACTION && l->arg == ACT_EXIT_NO) {
-            go_back(ctx, f);
-        } else if (l->kind == L_ACTION && l->arg == ACT_EXIT_YES) {
-            g_post_quit = 1;   /* the frontend's result, set after the game's input step */
-        } else if (l->kind == L_ACTION && l->arg == ACT_RESTART_NOW) {
-            wr_restart();
-        } else if (l->kind == L_ACTION && l->arg == ACT_RESTART_LATER) {
-            go_back(ctx, f);
-        } else if (l->kind == L_ACTION && l->arg == ACT_UNLOCK_AREAS) {
-            call_this(ctx, FN_UNLOCK_ALL, wr_rd32(PROFILES_PTR), 0, NULL);
-            wr_wr32(FE_SOUND, 9);   /* the game's "cheat accepted" sound */
-        } else {
-            change(ctx, l, 1);
-        }
-    } else if (left || right) {
-        change(ctx, l, right ? 1 : -1);
-    }
-    lang_page_update();
-    pg = &g_pages[g_vp];
-    if (g_cur >= pg->n)
-        g_cur = pg->n - 1;
-    if (g_cur < g_top)
-        g_top = g_cur;
-    if (g_cur >= g_top + VISIBLE)
-        g_top = g_cur - VISIBLE + 1;
+    menu_keys(ctx, f, left, right, up, down, enter, esc, defaults);
     return 1;
 }
 
@@ -531,4 +604,89 @@ void gta2_menu_apply_cheats(void)
 {
     for (int i = 0; i < N_CHEATS; i++)
         wr_wr8(g_cheats[i].flag, (uint8_t)(wr_settings_get_int(g_cheats[i].key, g_cheats[i].def) != 0));
+}
+
+/* ---- the pause menu over the game ----------------------------------------------------------- */
+
+/* Between two game loop steps (before sub_00462A30): START / Esc opens the
+ * menu (the game pauses itself, freeze.wav); while open the port reads the
+ * keys and the game gets none. Only in single-player games. */
+void gta2_pause_tick(X86Ctx *ctx)
+{
+    uint32_t g = gta2_game();
+    int playing = g && wr_mem_valid(g, 0x40) && wr_rd8(g + 0x23) == 1 && !wr_rd32(0x00673E2Cu) &&
+                  !wr_rd8(0x00595018u);
+    /* Esc / START never reach the game in play: they open this menu (the
+     * game's own "Is that it?" prompt is replaced by EXIT TO MAIN MENU) */
+    g_wr_key_hidden[0x01] = (uint8_t)playing;
+    if (!playing) {
+        if (g_pause_open)
+            pause_close(ctx, 0);
+        return;
+    }
+    static uint8_t prev[256];
+    uint8_t st[256];
+    wr_keys_dik_state(st);
+#define EDGE(k) ((st[k] & 0x80) && !(prev[k] & 0x80))
+    int esc = EDGE(0x01), enter = EDGE(0x1C), up = EDGE(0xC8), down = EDGE(0xD0), left = EDGE(0xCB),
+        right = EDGE(0xCD), home = EDGE(0xC7);
+#undef EDGE
+    memcpy(prev, st, sizeof prev);
+    if (!g_pause_open) {
+        uint32_t player = gta2_player();
+        if (!esc || (player && wr_rd8(player + 0x78A)))
+            return;
+        if (wr_rd32(g) == 1)
+            call_this(ctx, FN_PAUSE, g, 0, NULL);
+        if (wr_rd32(g) != 2)
+            return;   /* the game would not pause (a state change in progress) */
+        lang_init();
+        build_cheat_page();
+        g_pause_open = 1;
+        g_host = HOST_PAUSE;
+        g_wr_input_captured = 1;
+        g_vp = VP_PAUSE;
+        g_cur = g_top = 0;
+        return;
+    }
+    menu_keys(ctx, 0, left, right, up, down, enter, esc, home);
+}
+
+/* The game's PAUSED panel (sub_004C9FA0) stays hidden while the menu is open. */
+int gta2_pause_hide_panel(void) { return g_pause_open; }
+
+#define P_FONT  1      /* the level style's HUD font (fonts 3 and 4 do not exist in play: never use them) */
+#define P_HI    6      /* the "PAUSED" font for the title and the chosen line */
+#define P_FONT_SCALE 0x4000u   /* the look the maintainer chose (2026-11-26) */
+#define P_HI_SCALE   0x3000u
+
+/* After the game drew its HUD (sub_004CA440, inside Begin/EndScene). */
+void gta2_pause_draw(X86Ctx *ctx)
+{
+    if (!g_pause_open)
+        return;
+    if (!g_strbuf)
+        g_strbuf = wr_galloc(256);
+    int sw = (int)g_gfx.w, sh = (int)g_gfx.h;
+    gbh_port_rect(0, 0, (float)sw, (float)sh, 0xA0000000u);   /* dim the game */
+    const mpage *pg = &g_pages[g_vp];
+    int pw = 420, x0 = (sw - pw) / 2, xr = x0 + pw;
+    int y0 = sh / 2 - 110;
+    gbh_port_rect((float)(x0 - 20), (float)(y0 - 48), (float)(pw + 40), 300.0f, 0xC0201410u);
+    put_text(ctx, pg->title, x0, y0 - 38, P_HI, 0x4000);
+    char v[64];
+    for (int i = g_top; i < pg->n && i < g_top + VISIBLE; i++) {
+        const mline *l = &pg->l[i];
+        int y = y0 + (i - g_top) * 24;
+        uint16_t fo = i == g_cur ? P_HI : P_FONT;
+        uint32_t sc = i == g_cur ? P_HI_SCALE : P_FONT_SCALE;
+        put_text(ctx, line_label(l), x0, y, fo, sc);
+        line_value(l, v, sizeof v);
+        if (v[0])
+            put_text(ctx, v, xr - text_w(ctx, v, fo, sc), y, fo, sc);
+    }
+    if (g_top > 0)
+        put_text(ctx, "...", x0, y0 - 16, P_FONT, 0x4000);
+    if (g_top + VISIBLE < pg->n)
+        put_text(ctx, "...", x0, y0 + VISIBLE * 24 - 6, P_FONT, 0x4000);
 }

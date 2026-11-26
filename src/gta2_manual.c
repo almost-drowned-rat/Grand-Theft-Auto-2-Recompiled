@@ -7,6 +7,7 @@
  */
 #include "wr.h"
 #include "vk/wr_vk.h"
+#include "gta2_menu.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -36,6 +37,12 @@ extern void sub_00462A30_gen(RECOMP_PARAMS);
 extern uint64_t gta2_frames_presented(void);
 void sub_00462A30(RECOMP_PARAMS)
 {
+    {   /* the pause menu (gta2_menu.c) between two loop steps */
+        uint32_t ecx = ctx->r_ecx, eax = ctx->r_eax;
+        gta2_pause_tick(ctx);
+        ctx->r_ecx = ecx;
+        ctx->r_eax = eax;
+    }
     uint32_t next0 = MEM32(0x00662748u);
     uint64_t f0 = gta2_frames_presented();
     sub_00462A30_gen(ctx, base);
@@ -314,7 +321,6 @@ void gta2_manual_register(void)
 }
 
 /* ---- OPTIONS menu in the frontend (gta2_menu.c, docs/re/frontend.md) ---------------------- */
-#include "gta2_menu.h"
 
 extern void sub_00453E20_gen(RECOMP_PARAMS);
 void sub_00453E20(RECOMP_PARAMS)   /* builds every frontend page */
@@ -372,4 +378,24 @@ void sub_004A5C50(RECOMP_PARAMS)   /* on-foot control step (thiscall player, ped
     uint32_t eax = ctx->r_eax;
     gta2_modern_on_foot(player, ped);
     ctx->r_eax = eax;
+}
+
+/* ---- the pause menu over the HUD ---------------------------------------------------------- */
+extern void sub_004CA440_gen(RECOMP_PARAMS);
+void sub_004CA440(RECOMP_PARAMS)   /* draws the HUD each frame (thiscall HUD) */
+{
+    sub_004CA440_gen(ctx, base);
+    uint32_t eax = ctx->r_eax;
+    gta2_pause_draw(ctx);
+    ctx->r_eax = eax;
+}
+
+extern void sub_004C9FA0_gen(RECOMP_PARAMS);
+void sub_004C9FA0(RECOMP_PARAMS)   /* the game's PAUSED panel (thiscall, plain ret) */
+{
+    if (gta2_pause_hide_panel()) {
+        ctx->r_esp += 4;   /* ret */
+        return;
+    }
+    sub_004C9FA0_gen(ctx, base);
 }

@@ -11,4 +11,10 @@ void gta2_menu_after_input(void);      /* after sub_004597C0 */
 void gta2_menu_draw(X86Ctx *ctx);      /* after sub_00457920 */
 void gta2_menu_apply_cheats(void);     /* after sub_00451930 (Debug flags read) */
 
+/* the pause menu over the game */
+void gta2_pause_tick(X86Ctx *ctx);      /* before sub_00462A30 (between loop steps) */
+void gta2_pause_draw(X86Ctx *ctx);      /* after sub_004CA440 (HUD) */
+int  gta2_pause_hide_panel(void);       /* skip sub_004C9FA0 (the game's PAUSED panel) */
+int  gta2_pause_open(void);
+
 #endif
