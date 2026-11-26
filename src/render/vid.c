@@ -152,12 +152,29 @@ void gfx_flip(void)
         snprintf(path, sizeof path, "%s/frame_%06llu.png", g_wr_paths.data, (unsigned long long)g_gfx.frames);
         wr_vk_dump_target(g_gfx.target, path);
     }
-    if (g_wr_screenshot_request) {   /* F12: the game picture, no overlays, at the render resolution */
-        char path[1300];
+    /* F12: a capture as option-p lays it out - data/captures/<time>-frame<N>/
+     * screen.png (the game picture at the render resolution, no overlays),
+     * shown.png (the window's picture: bars, shader, overlays) and info.txt */
+    static char capture[1200];
+    capture[0] = 0;
+    if (g_wr_screenshot_request) {
         g_wr_screenshot_request = 0;
-        if (wr_screenshot_path("gta2", path, sizeof path)) {
+        if (wr_capture_dir(g_gfx.frames, capture, sizeof capture)) {
+            char path[1300];
+            snprintf(path, sizeof path, "%s/screen.png", capture);
             wr_vk_dump_target(g_gfx.target, path);
-            wr_log("screenshot: %s", path);
+            snprintf(path, sizeof path, "%s/info.txt", capture);
+            FILE *f = fopen(path, "w");
+            if (f) {
+                fprintf(f, "frame %llu\ngame mode %ux%u\nrender target %ux%u\nwindow %ux%u\n",
+                        (unsigned long long)g_gfx.frames, g_gfx.w, g_gfx.h, g_gfx.tw, g_gfx.th,
+                        g_vk.extent.width, g_vk.extent.height);
+                fprintf(f, "aspect %.4f, display mode %d, texture filter %d, shader %s\n", opt_aspect_ratio(),
+                        opt_display_mode(), opt_texture_filter(), g_gfx.shader_on ? "on" : "off");
+                fclose(f);
+            }
+        } else {
+            capture[0] = 0;
         }
     }
     int x, y, w, h;
@@ -202,6 +219,12 @@ void gfx_flip(void)
     if (dump_present < 0) {
         const char *d = getenv("WR_DUMP_PRESENT");
         dump_present = d && *d ? atoi(d) : 0;
+    }
+    if (capture[0]) {
+        char path[1300];
+        snprintf(path, sizeof path, "%s/shown.png", capture);
+        wr_vk_dump_swap(path);
+        wr_log("capture: %s", capture);
     }
     if (dump_present > 0 && g_gfx.frames % (uint64_t)dump_present == 0) {
         char path[1300];
