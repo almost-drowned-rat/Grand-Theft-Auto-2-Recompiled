@@ -14,7 +14,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-void wr_register_miles_bink_silent(void);
+void wr_register_miles(void);
+wr_coop_step_fn gta2_thread_hook(X86Ctx *ctx, uint32_t start, uint32_t param);
 recomp_func_t gta2_recomp_lookup(uint32_t va);
 int gta2_dispatch_init(void);
 recomp_func_t bink_recomp_lookup(uint32_t va);
@@ -52,7 +53,8 @@ int main(int argc, char **argv)
     if (!wr_mem_init())
         return 1;
     wr_win32_register();
-    wr_register_miles_bink_silent();
+    wr_register_miles();
+    wr_set_thread_hook(gta2_thread_hook);
     gta2_registry_defaults();
     gta2_manual_register();
     gta2_input_register();
