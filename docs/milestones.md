@@ -61,14 +61,14 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 ## M6 — Playable on Linux
 - [ ] Frontend/menu, missions load, saves (POSIX-safe writes) - frontend, pause menu, missions and saving work in the maintainer's tests; POSIX-safe save writes not checked yet
 - [x] RECOMP OPTIONS and CHEATS lines in the game's own options menu (CHEATS: the game's cheats as ON/OFF switches, one-shot cheats as actions; maintainer 2026-11-26)
-- [ ] Play through all three districts, fix crashes
+- ~~Play through all three districts~~ dropped (maintainer 2026-11-26: too long; crashes are fixed as they show up)
 - [ ] Performance: constant 60 FPS, game logic speed correct
 
 ## M7 — Windows build (PAUSED: done on a Windows PC)
 - [ ] MSVC/clang build, Win95 launcher, settings menu (option-p RECOMP layout)
 - [ ] Test on Windows
 
-## M8 — Android build
+## M8 — Android build (only after M6 is finished and everything is tested; maintainer 2026-11-26)
 - [ ] APK (ARM64), Vista launcher (Android standard), game data import
 - [ ] Back menu in the fixed order, graphics driver (Turnip) row
 - [ ] Test on the Odin 2

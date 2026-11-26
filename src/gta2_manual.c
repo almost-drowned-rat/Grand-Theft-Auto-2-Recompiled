@@ -61,6 +61,19 @@ void sub_00462A30(RECOMP_PARAMS)
             wr_log("tick +%.3f ms (next %u, now %u)", (double)(t - last) / 1e6, next, wr_time_ms());
         last = t;
     }
+    if (getenv("GTA2_FPS_TEST") && gta2_frames_presented() != f0 && MEM32(0x005EB4FCu)) {
+        /* experiment: draw the same tick again, count its sprites */
+        extern uint32_t g_gta2_sprite_draws;
+        static int n;
+        uint32_t s1 = g_gta2_sprite_draws;
+        uint32_t regs[4] = { ctx->r_eax, ctx->r_ecx, ctx->r_edx, ctx->r_ebx };
+        wr_call_guest(ctx, 0x00461960u, 0, NULL);
+        ctx->r_eax = regs[0]; ctx->r_ecx = regs[1]; ctx->r_edx = regs[2]; ctx->r_ebx = regs[3];
+        static uint32_t s0;
+        if (n++ % 30 == 0)
+            wr_log("fps test: first draw %u sprites, extra draw %u", s1 - s0, g_gta2_sprite_draws - s1);
+        s0 = g_gta2_sprite_draws;
+    }
     if (next != next0 || gta2_frames_presented() != f0 || !MEM8(0x00595010u))
         return;   /* ticked, drew, or the limiter is off: no waiting */
     int32_t left = (int32_t)(next - wr_time_ms());
@@ -482,8 +495,10 @@ void sub_0048BE60(RECOMP_PARAMS)   /* the blood pool particle's tick (thiscall p
 #include "render/gta2_render.h"
 
 extern void sub_004BE060_gen(RECOMP_PARAMS);
+uint32_t g_gta2_sprite_draws;   /* sprites drawn (frame-rate experiments) */
 void sub_004BE060(RECOMP_PARAMS)   /* draws one sprite through gbh_DrawQuad (thiscall sprite) */
 {
+    g_gta2_sprite_draws++;
     float sc, ti, al;
     gta2_sprite_look(ctx->r_ecx, &sc, &ti, &al);
     if (sc == 1.0f && ti == 1.0f && al == 1.0f) {
