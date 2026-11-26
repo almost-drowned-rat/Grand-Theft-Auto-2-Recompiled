@@ -82,8 +82,49 @@ WR_HANDLER(BinkBufferBlit)
 {
     (void)base;
     bbuf *b = find(WR_ARG(0));
+    {   /* even pacing: Bink releases frames by its sound clock, which on Android moves in coarse steps (gaps
+         * of 54..81 ms for a 66.7 ms movie, Linux 65..68). Frames go out on a fixed grid instead: slot n =
+         * slot n-1 + the running average gap, the grid set 8 ms behind the first frame, so a frame up to 8 ms
+         * late still meets its slot; one later than that restarts the grid. Sound stays in sync on average. */
+        static uint64_t prev, avg, slot;
+        uint64_t now = wr_time_ns();
+        if (prev && now - prev < 200000000ull) {
+            uint64_t gap = now - prev;
+            avg = avg ? (avg * 15 + gap) / 16 : gap;
+            slot = slot ? slot + avg : now + 8000000ull;
+            if (now > slot + 2000000ull)
+                slot = now + 8000000ull;                      /* far behind: a new grid */
+            if (slot > now && slot - now < 25000000ull) {
+                struct timespec ts = { 0, (long)(slot - now) };
+                nanosleep(&ts, NULL);
+            }
+        } else {
+            avg = 0;
+            slot = 0;
+        }
+        prev = now;
+    }
     if (b)
         gfx_show_frame_bgrx((const uint8_t *)wr_ptr(b->pixels), b->w, b->h, b->w * 4);
+    static int log = -1;
+    if (log < 0)
+        log = getenv("GTA2_BINK_LOG") != NULL;
+    if (log) {   /* movie pacing: the gaps between shown frames, per 30 frames */
+        static uint64_t last, mn = ~0ull, mx, sum;
+        static int n;
+        uint64_t t = wr_time_ns();
+        if (last) {
+            uint64_t d = t - last;
+            if (d < mn) mn = d;
+            if (d > mx) mx = d;
+            sum += d;
+            if (++n == 30) {
+                wr_log("bink: 30 frames, gap min %.1f avg %.1f max %.1f ms", mn / 1e6, sum / 30 / 1e6, mx / 1e6);
+                n = 0; mn = ~0ull; mx = 0; sum = 0;
+            }
+        }
+        last = t;
+    }
     WR_RET(0, 3);
 }
 

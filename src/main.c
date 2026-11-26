@@ -57,6 +57,24 @@ int main(int argc, char **argv)
     size_t l = strlen(root);
     while (l > 1 && (root[l - 1] == '/' || root[l - 1] == '\\'))
         root[--l] = 0;
+#if defined(__ANDROID__)
+    {   /* measurements on a device (no shell env there): <folder>/dev_env.txt, KEY=VALUE per line (like the
+         * other Android ports; remove it after a bench) */
+        char p[1100], line[512];
+        snprintf(p, sizeof p, "%s/dev_env.txt", root);
+        FILE *f = fopen(p, "r");
+        while (f && fgets(line, sizeof line, f)) {
+            line[strcspn(line, "\r\n")] = 0;
+            char *eq = strchr(line, '=');
+            if (eq && line[0] != '#') {
+                *eq = 0;
+                setenv(line, eq + 1, 1);
+            }
+        }
+        if (f)
+            fclose(f);
+    }
+#endif
 
     snprintf(g_wr_vroot, sizeof g_wr_vroot, "%s", "C:\\GTA2");
     snprintf(g_wr_exe_name, sizeof g_wr_exe_name, "%s", "gta2.exe");
