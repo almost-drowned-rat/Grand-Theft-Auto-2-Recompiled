@@ -46,6 +46,7 @@ static void ensure_vk(void)
     if (!wr_vk_init(win, vsync))
         return;
     wr_overlay_set_tick_rate(1000.0 / 33.0);   /* one logic tick per 33 ms (docs/re/framerate.md) */
+    wr_overlay_set_top(0.26f);                 /* below the HUD bars top left (maintainer 2026-11-26) */
     const char *preset = getenv("WR_SHADER_PRESET");
     if ((!preset || !*preset) && wr_settings_get_int("shader_on", 0))
         preset = wr_settings_get("shader_preset", NULL);   /* SHADERS page */
