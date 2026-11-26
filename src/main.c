@@ -48,10 +48,11 @@ int main(int argc, char **argv)
     snprintf(g_wr_vroot, sizeof g_wr_vroot, "%s", "C:\\GTA2");
     snprintf(g_wr_exe_name, sizeof g_wr_exe_name, "%s", "gta2.exe");
     wr_paths_init(root);
+    wr_log_set_name("gta2");   /* data/gta2.log, the run before: data/gta2.previous.log */
     wr_log_init();
+    wr_log_header("GTA 2 Recompiled", "build " GTA2_GIT " (" __DATE__ ")");
     wr_settings_init("GTA2");   /* saves/settings.ini, GTA2_<KEY> overrides */
     wr_crash_init();
-    wr_log("GTA 2 Recompiled, layout %s", root);
 
     if (!wr_mem_init())
         return 1;

@@ -1,5 +1,11 @@
 {
   sub_*;
-  gta2_entry_point;
+  gta2_*;
   bink_entry_point;
+  wr_*;
+  gbh_*;
+  gfx_*;
+  opt_*;
+  shader_pack_*;
+  sp_*;
 };

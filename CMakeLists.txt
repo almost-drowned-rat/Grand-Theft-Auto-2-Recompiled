@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.20)
 project(gta2_recomp C)
 
+# the log's head names the build: the port's commit (and "dirty" with local changes)
+execute_process(COMMAND git describe --always --dirty --abbrev=7 WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                OUTPUT_VARIABLE GTA2_GIT OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if(NOT GTA2_GIT)
+    set(GTA2_GIT "unknown")
+endif()
+add_compile_definitions(GTA2_GIT="${GTA2_GIT}")
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 if(NOT CMAKE_BUILD_TYPE)
