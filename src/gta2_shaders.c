@@ -197,8 +197,6 @@ int gta2_shader_browse(const gta2_shader_item **items)
 {
     g_nitems = 0;
     const ShaderIndex *ix = shader_pack_index();
-    if (g_dir[0] && strcmp(g_dir, single_pack()))
-        g_items[g_nitems++] = (gta2_shader_item){ "BACK", SI_UP, -1, "" };   /* the menu font has no dots */
     int first = g_nitems;
     size_t dl = strlen(g_dir);
     const char *cur = wr_settings_get("shader_preset", NULL);
@@ -396,4 +394,17 @@ const uint32_t *gta2_shader_test_picture(void)
             g_test[y * TW + x] = c;
         }
     return g_test;
+}
+
+/* B in the browser: one folder up (as the N64 recomps' pages); 0 at the top */
+int gta2_shader_browse_up(void)
+{
+    if (!g_dir[0] || !strcmp(g_dir, single_pack()))
+        return 0;
+    char *s = strrchr(g_dir, '/');
+    if (s)
+        *s = 0;
+    else
+        g_dir[0] = 0;
+    return 1;
 }

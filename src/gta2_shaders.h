@@ -16,6 +16,7 @@ void gta2_shader_browse_open(void);
 int  gta2_shader_browse(const gta2_shader_item **items);
 int  gta2_shader_pick(const gta2_shader_item *it);   /* 1: the folder changed */
 void gta2_shader_dir_title(char *out, size_t cap);
+int  gta2_shader_browse_up(void);             /* B: one folder up, 0 at the top */
 
 int  gta2_shader_params(void);                /* the preset's parameters (once it is built) */
 const char *gta2_shader_param_label(int i);

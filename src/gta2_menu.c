@@ -620,7 +620,11 @@ static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int 
     }
     const mpage *pg = &g_pages[g_vp];
     const mline *l = &pg->l[g_cur];
-    if (esc) {
+    if (esc && g_vp == VP_SHBROWSE && gta2_shader_browse_up()) {   /* B: a folder up */
+        build_browse_page();
+        g_cur = g_top = 0;
+        wr_wr32(FE_SOUND, SND_BACK);
+    } else if (esc) {
         go_back(ctx, f);
     } else if (defaults) {
         page_defaults(ctx);
