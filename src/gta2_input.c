@@ -37,7 +37,8 @@ static int pad_action(int c)
     case WR_PAD_RB: return ACT_NEXT;
     case WR_PAD_NORTH: return ACT_SPECIAL;
     case WR_PAD_LT: return ACT_SPECIAL2;
-    case WR_PAD_BACK: return ACT_STATUS;
+    case WR_PAD_RSTICK: return ACT_STATUS;   /* special 3 on R3 (maintainer 2026-11-26) */
+    case WR_PAD_BACK: return ACT_RADIO_NEXT;  /* Select: radio (works in a car) */
     case WR_PAD_START: return ACT_ESCAPE;
     default: return -1;
     }
@@ -77,8 +78,7 @@ static uint8_t map_menu(int control)
  * B          special 1                     special 1
  * LB / RB    previous / next weapon
  * d-pad up / down in a car: radio station next / previous (F2 / F1)
- * Select in a car (both schemes): next radio station
- * Back       special 3 (as CLASSIC), START the menu
+ * R3 special 3, Select the next radio station (both schemes), START the menu
  * The stick's direction on foot is set in the on-foot control step
  * (gta2_modern_on_foot, wrapper of sub_004A5C50); this table only presses
  * "forward" while the stick is pushed. */
@@ -111,8 +111,6 @@ static uint8_t map(int control)
         return map_menu(control);
     int driving = gta2_player_driving();
     int a = opt_get(OPT_CONTROL_SCHEME) == 1 ? modern_action(control, driving) : pad_action(control);
-    if (control == WR_PAD_BACK && driving)
-        a = ACT_RADIO_NEXT;   /* Select in a car: the next radio station (both schemes) */
     if (a < 0)
         return 0;
     if (a == ACT_ESCAPE)
