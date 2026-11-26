@@ -462,8 +462,10 @@ void sub_0048CC50(RECOMP_PARAMS)   /* creates a blood pool at (x, y, z), stdcall
         return;
     }
     /* MORE BLOOD (maintainer 2026-11-26), by chance:
-     *  under the body: a big stain - the pool and four more, overlapping
-     *  beside it: one pool only, moved a little to a random side */
+     *  under the body: one pool drawn bigger (overlapping sprites show their
+     *  bright rims) - see gta2_sprite_scale / sub_004B94B0
+     *  beside it: two pools overlapping at one spot to a random side -
+ *  bleeding from one place (e.g. the head), not bleeding out */
     static uint32_t rnd = 0x2545F491u;
     rnd ^= x * 2654435761u ^ y * 40503u;
     rnd ^= rnd << 13; rnd ^= rnd >> 17; rnd ^= rnd << 5;
@@ -477,22 +479,39 @@ void sub_0048CC50(RECOMP_PARAMS)   /* creates a blood pool at (x, y, z), stdcall
         if (getenv("WR_GAMEPLAY_LOG"))
             wr_log("blood: beside");
         sub_0048CC50_gen(ctx, base);
-        return;
-    }
-    if (getenv("WR_GAMEPLAY_LOG"))
-        wr_log("blood: under");
-    sub_0048CC50_gen(ctx, base);
-    uint32_t eax = ctx->r_eax;
-    static const int32_t off[4][2] = { { 2000, 300 }, { -2000, -300 }, { -300, 2000 }, { 300, -2000 } };
-    for (int i = 0; i < 4; i++) {
-        uint32_t a[3] = { x + (uint32_t)off[i][0], y + (uint32_t)off[i][1], z };
+        /* a second pool overlapping it, a little further and to the side:
+         * bleeding from one spot (e.g. the head) */
+        uint32_t eax = ctx->r_eax;
+        int32_t s2 = step * 5 / 3, bend = ((rnd >> 8) & 1) ? 900 : -900;
+        uint32_t a[3] = { x + (uint32_t)(dir[d][0] * s2 + dir[d][1] * bend),
+                          y + (uint32_t)(dir[d][1] * s2 - dir[d][0] * bend), z };
         ctx->r_ecx = ecx;
         uint32_t sp = ctx->r_esp;
         for (int k = 2; k >= 0; k--) { ctx->r_esp -= 4; MEM32(ctx->r_esp) = a[k]; }
         ctx->r_esp -= 4;
-        MEM32(ctx->r_esp) = 0;   /* return address (unused by the callee) */
+        MEM32(ctx->r_esp) = 0;
         sub_0048CC50_gen(ctx, base);
         ctx->r_esp = sp;
+        ctx->r_eax = eax;
+        return;
     }
-    ctx->r_eax = eax;
+    if (getenv("WR_GAMEPLAY_LOG"))
+        wr_log("blood: under");
+    gta2_blood_mark_big(x, y);   /* one pool, drawn bigger (gta2_sprite_scale) */
+    sub_0048CC50_gen(ctx, base);
+}
+
+#include "render/gta2_render.h"
+
+extern void sub_004B94B0_gen(RECOMP_PARAMS);
+void sub_004B94B0(RECOMP_PARAMS)   /* draws one sprite (thiscall sprite) */
+{
+    float sc = gta2_sprite_scale(ctx->r_ecx);
+    if (sc == 1.0f) {
+        sub_004B94B0_gen(ctx, base);
+        return;
+    }
+    g_port_quad_scale = sc;
+    sub_004B94B0_gen(ctx, base);   /* its quads are scaled as they are emitted */
+    g_port_quad_scale = 1.0f;
 }

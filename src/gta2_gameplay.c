@@ -40,6 +40,7 @@ static int near_player(int32_t x, int32_t y)
 }
 
 static void new_game_check(void);
+static int g_nbig, g_big_next;
 static int g_nblood;   /* MORE BLOOD: pools kept (below) */
 
 /* ---- KEEP BODIES ---------------------------------------------------------------------------- */
@@ -135,5 +136,38 @@ static void new_game_check(void)
         g_game_seen = g;
         g_nbody = 0;
         g_nblood = 0;
+        g_nbig = g_big_next = 0;
     }
+}
+
+/* ---- the big stain: one pool drawn bigger (no overlapping sprites) -------------------- */
+
+#define MAX_BIG 128
+static uint32_t g_big[MAX_BIG][2];   /* x, y of pools created "under the body" */
+
+void gta2_blood_mark_big(uint32_t x, uint32_t y)
+{
+    g_big[g_big_next][0] = x;
+    g_big[g_big_next][1] = y;
+    g_big_next = (g_big_next + 1) % MAX_BIG;
+    if (g_nbig < MAX_BIG)
+        g_nbig++;
+}
+
+/* The scale to draw sprite spr with (1 = as the game draws it). */
+float gta2_sprite_scale(uint32_t spr)
+{
+    if (!g_nbig || !opt_get(OPT_MORE_BLOOD) || !wr_mem_valid(spr, 0x24))
+        return 1.0f;
+    uint32_t st = wr_rd32(0x00665B40u);
+    if (!st)
+        return 1.0f;
+    int f = (int)wr_rd16(spr + 0x22) - (int)(uint16_t)(wr_rd16(st + 0x8CA4) + 0xBF);
+    if (f < 0 || f > 5)
+        return 1.0f;   /* not a blood pool frame */
+    uint32_t x = wr_rd32(spr + 0x14), y = wr_rd32(spr + 0x18);
+    for (int i = 0; i < g_nbig; i++)
+        if (g_big[i][0] == x && g_big[i][1] == y)
+            return 1.9f;
+    return 1.0f;
 }
