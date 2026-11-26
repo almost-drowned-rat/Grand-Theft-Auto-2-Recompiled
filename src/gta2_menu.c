@@ -6,7 +6,8 @@
  *
  *   OPTIONS        SOUND / RECOMP OPTIONS / CHEATS
  *   SOUND          MUSIC VOLUME, EFFECTS VOLUME (the game's own registry values)
- *   RECOMP OPTIONS DISPLAY / PERFORMANCE / RENDERING / LANGUAGE
+ *   RECOMP OPTIONS RENDERING (display mode, resolution, aspect, texture
+ *                  filtering) / PERFORMANCE / LANGUAGE
  *   CHEATS         the game's cheats as ON/OFF switches + UNLOCK ALL AREAS
  *
  * One game page holds them all: the port keeps the page it shows, handles
@@ -49,9 +50,9 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 
 /* ---- pages -------------------------------------------------------------------------------- */
 
-enum { VP_ROOT, VP_SOUND, VP_RECOMP, VP_DISPLAY, VP_PERF, VP_RENDER, VP_LANG, VP_CHEATS, VP_COUNT };
+enum { VP_ROOT, VP_SOUND, VP_RECOMP, VP_DISPLAY, VP_PERF, VP_LANG, VP_CHEATS, VP_COUNT };
 enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK };
-enum { ACT_UNLOCK_AREAS = 1 };
+enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER };
 enum { VOL_MUSIC, VOL_SFX };
 
 typedef struct { const char *label; int kind, arg; } mline;
@@ -92,28 +93,31 @@ static const mline l_sound[] = {
     { "MUSIC VOLUME", L_VOL, VOL_MUSIC }, { "EFFECTS VOLUME", L_VOL, VOL_SFX }, { "BACK", L_BACK, 0 },
 };
 static const mline l_recomp[] = {
-    { "DISPLAY", L_PAGE, VP_DISPLAY }, { "PERFORMANCE", L_PAGE, VP_PERF }, { "RENDERING", L_PAGE, VP_RENDER },
-    { "LANGUAGE", L_PAGE, VP_LANG }, { "BACK", L_BACK, 0 },
+    { "RENDERING", L_PAGE, VP_DISPLAY }, { "PERFORMANCE", L_PAGE, VP_PERF }, { "LANGUAGE", L_PAGE, VP_LANG },
+    { "BACK", L_BACK, 0 },
 };
 static const mline l_display[] = {
     { NULL, L_OPT, OPT_DISPLAY_MODE }, { NULL, L_OPT, OPT_RENDER_RES }, { NULL, L_OPT, OPT_ASPECT },
-    { "BACK", L_BACK, 0 },
+    { NULL, L_OPT, OPT_TEXTURE_FILTER }, { "BACK", L_BACK, 0 },
 };
 static const mline l_perf[] = {
     { NULL, L_OPT, OPT_VSYNC }, { NULL, L_OPT, OPT_PERF_FPS }, { NULL, L_OPT, OPT_PERF_FRAMETIME },
     { NULL, L_OPT, OPT_PERF_SPEED }, { "BACK", L_BACK, 0 },
 };
-static const mline l_render[] = { { NULL, L_OPT, OPT_TEXTURE_FILTER }, { "BACK", L_BACK, 0 } };
+/* LANGUAGE applies at start: once changed, RESTART NOW / RESTART LATER */
 static const mline l_lang[] = { { "LANGUAGE", L_LANG, 0 }, { "BACK", L_BACK, 0 } };
+static const mline l_lang_changed[] = {
+    { "LANGUAGE", L_LANG, 0 }, { "RESTART NOW", L_ACTION, ACT_RESTART_NOW },
+    { "RESTART LATER", L_ACTION, ACT_RESTART_LATER },
+};
 static mline l_cheats[N_CHEATS + 2];
 
 static mpage g_pages[VP_COUNT] = {
     [VP_ROOT]    = { "OPTIONS", -1, l_root, 4 },
     [VP_SOUND]   = { "SOUND", VP_ROOT, l_sound, 3 },
-    [VP_RECOMP]  = { "RECOMP OPTIONS", VP_ROOT, l_recomp, 5 },
-    [VP_DISPLAY] = { "DISPLAY", VP_RECOMP, l_display, 4 },
+    [VP_RECOMP]  = { "RECOMP OPTIONS", VP_ROOT, l_recomp, 4 },
+    [VP_DISPLAY] = { "RENDERING", VP_RECOMP, l_display, 5 },
     [VP_PERF]    = { "PERFORMANCE", VP_RECOMP, l_perf, 5 },
-    [VP_RENDER]  = { "RENDERING", VP_RECOMP, l_render, 2 },
     [VP_LANG]    = { "LANGUAGE", VP_RECOMP, l_lang, 2 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
 };
@@ -203,9 +207,7 @@ static void line_value(const mline *l, char *v, size_t cap)
     case L_OPT: snprintf(v, cap, "%s", opt_choice_label(l->arg, opt_get(l->arg))); break;
     case L_VOL: snprintf(v, cap, "%u", (vol_get(l->arg) * 10 + 63) / 127); break;
     case L_CHEAT: snprintf(v, cap, "%s", cheat_on(l->arg) ? "ON" : "OFF"); break;
-    case L_LANG:
-        snprintf(v, cap, "%s%s", g_lang_name[g_lang_sel], g_lang_sel != g_lang_start ? " *" : "");
-        break;
+    case L_LANG: snprintf(v, cap, "%s", g_lang_name[g_lang_sel]); break;
     default: break;
     }
 }
@@ -273,6 +275,13 @@ void gta2_menu_background(void)
     uint32_t f = fe();
     if (f && wr_rd16(f + FE_PAGE) == PORT_PAGE)
         wr_wr8(f + FE_BG, 0);
+}
+
+static void lang_page_update(void)
+{
+    int changed = g_lang_start >= 0 && g_lang_sel != g_lang_start;
+    g_pages[VP_LANG].l = changed ? l_lang_changed : l_lang;
+    g_pages[VP_LANG].n = changed ? 3 : 2;
 }
 
 static void go_back(X86Ctx *ctx, uint32_t f)
@@ -354,6 +363,10 @@ int gta2_menu_input(X86Ctx *ctx)
             wr_wr32(FE_SOUND, SND_SELECT);
         } else if (l->kind == L_BACK) {
             go_back(ctx, f);
+        } else if (l->kind == L_ACTION && l->arg == ACT_RESTART_NOW) {
+            wr_restart();
+        } else if (l->kind == L_ACTION && l->arg == ACT_RESTART_LATER) {
+            go_back(ctx, f);
         } else if (l->kind == L_ACTION && l->arg == ACT_UNLOCK_AREAS) {
             call_this(ctx, FN_UNLOCK_ALL, wr_rd32(PROFILES_PTR), 0, NULL);
             wr_wr32(FE_SOUND, 9);   /* the game's "cheat accepted" sound */
@@ -363,6 +376,7 @@ int gta2_menu_input(X86Ctx *ctx)
     } else if (left || right) {
         change(ctx, l, right ? 1 : -1);
     }
+    lang_page_update();
     pg = &g_pages[g_vp];
     if (g_cur >= pg->n)
         g_cur = pg->n - 1;
@@ -429,7 +443,7 @@ void gta2_menu_draw(X86Ctx *ctx)
     if (g_top + VISIBLE < pg->n)
         put_text(ctx, "...", X_LABEL, Y_FIRST + VISIBLE * Y_STEP - 6, font, SCALE);
     if (g_vp == VP_LANG && g_lang_sel != g_lang_start)
-        put_text(ctx, "* AFTER A RESTART", X_LABEL, Y_FIRST + 3 * Y_STEP, font, SCALE);
+        put_text(ctx, "THE NEW LANGUAGE NEEDS A RESTART", X_LABEL, Y_FIRST + 4 * Y_STEP, font, SCALE);
 }
 
 /* After the game read its Debug flags at start: the saved cheats. */

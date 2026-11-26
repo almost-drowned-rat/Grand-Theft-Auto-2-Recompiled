@@ -3,6 +3,7 @@
  *
  * Pad controls map to GTA 2's twelve control actions; the key each action
  * produces is the one the game's own control settings assign to it
+ * (in the menus: A confirm, B back, see map_menu)
  * (registry Control\0..11, DirectInput key codes), so a player who rebinds
  * the keyboard keeps a working pad. START is Escape (pause / menu back).
  * BUTTON MAPPING in the RECOMP menu (M6) will make this table editable.
@@ -42,8 +43,28 @@ static int pad_action(int c)
 static uint8_t g_dik[ACT_N];
 static uint32_t g_dik_time;
 
+extern uint32_t g_gta2_frontend_ms;
+
+/* In the menus (the frontend, and the port's own pages): A confirms, B goes
+ * back, d-pad / left stick move, START confirms. The menus read these keys
+ * directly (arrows, Return, Escape), not the control settings. */
+static uint8_t map_menu(int control)
+{
+    switch (control) {
+    case WR_PAD_DPAD_UP: case WR_PAD_LEFT_STICK_UP: return 0xC8;
+    case WR_PAD_DPAD_DOWN: case WR_PAD_LEFT_STICK_DOWN: return 0xD0;
+    case WR_PAD_DPAD_LEFT: case WR_PAD_LEFT_STICK_LEFT: return 0xCB;
+    case WR_PAD_DPAD_RIGHT: case WR_PAD_LEFT_STICK_RIGHT: return 0xCD;
+    case WR_PAD_SOUTH: case WR_PAD_START: return 0x1C;   /* Return */
+    case WR_PAD_EAST: return 0x01;                       /* Escape */
+    default: return 0;
+    }
+}
+
 static uint8_t map(int control)
 {
+    if (g_gta2_frontend_ms && wr_time_ms() - g_gta2_frontend_ms < 250)
+        return map_menu(control);
     int a = pad_action(control);
     if (a < 0)
         return 0;

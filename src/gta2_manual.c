@@ -67,8 +67,11 @@ void sub_00462A30(RECOMP_PARAMS)
  * reaches [this+0xC9C8], else it returns at once and WinMain calls it again
  * - a spin at 100 % of a core. Same wrapper: sleep up to the deadline. */
 extern void sub_0045A320_gen(RECOMP_PARAMS);
+uint32_t g_gta2_frontend_ms;   /* last frontend step: the menus are on screen */
+
 void sub_0045A320(RECOMP_PARAMS)
 {
+    g_gta2_frontend_ms = wr_time_ms();
     uint32_t self = ctx->r_ecx;
     uint64_t f0 = gta2_frames_presented();
     sub_0045A320_gen(ctx, base);
