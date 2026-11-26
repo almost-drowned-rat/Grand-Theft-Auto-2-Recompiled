@@ -11,7 +11,8 @@ the level styles' fonts, 2026-11-26): 0x80..0x95 A-grave .. U-diaeresis (upperca
 U+216B..U+217A are the speakers' portrait codes, '#' toggles the colour - kept as they are.
 
   gxt.py export FILE.gxt OUT.json   - {key: text} in Unicode (accents decoded)
-  gxt.py build  IN.json LETTER OUT.gxt [--like FILE.gxt]   - the key order of FILE when given
+  gxt.py build  IN.json LETTER OUT.gxt [--like FILE.gxt] [--unicode]   - the key order of FILE when given;
+                                    --unicode: any character (languages drawn by the port's own glyphs)
   gxt.py check  IN.json             - every character drawable by the game font
   gxt.py roundtrip FILE.gxt         - export + build must give the same keys and texts
 """
@@ -67,9 +68,21 @@ def decode(s, plain=False):
     return s if plain else "".join(CODE_TO_CHAR.get(ord(c), c) for c in s)
 
 
-def encode(s, where="", plain=False):
+def encode(s, where="", plain=False, unicode=False):
+    """unicode: a language drawn by the port's own glyphs (pl, ru, ja, zh): any character but control
+    characters; the game font's accent codes are still used where they exist."""
     if plain:
         return s
+    if unicode:
+        out = []
+        for c in s:
+            if c in CHAR_TO_CODE:
+                out.append(chr(CHAR_TO_CODE[c]))
+            elif ord(c) < 0x20 and c != "\n":
+                raise ValueError(f"{where}: control character U+{ord(c):04X}")
+            else:
+                out.append(c)
+        return "".join(out)
     out = []
     for c in s:
         if c in CHAR_TO_CODE:
@@ -106,7 +119,8 @@ def main(a):
             if missing:
                 raise SystemExit(f"missing keys: {missing[:10]} ({len(missing)})")
             texts = {k: texts[k] for k in like}
-        open(a[3], "wb").write(build({k: encode(v, k, plain_key(k)) for k, v in texts.items()}, a[2]))
+        uni = "--unicode" in a
+        open(a[3], "wb").write(build({k: encode(v, k, plain_key(k), uni) for k, v in texts.items()}, a[2]))
     elif len(a) >= 2 and a[0] == "check":
         texts = json.load(open(a[1], encoding="utf-8"))
         bad = 0

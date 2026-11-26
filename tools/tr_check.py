@@ -6,7 +6,8 @@ breaks, %d / %s placeholders, the speaker portrait codes (U+2153, U+216B..U+217A
 place at the start - and every character drawable by the game font (tools/gxt.py encode).
 Keys kept in English (credits, vehicle names) must be unchanged.
 
-  tr_check.py EN.json XX.json [--keys KEYS.json] [--notes]   (exit 1 on any problem)
+  tr_check.py EN.json XX.json [--keys KEYS.json] [--notes] [--unicode]   (exit 1 on any problem;
+      --unicode: a language drawn by the port's own glyphs - any character)
 """
 import json
 import re
@@ -45,7 +46,7 @@ def main(a):
         if PORTRAIT.match(e) and (not t or t[0] != e[0]):
             bad.append(f"{k}: the portrait code must stay the first character")
         try:
-            gxt.encode(t, k, gxt.plain_key(k))
+            gxt.encode(t, k, gxt.plain_key(k), "--unicode" in a)
         except ValueError as ex:
             bad.append(str(ex))
     extra = [k for k in tr if k not in en]
