@@ -111,10 +111,10 @@ static const mline l_sound[] = {
 };
 static const mline l_display[] = {
     { NULL, L_OPT, OPT_DISPLAY_MODE }, { NULL, L_OPT, OPT_RENDER_RES }, { NULL, L_OPT, OPT_TEXTURE_FILTER },
-    { NULL, L_OPT, OPT_ASPECT },
+    { NULL, L_OPT, OPT_FRAME_RATE }, { NULL, L_OPT, OPT_ASPECT },   /* FRAME RATE before ASPECT RATIO (maintainer 2026-11-26) */
 };
 static const mline l_perf[] = {
-    { NULL, L_OPT, OPT_FRAME_RATE }, { NULL, L_OPT, OPT_VSYNC }, { NULL, L_OPT, OPT_PERF_FPS }, { NULL, L_OPT, OPT_PERF_FRAMETIME },
+    { NULL, L_OPT, OPT_VSYNC }, { NULL, L_OPT, OPT_PERF_FPS }, { NULL, L_OPT, OPT_PERF_FRAMETIME },
     { NULL, L_OPT, OPT_PERF_SPEED },
 };
 /* LANGUAGE applies at start: once changed, RESTART NOW / RESTART LATER */
@@ -167,8 +167,8 @@ static const mline l_restart[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION
 static mpage g_pages[VP_COUNT] = {
     [VP_ROOT]    = { "RECOMP OPTIONS", -1, l_root, 8 },
     [VP_SOUND]   = { "SOUND", VP_ROOT, l_sound, 2 },
-    [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 4 },
-    [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 5 },
+    [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 5 },
+    [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 1 },
     [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 5 },
     [VP_PADVIEW] = { "CONTROLLER LAYOUT", VP_CONTROLS, l_padview, 1 },
