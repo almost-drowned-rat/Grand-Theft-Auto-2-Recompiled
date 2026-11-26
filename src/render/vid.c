@@ -13,6 +13,7 @@
  */
 #include "gta2_render.h"
 #include "../gta2_options.h"
+#include "../gta2_shaders.h"
 #include "platform/wr_platform.h"
 #include "post/shader_pass.h"
 
@@ -66,8 +67,11 @@ static void ensure_target(void)
     uint32_t scale = 1;
     const char *e = getenv("WR_RENDER_SCALE");   /* dev override */
     int rh = opt_render_height();
+    int shres = g_gfx.shader_on ? gta2_shader_resolution() : 2;
     if (e && *e) {
         scale = (uint32_t)atoi(e);
+    } else if (shres < 2) {   /* SHADER RESOLUTION: ORIGINAL = the game's own size (as RetroArch), 2X */
+        scale = (uint32_t)shres + 1;
     } else if (rh) {   /* RENDER RESOLUTION: the smallest scale reaching that height */
         scale = ((uint32_t)rh + g_gfx.h - 1) / g_gfx.h;
     } else {

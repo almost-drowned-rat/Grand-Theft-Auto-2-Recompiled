@@ -18,14 +18,114 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 static char g_dir[512];   /* the browser's folder: "" = the packs, else "<pack>/<path>" */
+
+/* settings key of a parameter: kept per preset (as the N64 recomps) */
+static void param_key(const char *preset, const char *name, char *out, size_t cap)
+{
+    uint32_t h = 2166136261u;
+    for (const char *c = preset; *c; c++)
+        h = (h ^ (uint8_t)*c) * 16777619u;
+    snprintf(out, cap, "shader_param_%08x_%s", h, name);
+}
+
+static int g_nparams;
+static WrPostShaderParam g_params[128];
+static unsigned g_params_gen;
 
 void gta2_shaders_apply(void)
 {
     const char *p = wr_settings_get("shader_preset", NULL);
-    sp_set_preset(wr_settings_get_int("shader_on", 0) && p && *p ? p : NULL);
+    int on = wr_settings_get_int("shader_on", 0) && p && *p;
+    sp_set_preset(on ? p : NULL);
+    if (!on)
+        return;
+    /* the saved parameters of this preset: every key shader_param_<hash>_<name> */
+    char prefix[64];
+    param_key(p, "", prefix, sizeof prefix);
+    size_t pl = strlen(prefix);
+    for (int i = 0; ; i++) {
+        const char *k = wr_settings_key_at(i);
+        if (!k)
+            break;
+        if (!strncmp(k, prefix, pl)) {
+            const char *v = wr_settings_get(k, NULL);
+            if (v)
+                sp_set_param(k + pl, (float)atof(v));
+        }
+    }
 }
+
+/* ---- parameters of the preset in use ------------------------------------------------ */
+
+int gta2_shader_params(void)
+{
+    g_nparams = wr_post_shader_params(g_params, 128, &g_params_gen);
+    return g_nparams;
+}
+
+const char *gta2_shader_param_label(int i)
+{
+    static char lab[128][32];
+    if (i < 0 || i >= g_nparams)
+        return "";
+    const char *d = g_params[i].desc[0] ? g_params[i].desc : g_params[i].name;
+    size_t j = 0;
+    for (; d[j] && j < 26; j++)
+        lab[i][j] = (char)toupper((unsigned char)d[j]);
+    lab[i][j] = 0;
+    return lab[i];
+}
+
+static float param_value(int i)
+{
+    const char *p = wr_settings_get("shader_preset", "");
+    char key[160];
+    param_key(p, g_params[i].name, key, sizeof key);
+    const char *v = wr_settings_get(key, NULL);
+    return v ? (float)atof(v) : g_params[i].initial;
+}
+
+void gta2_shader_param_value(int i, char *out, size_t cap)
+{
+    if (i < 0 || i >= g_nparams) { out[0] = 0; return; }
+    float v = param_value(i);
+    if (g_params[i].step >= 1.0f || (float)(int)v == v)
+        snprintf(out, cap, "%d", (int)v);
+    else
+        snprintf(out, cap, "%.2f", v);
+}
+
+void gta2_shader_param_step(int i, int d)
+{
+    if (i < 0 || i >= g_nparams)
+        return;
+    float st = g_params[i].step > 0 ? g_params[i].step : (g_params[i].maximum - g_params[i].minimum) / 20.0f;
+    float v = param_value(i) + (float)d * st;
+    if (v < g_params[i].minimum) v = g_params[i].minimum;
+    if (v > g_params[i].maximum) v = g_params[i].maximum;
+    char key[160], val[32];
+    param_key(wr_settings_get("shader_preset", ""), g_params[i].name, key, sizeof key);
+    snprintf(val, sizeof val, "%g", v);
+    wr_settings_set(key, val);
+    sp_set_param(g_params[i].name, v);
+}
+
+void gta2_shader_param_reset(int i)
+{
+    if (i < 0 || i >= g_nparams)
+        return;
+    char key[160], val[32];
+    param_key(wr_settings_get("shader_preset", ""), g_params[i].name, key, sizeof key);
+    snprintf(val, sizeof val, "%g", g_params[i].initial);
+    wr_settings_set(key, val);
+    sp_set_param(g_params[i].name, g_params[i].initial);
+}
+
+int gta2_shader_resolution(void) { return wr_settings_get_int("shader_resolution", 0); }   /* 0 original, 1 2x, 2 full */
+void gta2_shader_set_resolution(int r) { wr_settings_set_int("shader_resolution", ((r % 3) + 3) % 3); }
 
 int gta2_shader_on(void) { return wr_settings_get_int("shader_on", 0); }
 
@@ -53,7 +153,7 @@ void gta2_shader_preset_name(char *out, size_t cap)
 {
     const char *p = wr_settings_get("shader_preset", NULL);
     if (!p || !*p)
-        snprintf(out, cap, "NONE");
+        snprintf(out, cap, "OFF");
     else
         display(p, out, cap);
 }
@@ -94,7 +194,7 @@ int gta2_shader_browse(const gta2_shader_item **items)
 {
     g_nitems = 0;
     const ShaderIndex *ix = shader_pack_index();
-    g_items[g_nitems++] = (gta2_shader_item){ "NONE", SI_NONE, -1, "" };
+    g_items[g_nitems++] = (gta2_shader_item){ "OFF", SI_NONE, -1, "" };
     if (g_dir[0])
         g_items[g_nitems++] = (gta2_shader_item){ "..", SI_UP, -1, "" };
     int first = g_nitems;
@@ -121,7 +221,9 @@ int gta2_shader_browse(const gta2_shader_item **items)
                 continue;
         }
         char *lab = g_names[g_nitems];
-        display(name, lab, 25);   /* fits the line beside its value */
+        display(name, lab, 30);   /* folders end in " >" (as the N64 recomps' "›") */
+        if (folder)
+            snprintf(lab + strlen(lab), sizeof g_names[0] - strlen(lab), " >");
         gta2_shader_item it = { lab, folder ? SI_FOLDER : SI_PRESET, folder ? -1 : i, "" };
         snprintf(it.key, sizeof it.key, "%s", name);
         g_items[g_nitems++] = it;
@@ -129,21 +231,6 @@ int gta2_shader_browse(const gta2_shader_item **items)
     qsort(&g_items[first], (size_t)(g_nitems - first), sizeof g_items[0], item_cmp);
     *items = g_items;
     return g_nitems;
-}
-
-void gta2_shader_item_value(const gta2_shader_item *it, char *out, size_t cap)
-{
-    out[0] = 0;
-    const ShaderIndex *ix = shader_pack_index();
-    if (it->kind == SI_FOLDER)
-        snprintf(out, cap, "FOLDER");
-    else if (it->kind == SI_PRESET && ix && it->index < ix->n) {
-        int p = ix->p[it->index].passes;
-        if (p < 0)
-            snprintf(out, cap, "BROKEN");
-        else
-            snprintf(out, cap, "%d PASS%s", p, p == 1 ? "" : "ES");
-    }
 }
 
 /* Enter on an item: 1 = the list changed (folder / up), 0 = a choice was made */

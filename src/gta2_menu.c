@@ -63,8 +63,8 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 /* ---- pages -------------------------------------------------------------------------------- */
 
 enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
-       VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_COUNT };
-enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM };
+       VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_COUNT };
+enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
        ACT_RESTART_YES, ACT_NO, ACT_QUITPROG_YES };
 enum { VOL_MUSIC, VOL_SFX };
@@ -127,7 +127,10 @@ static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME }, { "CUST
  * button / key; Enter waits for the new one (5 s, keyboard Esc cancels) */
 static mline l_mapping[1 + GTA2_BIND_N];
 /* SHADERS (RetroArch slang; gta2_shaders.c) and its preset browser */
-static const mline l_shaders[] = { { "SHADER", L_SHON, 0 }, { "PRESET", L_SHPRESET, 0 } };
+/* the N64 recomps' layout: Shader / Shader selection > / Shader resolution / Shader parameters > */
+static const mline l_shaders[] = { { "SHADER", L_SHON, 0 }, { "SHADER SELECTION", L_SHPRESET, 0 },
+                                   { "SHADER RESOLUTION", L_SHRES, 0 }, { "SHADER PARAMETERS", L_SHPARAMS, 0 } };
+static mline l_shparams[128];
 static mline l_browse[1024];
 static char g_browse_title[64] = "SHADER PACKS";
 static const gta2_shader_item *g_browse_items;
@@ -162,7 +165,8 @@ static mpage g_pages[VP_COUNT] = {
     [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 2 },
     [VP_MAPPING] = { "CUSTOM MAPPING", VP_CONTROLS, l_mapping, 0 },
     [VP_GAMEPLAY] = { "GAMEPLAY", VP_ROOT, l_gameplay, 4 },
-    [VP_SHADERS] = { "SHADERS", VP_ROOT, l_shaders, 2 },
+    [VP_SHADERS] = { "SHADERS", VP_ROOT, l_shaders, 4 },
+    [VP_SHPARAMS] = { "SHADER PARAMETERS", VP_SHADERS, l_shparams, 0 },
     [VP_SHBROWSE] = { g_browse_title, VP_SHADERS, l_browse, 0 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
     [VP_EXIT]    = { "EXIT GAME?", -1, l_exit, 2 },
@@ -260,8 +264,10 @@ static void line_value(const mline *l, char *v, size_t cap)
     case L_LANG: snprintf(v, cap, "%s", g_lang_name[g_lang_sel]); break;
     case L_DEVICE: snprintf(v, cap, "%s", g_map_keyboard ? "KEYBOARD" : "CONTROLLER"); break;
     case L_SHON: snprintf(v, cap, "%s", gta2_shader_on() ? "ON" : "OFF"); break;
-    case L_SHPRESET: gta2_shader_preset_name(v, cap); break;
-    case L_SHITEM: gta2_shader_item_value(&g_browse_items[l->arg], v, cap); break;
+    case L_SHPRESET: gta2_shader_preset_name(v, cap); snprintf(v + strlen(v), cap - strlen(v), " >"); break;
+    case L_SHRES: snprintf(v, cap, "%s", (const char *[]){ "ORIGINAL", "2X", "FULL" }[gta2_shader_resolution()]); break;
+    case L_SHPARAMS: snprintf(v, cap, ">"); break;
+    case L_SHPARAM: gta2_shader_param_value(l->arg, v, cap); break;
     case L_BIND:
         if (g_wait == l->arg)
             snprintf(v, cap, "%s", g_map_keyboard ? "PRESS A KEY" : "PRESS A BUTTON");
@@ -283,6 +289,20 @@ static void build_browse_page(void)
     gta2_shader_dir_title(g_browse_title, sizeof g_browse_title);
 }
 
+/* the preset's parameters; one line saying why when there are none */
+static void build_params_page(void)
+{
+    int n = gta2_shader_params();
+    if (n > (int)(sizeof l_shparams / sizeof l_shparams[0]))
+        n = (int)(sizeof l_shparams / sizeof l_shparams[0]);
+    for (int i = 0; i < n; i++)
+        l_shparams[i] = (mline){ NULL, L_SHPARAM, i };
+    if (!n)
+        l_shparams[n++] = (mline){ gta2_shader_on() ? "NO PARAMETERS OR STILL LOADING" : "NO SHADER IN USE",
+                                   L_ACTION, 0 };
+    g_pages[VP_SHPARAMS].n = n;
+}
+
 static void build_mapping_page(void)
 {
     int n = 0;
@@ -298,6 +318,8 @@ static const char *line_label(const mline *l)
         return opt_label(l->arg);
     if (l->kind == L_BIND)
         return gta2_bind_label(l->arg);
+    if (l->kind == L_SHPARAM)
+        return gta2_shader_param_label(l->arg);
     return l->label;
 }
 
@@ -397,6 +419,7 @@ static void page_defaults(X86Ctx *ctx)
         case L_VOL: vol_set(ctx, l->arg, 127); break;
         case L_CHEAT: if (cheat_on(l->arg) != g_cheats[l->arg].def) cheat_set(l->arg, g_cheats[l->arg].def); break;
         case L_LANG: if (g_lang_have[0] && g_lang_sel != 0) { g_lang_sel = 1; lang_step(-1); } break;
+        case L_SHPARAM: gta2_shader_param_reset(l->arg); break;   /* Y: the preset's values */
         default: break;
         }
     }
@@ -491,6 +514,8 @@ static void change(X86Ctx *ctx, const mline *l, int d)
         build_mapping_page();
         break;
     case L_SHON: gta2_shader_set_on(!gta2_shader_on()); break;
+    case L_SHRES: gta2_shader_set_resolution(gta2_shader_resolution() + d); break;
+    case L_SHPARAM: gta2_shader_param_step(l->arg, d); break;
     default: return;
     }
     wr_wr32(FE_SOUND, d > 0 ? SND_VALUE : SND_VALUE + 1);
@@ -579,6 +604,10 @@ static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int 
             gta2_shader_browse_open();
             build_browse_page();
             open_vpage(VP_SHBROWSE);
+            wr_wr32(FE_SOUND, SND_SELECT);
+        } else if (l->kind == L_SHPARAMS) {
+            build_params_page();
+            open_vpage(VP_SHPARAMS);
             wr_wr32(FE_SOUND, SND_SELECT);
         } else if (l->kind == L_SHITEM) {
             if (gta2_shader_pick(&g_browse_items[l->arg])) {   /* into a folder or up */
