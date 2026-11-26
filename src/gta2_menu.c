@@ -286,7 +286,7 @@ static void upper_text(const char *s, char *out, size_t cap)
     size_t k = 0;
     for (; *s && k + 1 < cap && k < 40; s++) {
         unsigned char c = (unsigned char)*s;
-        char o = c < 0x80 && (isalnum(c) || c == '.' || c == ':' || c == '-' || c == '\'') ? (char)toupper(c) : ' ';
+        char o = c < 0x80 && (isalnum(c) || c == '.' || c == ':' || c == '-' || c == ',' || c == '\'') ? (char)toupper(c) : ' ';
         if (o == ' ' && (!k || out[k - 1] == ' '))
             continue;
         out[k++] = o;
@@ -1147,27 +1147,55 @@ void gta2_pause_draw(X86Ctx *ctx)
 }
 
 
-/* MIXTAPE label (the game names no station; maintainer 2026-11-26): "MIXTAPE" and the
- * song for 3 s when the station comes on or a new song starts, centred near the top. */
+/* The radio label (maintainer 2026-11-26): the game names no station. When a station
+ * comes on - a game station or MIXTAPE - its name and what it plays show for 4 s,
+ * centred near the top; MIXTAPE shows each new song too. Station numbers = the
+ * GTAudio file numbers (docs/re/radio.md); 1 = Head Radio (the one file of double size,
+ * two DJs). Unknown ones show their number until identified. */
+static const char *const k_station_name[12] = { "", "HEAD RADIO" };
+static const char *const k_station_info[12][2] = {
+    { "", "" },
+    { "PHANNY JOE STYLES: FUNK, POP AND DANCE", "JOHNNY RICCARO: JAZZSTEP AND ROCK" },
+};
+
 void gta2_radio_label_draw(X86Ctx *ctx)
 {
-    static int was;
-    static char song[128];
+    static int was_mix;
+    static uint32_t was_st;
+    static char song[128], title[48], l1[96], l2[96];
     static uint64_t until;
-    int on = gta2_mixtape_audible();
-    const char *cur = on ? gta2_mixtape_song() : "";
-    if (on && (!was || strcmp(cur, song))) {
+    int mix = gta2_mixtape_audible();
+    uint32_t st = gta2_radio_station();
+    const char *cur = mix ? gta2_mixtape_song() : "";
+    if (mix && (!was_mix || strcmp(cur, song))) {
         snprintf(song, sizeof song, "%s", cur);
-        until = wr_time_ns() + 3000000000ull;
+        snprintf(title, sizeof title, "MIXTAPE");
+        upper_text(song, l1, sizeof l1);
+        l2[0] = 0;
+        until = wr_time_ns() + 4000000000ull;
+    } else if (!mix && st && st != was_st) {
+        if (st < 12 && k_station_name[st]) {
+            snprintf(title, sizeof title, "%s", k_station_name[st]);
+            snprintf(l1, sizeof l1, "%s", k_station_info[st][0]);
+            snprintf(l2, sizeof l2, "%s", k_station_info[st][1]);
+        } else {
+            snprintf(title, sizeof title, "STATION %u", st);
+            l1[0] = l2[0] = 0;
+        }
+        wr_log("radio: station %u", st);
+        until = wr_time_ns() + 4000000000ull;
     }
-    was = on;
-    if (!on || wr_time_ns() > until || g_pause_open)
+    was_mix = mix;
+    was_st = st;
+    if ((!mix && !st) || wr_time_ns() > until || g_pause_open)
         return;
     if (!g_strbuf)
         g_strbuf = wr_galloc(256);
     int sw = (int)g_gfx.w;
-    char t[64];
-    upper_text(song, t, sizeof t);
-    put_text(ctx, "MIXTAPE", (sw - text_w(ctx, "MIXTAPE", P_HI, P_HI_SCALE * 2)) / 2, 60, P_HI, P_HI_SCALE * 2);
-    put_text(ctx, t, (sw - text_w(ctx, t, P_FONT, P_FONT_SCALE * 3 / 4)) / 2, 100, P_FONT, P_FONT_SCALE * 3 / 4);
+    uint32_t sc = P_FONT_SCALE * 3 / 4;
+    put_text(ctx, title, (sw - text_w(ctx, title, P_HI, P_HI_SCALE * 2)) / 2, 60, P_HI, P_HI_SCALE * 2);
+    if (l1[0])
+        put_text(ctx, l1, (sw - text_w(ctx, l1, P_FONT, sc)) / 2, 100, P_FONT, sc);
+    if (l2[0])
+        put_text(ctx, l2, (sw - text_w(ctx, l2, P_FONT, sc)) / 2, 122, P_FONT, sc);
 }

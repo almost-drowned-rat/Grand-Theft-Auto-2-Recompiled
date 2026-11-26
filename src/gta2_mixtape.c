@@ -191,6 +191,8 @@ const char *gta2_mixtape_song(void)
  * and the car's remembered station stay right. */
 #define MGR 0x005DCBC8u
 static int g_mix_on, g_key_dir, g_audible;
+static uint32_t g_station;
+uint32_t gta2_radio_station(void) { return g_station; }   /* the game station playing (1..11), 0 none */
 static uint32_t g_mix_car;
 
 int gta2_mixtape_on(void) { return g_mix_on; }
@@ -270,6 +272,10 @@ void gta2_radio_after_tick(void)
     if (was != 1 && in == 1)   /* got in: MIXTAPE again only in that car */
         g_mix_on = g_have && car && car == g_mix_car;
     int listen = g_mix_on && in == 1 && wr_rd8(m + 0x54F7) < 5 && wr_rd8(0x0066BEECu) && !wr_rd8(m + 0x01);
+    {   /* the game station now (1..11), 0 = none / MIXTAPE: for its info label */
+        uint8_t slot = wr_rd8(m + 0x54F7);
+        g_station = !g_mix_on && in == 1 && slot < 5 ? wr_rd32(m + 0x5468 + slot * 0x1Cu + 0x0C) : 0;
+    }
     if (listen)
         gta2_mixtape_volume((float)wr_rd8(m + 0x25) / 127.0f);
     gta2_mixtape_listen(listen);

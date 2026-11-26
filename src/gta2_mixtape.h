@@ -19,4 +19,5 @@ void gta2_radio_cycle(X86Ctx *ctx, void (*gen)(X86Ctx *, uint8_t *), uint8_t *ba
 void gta2_radio_before_volume(void);
 void gta2_radio_after_tick(void);
 void gta2_radio_stopped(void);
+uint32_t gta2_radio_station(void);
 #endif
