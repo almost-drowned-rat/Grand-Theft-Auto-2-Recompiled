@@ -9,10 +9,10 @@
  * tick). At most MAX_BODIES are kept, the oldest go first; far away the game
  * removes them as before.
  *
- * MORE BLOOD: blood pools are drawn bigger and do not dry up (the particle tick
- * sub_0048BE60 runs their life down by one per tick; the wrapper gives it
- * back). At most MAX_BLOOD are kept so the shared 500-particle pool always
- * has room for smoke and explosions.
+ * MORE BLOOD: about one pool in four is drawn bigger, and pools dry in twice
+ * the original time (about 53 s instead of 27 s): the particle tick
+ * sub_0048BE60 runs their life down by one per tick, the wrapper gives every
+ * other step back.
  */
 #include "gta2_gameplay.h"
 #include "gta2_options.h"
@@ -23,7 +23,6 @@
 #include <string.h>
 
 #define MAX_BODIES 40
-#define MAX_BLOOD  96
 #define NEAR_BLOCKS 24   /* "near": within 24 blocks of the player (about four screens) */
 
 static uint32_t g_game_seen;
@@ -39,7 +38,6 @@ static int near_player(int32_t x, int32_t y)
 }
 
 static void new_game_check(void);
-static int g_nblood;   /* MORE BLOOD: pools kept (below) */
 
 /* ---- KEEP BODIES ---------------------------------------------------------------------------- */
 
@@ -86,42 +84,24 @@ int gta2_body_before_tick(uint32_t ped)
     static uint32_t last;
     if (getenv("WR_GAMEPLAY_LOG") && wr_time_ms() - last > 3000) {
         last = wr_time_ms();
-        wr_log("gameplay: %d bodies kept, %d blood pools kept, do_blood %u", g_nbody, g_nblood, wr_rd8(0x005EAD51u));
+        wr_log("gameplay: %d bodies kept, do_blood %u", g_nbody, wr_rd8(0x005EAD51u));
     }
     return 1;
 }
 
 /* ---- MORE BLOOD ----------------------------------------------------------------------------- */
 
-static uint32_t g_blood[MAX_BLOOD];
 
 /* Before the blood pool's particle tick (sub_0048BE60, thiscall particle). */
 void gta2_blood_before_tick(uint32_t p)
 {
-    new_game_check();
-    if (!opt_get(OPT_MORE_BLOOD) || !wr_mem_valid(p, 0x50))
+    if (!opt_get(OPT_MORE_BLOOD) || !wr_mem_valid(p, 0x50) || wr_rd32(p + 0x38) != 0x27 || wr_rd16(p + 0x2C) < 2)
         return;
-    int i = -1;
-    for (int k = 0; k < g_nblood; k++)
-        if (g_blood[k] == p)
-            i = k;
-    uint32_t spr = wr_rd32(p + 0x30);
-    int keep = wr_rd32(p + 0x38) == 0x27 && spr && wr_mem_valid(spr, 0x40) && wr_rd16(p + 0x2C) > 1;
-    if (!keep) {
-        if (i >= 0) {
-            memmove(&g_blood[i], &g_blood[i + 1], (size_t)(g_nblood - i - 1) * sizeof g_blood[0]);
-            g_nblood--;
-        }
-        return;
-    }
-    if (i < 0) {
-        if (g_nblood == MAX_BLOOD) {
-            memmove(&g_blood[0], &g_blood[1], (size_t)(MAX_BLOOD - 1) * sizeof g_blood[0]);
-            g_nblood--;
-        }
-        g_blood[g_nblood++] = p;
-    }
-    wr_wr16(p + 0x2C, (uint16_t)(wr_rd16(p + 0x2C) + 1));   /* the tick's decrement given back */
+    /* dries in twice the original time (maintainer 2026-11-26): every
+     * other tick's decrement is given back. The pool's +0x48 counts 3..0
+     * every tick once it has grown, so two of its four steps qualify. */
+    if (wr_rd8(p + 0x48) & 1)
+        wr_wr16(p + 0x2C, (uint16_t)(wr_rd16(p + 0x2C) + 1));
 }
 
 int gta2_more_blood(void) { return opt_get(OPT_MORE_BLOOD); }
@@ -133,7 +113,6 @@ static void new_game_check(void)
     if (g != g_game_seen) {
         g_game_seen = g;
         g_nbody = 0;
-        g_nblood = 0;
     }
 }
 
@@ -166,5 +145,5 @@ float gta2_sprite_scale(uint32_t spr)
     /* by chance (fixed per pool: from its position) the normal or the bigger pool */
     uint32_t h = wr_rd32(spr + 0x14) * 2654435761u ^ wr_rd32(spr + 0x18) * 40503u;
     h ^= h >> 15;
-    return (h & 1) ? 1.6f : 1.0f;
+    return (h & 3) == 0 ? 1.6f : 1.0f;   /* about one pool in four is the big one */
 }
