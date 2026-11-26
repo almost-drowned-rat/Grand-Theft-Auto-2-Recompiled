@@ -5,7 +5,7 @@
 #   tools/make_translations.sh GAME_DATA_DIR OUT.pak de:g [fr:f ...]
 set -e
 here=$(cd "$(dirname "$0")" && pwd)
-data=$1; out=$2; shift 2
+data=$1; out=$(cd "$(dirname "$2")" && pwd)/$(basename "$2"); shift 2
 work=$here/../private/translations
 tmp=$(mktemp -d)
 mkdir -p "$tmp/data"
