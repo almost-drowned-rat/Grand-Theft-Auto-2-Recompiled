@@ -62,7 +62,7 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [x] Frontend/menu, missions load, saves (POSIX-safe writes): replaced files go through <name>.tmp + fsync + rename (+ folder fsync) in winrecomp kernel32 CloseHandle; checked 2026-11-26 (plyslot0.dat rewritten, no .tmp left)
 - [x] RECOMP OPTIONS and CHEATS lines in the game's own options menu (CHEATS: the game's cheats as ON/OFF switches, one-shot cheats as actions; maintainer 2026-11-26)
 - ~~Play through all three districts~~ dropped (maintainer 2026-11-26: too long; crashes are fixed as they show up)
-- [ ] Performance: constant 60 FPS, game logic speed correct
+- [x] Performance: constant 60 FPS, game logic speed correct (M4b: 61 / 122 frames per s at 60 / 120, ticks 33.0 ms; maintainer: "funktioniert tadellos", 2026-11-26)
 
 ## M7 — Windows build (PAUSED: done on a Windows PC)
 - [ ] MSVC/clang build, Win95 launcher, settings menu (option-p RECOMP layout)
