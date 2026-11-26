@@ -28,6 +28,7 @@ const char *opt_label(int id);                /* the line's name, e.g. "ASPECT R
 int         opt_count(int id);                /* number of choices */
 const char *opt_choice_label(int id, int c);  /* e.g. "16:9" */
 int         opt_get(int id);
+int         opt_default(int id);
 void        opt_set(int id, int c);           /* store + apply */
 int         opt_visible(int id);              /* 0: hidden on this platform */
 

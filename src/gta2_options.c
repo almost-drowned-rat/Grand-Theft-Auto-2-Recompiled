@@ -108,6 +108,7 @@ void opt_load_all(void)
 
 const char *opt_label(int id) { return id >= 0 && id < OPT_COUNT ? g_def[id].label : ""; }
 int opt_count(int id) { return id >= 0 && id < OPT_COUNT ? g_def[id].n : 0; }
+int opt_default(int id) { return id >= 0 && id < OPT_COUNT ? g_def[id].def : 0; }
 int opt_get(int id) { return id >= 0 && id < OPT_COUNT ? g_val[id] : 0; }
 
 const char *opt_choice_label(int id, int c)

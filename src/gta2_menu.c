@@ -4,7 +4,9 @@
  * "GTA2 Manager"; it now opens the game's unused page 12, which the port
  * fills with its own pages:
  *
- *   OPTIONS     SOUND / RENDERING / PERFORMANCE / LANGUAGE / CHEATS
+ * The main menu reads PLAY / RECOMP OPTIONS / EXIT GAME (maintainer 2026-11-26).
+ *
+ *   RECOMP OPTIONS RENDERING / PERFORMANCE / SOUND / LANGUAGE / CHEATS
  *               (GTA 2 has no separate RECOMP OPTIONS page: the maintainer's
  *               decision 2026-11-26 - every line sits in OPTIONS)
  *   SOUND       MUSIC VOLUME, EFFECTS VOLUME (the game's own registry values)
@@ -89,34 +91,34 @@ static const cheat g_cheats[] = {
 #define N_CHEATS ((int)(sizeof g_cheats / sizeof g_cheats[0]))
 
 static const mline l_root[] = {
-    { "SOUND", L_PAGE, VP_SOUND }, { "RENDERING", L_PAGE, VP_DISPLAY }, { "PERFORMANCE", L_PAGE, VP_PERF },
-    { "LANGUAGE", L_PAGE, VP_LANG }, { "CHEATS", L_PAGE, VP_CHEATS }, { "BACK", L_BACK, 0 },
+    { "RENDERING", L_PAGE, VP_DISPLAY }, { "PERFORMANCE", L_PAGE, VP_PERF }, { "SOUND", L_PAGE, VP_SOUND },
+    { "LANGUAGE", L_PAGE, VP_LANG }, { "CHEATS", L_PAGE, VP_CHEATS },
 };
 static const mline l_sound[] = {
-    { "MUSIC VOLUME", L_VOL, VOL_MUSIC }, { "EFFECTS VOLUME", L_VOL, VOL_SFX }, { "BACK", L_BACK, 0 },
+    { "MUSIC VOLUME", L_VOL, VOL_MUSIC }, { "EFFECTS VOLUME", L_VOL, VOL_SFX },
 };
 static const mline l_display[] = {
     { NULL, L_OPT, OPT_DISPLAY_MODE }, { NULL, L_OPT, OPT_RENDER_RES }, { NULL, L_OPT, OPT_TEXTURE_FILTER },
-    { NULL, L_OPT, OPT_ASPECT }, { "BACK", L_BACK, 0 },
+    { NULL, L_OPT, OPT_ASPECT },
 };
 static const mline l_perf[] = {
     { NULL, L_OPT, OPT_VSYNC }, { NULL, L_OPT, OPT_PERF_FPS }, { NULL, L_OPT, OPT_PERF_FRAMETIME },
-    { NULL, L_OPT, OPT_PERF_SPEED }, { "BACK", L_BACK, 0 },
+    { NULL, L_OPT, OPT_PERF_SPEED },
 };
 /* LANGUAGE applies at start: once changed, RESTART NOW / RESTART LATER */
-static const mline l_lang[] = { { "LANGUAGE", L_LANG, 0 }, { "BACK", L_BACK, 0 } };
+static const mline l_lang[] = { { "LANGUAGE", L_LANG, 0 } };
 static const mline l_lang_changed[] = {
     { "LANGUAGE", L_LANG, 0 }, { "RESTART NOW", L_ACTION, ACT_RESTART_NOW },
     { "RESTART LATER", L_ACTION, ACT_RESTART_LATER },
 };
-static mline l_cheats[N_CHEATS + 2];
+static mline l_cheats[N_CHEATS + 1];
 
 static mpage g_pages[VP_COUNT] = {
-    [VP_ROOT]    = { "OPTIONS", -1, l_root, 6 },
-    [VP_SOUND]   = { "SOUND", VP_ROOT, l_sound, 3 },
-    [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 5 },
-    [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 5 },
-    [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 2 },
+    [VP_ROOT]    = { "RECOMP OPTIONS", -1, l_root, 5 },
+    [VP_SOUND]   = { "SOUND", VP_ROOT, l_sound, 2 },
+    [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 4 },
+    [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
+    [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 1 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
 };
 
@@ -243,7 +245,6 @@ static void build_cheat_page(void)
     for (int i = 0; i < N_CHEATS; i++)
         l_cheats[n++] = (mline){ g_cheats[i].label, L_CHEAT, i };
     l_cheats[n++] = (mline){ "UNLOCK ALL AREAS", L_ACTION, ACT_UNLOCK_AREAS };
-    l_cheats[n++] = (mline){ "BACK", L_BACK, 0 };
     g_pages[VP_CHEATS].n = n;
 }
 
@@ -255,6 +256,15 @@ static void open_vpage(int vp)
     g_top = 0;
 }
 
+/* an item's u16[50] text (upper-case ASCII; translations come later) */
+static void set_item_text(uint32_t va, const char *t)
+{
+    int i = 0;
+    for (; t[i] && i < 49; i++)
+        wr_wr16(va + 2 * (uint32_t)i, (uint16_t)(unsigned char)t[i]);
+    wr_wr16(va + 2 * (uint32_t)i, 0);
+}
+
 /* Called by the game's frontend build (every frontend construction). */
 void gta2_menu_frontend_built(uint32_t f)
 {
@@ -262,8 +272,12 @@ void gta2_menu_frontend_built(uint32_t f)
         return;
     build_cheat_page();
     /* main menu OPTIONS (page 0, item 1): the Manager launch -> page 12 */
-    if (wr_rd16(f + 0x228) == 0x101)
+    if (wr_rd16(f + 0x228) == 0x101) {
         wr_wr16(f + 0x228, PORT_PAGE);
+        set_item_text(f + 0x1AE, "RECOMP OPTIONS");   /* item 1 text */
+    }
+    if (wr_rd16(f + 0x2AA) == 0x102 || wr_rd16(f + 0x2AA) == 9)   /* item 2: QUIT (credits, then quit) */
+        set_item_text(f + 0x230, "EXIT GAME");
     prepare_page(f);
 }
 
@@ -279,7 +293,24 @@ static void lang_page_update(void)
 {
     int changed = g_lang_start >= 0 && g_lang_sel != g_lang_start;
     g_pages[VP_LANG].l = changed ? l_lang_changed : l_lang;
-    g_pages[VP_LANG].n = changed ? 3 : 2;
+    g_pages[VP_LANG].n = changed ? 3 : 1;
+}
+
+/* Y (pad) / Home (keyboard): every line of the page back to its default */
+static void page_defaults(X86Ctx *ctx)
+{
+    const mpage *pg = &g_pages[g_vp];
+    for (int i = 0; i < pg->n; i++) {
+        const mline *l = &pg->l[i];
+        switch (l->kind) {
+        case L_OPT: opt_set(l->arg, opt_default(l->arg)); break;
+        case L_VOL: vol_set(ctx, l->arg, 127); break;
+        case L_CHEAT: if (cheat_on(l->arg)) cheat_set(l->arg, 0); break;
+        case L_LANG: if (g_lang_have[0] && g_lang_sel != 0) { g_lang_sel = 1; lang_step(-1); } break;
+        default: break;
+        }
+    }
+    wr_wr32(FE_SOUND, SND_VALUE);
 }
 
 static void go_back(X86Ctx *ctx, uint32_t f)
@@ -349,9 +380,16 @@ int gta2_menu_input(X86Ctx *ctx)
             down = wr_rd8(f + FE_EDGE + 3), enter = wr_rd8(f + FE_EDGE + 4), esc = wr_rd8(f + FE_EDGE + 5);
     for (int i = 0; i < 7; i++)
         wr_wr8(f + FE_EDGE + i, 0);
+    /* Home (pad Y): the game's menus have no edge flag for it */
+    static uint8_t home_prev;
+    uint8_t home = wr_rd8(f + 8 + 0xC7) & 0x80;
+    int defaults = home && !home_prev;
+    home_prev = home;
     const mline *l = &pg->l[g_cur];
     if (esc) {
         go_back(ctx, f);
+    } else if (defaults) {
+        page_defaults(ctx);
     } else if (up || down) {
         g_cur = (g_cur + (down ? 1 : pg->n - 1)) % pg->n;
         wr_wr32(FE_SOUND, down ? SND_DOWN : SND_UP);

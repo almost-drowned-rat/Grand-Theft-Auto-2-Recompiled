@@ -57,6 +57,7 @@ static uint8_t map_menu(int control)
     case WR_PAD_DPAD_RIGHT: case WR_PAD_LEFT_STICK_RIGHT: return 0xCD;
     case WR_PAD_SOUTH: case WR_PAD_START: return 0x1C;   /* Return */
     case WR_PAD_EAST: return 0x01;                       /* Escape */
+    case WR_PAD_NORTH: return 0xC7;                      /* Home: defaults on the port's pages */
     default: return 0;
     }
 }
