@@ -64,6 +64,7 @@ int main(int argc, char **argv)
         char ms[1100], ds[1100];
         snprintf(ms, sizeof ms, "%s/shaders", g_wr_paths.media);
         snprintf(ds, sizeof ds, "%s/shaders", g_wr_paths.data);
+        shader_pack_show_bezels(1);   /* as the N64 recomps: bezel / border listed too */
         shader_pack_start(ms, ds);
     }
     gta2_manual_register();
