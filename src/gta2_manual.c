@@ -457,40 +457,34 @@ void sub_0048CC50(RECOMP_PARAMS)   /* creates a blood pool at (x, y, z), stdcall
 {
     uint32_t x = MEM32(ctx->r_esp + 4), y = MEM32(ctx->r_esp + 8), z = MEM32(ctx->r_esp + 12);
     uint32_t ecx = ctx->r_ecx;
-    if (getenv("WR_GAMEPLAY_LOG"))
-        wr_log("blood: created at %d,%d,%d", (int32_t)x, (int32_t)y, (int32_t)z);
-    sub_0048CC50_gen(ctx, base);
-    if (!gta2_more_blood())
+    if (!gta2_more_blood()) {
+        sub_0048CC50_gen(ctx, base);
         return;
-    uint32_t eax = ctx->r_eax;
-    /* MORE BLOOD: a bigger stain, by chance either around the body (a cross
-     * of four more pools, 0.18 block each way) or beside it, towards a
-     * random side (two more pools leading away - e.g. next to the head;
-     * maintainer 2026-11-26) */
+    }
+    /* MORE BLOOD (maintainer 2026-11-26), by chance:
+     *  under the body: a big stain - the pool and four more, overlapping
+     *  beside it: one pool only, moved a little to a random side */
     static uint32_t rnd = 0x2545F491u;
     rnd ^= x * 2654435761u ^ y * 40503u;
-    rnd ^= rnd << 13; rnd ^= rnd >> 17; rnd ^= rnd << 5;   /* xorshift: a fresh coin each time */
-    int32_t off[4][2];
-    int n;
-    if (rnd & 1) {   /* around the body: four overlapping pools, 0.12 block each way */
-        static const int32_t cross[4][2] = { { 2000, 300 }, { -2000, -300 }, { -300, 2000 }, { 300, -2000 } };
-        memcpy(off, cross, sizeof cross);
-        n = 4;
-    } else {         /* beside it: two pools running off to one side, overlapping, slightly bent */
+    rnd ^= rnd << 13; rnd ^= rnd >> 17; rnd ^= rnd << 5;
+    if (!(rnd & 1)) {
         static const int32_t dir[8][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
                                            { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } };
         int d = (int)(rnd >> 4) & 7;
-        int32_t step = d < 4 ? 2000 : 1420;            /* the same distance on the diagonals */
-        int32_t bend = ((int32_t)(rnd >> 8) & 1) ? 600 : -600;
-        off[0][0] = dir[d][0] * step + dir[d][1] * bend / 2;
-        off[0][1] = dir[d][1] * step - dir[d][0] * bend / 2;
-        off[1][0] = dir[d][0] * step * 2 + dir[d][1] * bend;
-        off[1][1] = dir[d][1] * step * 2 - dir[d][0] * bend;
-        n = 2;
+        int32_t step = d < 4 ? 3600 : 2550;   /* about 0.22 block, the same on the diagonals */
+        MEM32(ctx->r_esp + 4) = x + (uint32_t)(dir[d][0] * step);
+        MEM32(ctx->r_esp + 8) = y + (uint32_t)(dir[d][1] * step);
+        if (getenv("WR_GAMEPLAY_LOG"))
+            wr_log("blood: beside");
+        sub_0048CC50_gen(ctx, base);
+        return;
     }
     if (getenv("WR_GAMEPLAY_LOG"))
-        wr_log("blood: %s", n == 4 ? "around" : "beside");
-    for (int i = 0; i < n; i++) {
+        wr_log("blood: under");
+    sub_0048CC50_gen(ctx, base);
+    uint32_t eax = ctx->r_eax;
+    static const int32_t off[4][2] = { { 2000, 300 }, { -2000, -300 }, { -300, 2000 }, { 300, -2000 } };
+    for (int i = 0; i < 4; i++) {
         uint32_t a[3] = { x + (uint32_t)off[i][0], y + (uint32_t)off[i][1], z };
         ctx->r_ecx = ecx;
         uint32_t sp = ctx->r_esp;
