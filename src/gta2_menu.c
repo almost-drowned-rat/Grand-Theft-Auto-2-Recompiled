@@ -4,11 +4,14 @@
  * "GTA2 Manager"; it now opens the game's unused page 12, which the port
  * fills with its own pages:
  *
- *   OPTIONS        SOUND / RECOMP OPTIONS / CHEATS
- *   SOUND          MUSIC VOLUME, EFFECTS VOLUME (the game's own registry values)
- *   RECOMP OPTIONS RENDERING (display mode, resolution, texture filtering,
- *                  aspect) / PERFORMANCE / LANGUAGE
- *   CHEATS         the game's cheats as ON/OFF switches + UNLOCK ALL AREAS
+ *   OPTIONS     SOUND / RENDERING / PERFORMANCE / LANGUAGE / CHEATS
+ *               (GTA 2 has no separate RECOMP OPTIONS page: the maintainer's
+ *               decision 2026-11-26 - every line sits in OPTIONS)
+ *   SOUND       MUSIC VOLUME, EFFECTS VOLUME (the game's own registry values)
+ *   RENDERING   display mode, resolution, texture filtering, aspect
+ *   PERFORMANCE V-SYNC, FPS, FRAME TIME, GAME SPEED
+ *   LANGUAGE    the game's languages, RESTART NOW / LATER
+ *   CHEATS      the game's cheats as ON/OFF switches + UNLOCK ALL AREAS
  *
  * One game page holds them all: the port keeps the page it shows, handles
  * every key on page 12 itself (Esc there would quit the game) and draws the
@@ -50,7 +53,7 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 
 /* ---- pages -------------------------------------------------------------------------------- */
 
-enum { VP_ROOT, VP_SOUND, VP_RECOMP, VP_DISPLAY, VP_PERF, VP_LANG, VP_CHEATS, VP_COUNT };
+enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CHEATS, VP_COUNT };
 enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER };
 enum { VOL_MUSIC, VOL_SFX };
@@ -86,15 +89,11 @@ static const cheat g_cheats[] = {
 #define N_CHEATS ((int)(sizeof g_cheats / sizeof g_cheats[0]))
 
 static const mline l_root[] = {
-    { "SOUND", L_PAGE, VP_SOUND }, { "RECOMP OPTIONS", L_PAGE, VP_RECOMP }, { "CHEATS", L_PAGE, VP_CHEATS },
-    { "BACK", L_BACK, 0 },
+    { "SOUND", L_PAGE, VP_SOUND }, { "RENDERING", L_PAGE, VP_DISPLAY }, { "PERFORMANCE", L_PAGE, VP_PERF },
+    { "LANGUAGE", L_PAGE, VP_LANG }, { "CHEATS", L_PAGE, VP_CHEATS }, { "BACK", L_BACK, 0 },
 };
 static const mline l_sound[] = {
     { "MUSIC VOLUME", L_VOL, VOL_MUSIC }, { "EFFECTS VOLUME", L_VOL, VOL_SFX }, { "BACK", L_BACK, 0 },
-};
-static const mline l_recomp[] = {
-    { "RENDERING", L_PAGE, VP_DISPLAY }, { "PERFORMANCE", L_PAGE, VP_PERF }, { "LANGUAGE", L_PAGE, VP_LANG },
-    { "BACK", L_BACK, 0 },
 };
 static const mline l_display[] = {
     { NULL, L_OPT, OPT_DISPLAY_MODE }, { NULL, L_OPT, OPT_RENDER_RES }, { NULL, L_OPT, OPT_TEXTURE_FILTER },
@@ -113,12 +112,11 @@ static const mline l_lang_changed[] = {
 static mline l_cheats[N_CHEATS + 2];
 
 static mpage g_pages[VP_COUNT] = {
-    [VP_ROOT]    = { "OPTIONS", -1, l_root, 4 },
+    [VP_ROOT]    = { "OPTIONS", -1, l_root, 6 },
     [VP_SOUND]   = { "SOUND", VP_ROOT, l_sound, 3 },
-    [VP_RECOMP]  = { "RECOMP OPTIONS", VP_ROOT, l_recomp, 4 },
-    [VP_DISPLAY] = { "RENDERING", VP_RECOMP, l_display, 5 },
-    [VP_PERF]    = { "PERFORMANCE", VP_RECOMP, l_perf, 5 },
-    [VP_LANG]    = { "LANGUAGE", VP_RECOMP, l_lang, 2 },
+    [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, 5 },
+    [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 5 },
+    [VP_LANG]    = { "LANGUAGE", VP_ROOT, l_lang, 2 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
 };
 
