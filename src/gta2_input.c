@@ -39,7 +39,9 @@ static int pad_action(int c)
     case WR_PAD_NORTH: return ACT_SPECIAL;
     case WR_PAD_LT: return ACT_SPECIAL2;
     case WR_PAD_RSTICK: return ACT_STATUS;   /* special 3 on R3 (maintainer 2026-11-26) */
-    case WR_PAD_BACK: return ACT_RADIO_NEXT;  /* Select: radio (works in a car) */
+    /* the radio (it changes only in a car): right stick left / right (maintainer 2026-11-26) */
+    case WR_PAD_RIGHT_STICK_LEFT: return ACT_RADIO_PREV;
+    case WR_PAD_RIGHT_STICK_RIGHT: return ACT_RADIO_NEXT;
     case WR_PAD_START: return ACT_ESCAPE;
     default: return -1;
     }
@@ -68,7 +70,8 @@ static uint8_t map_menu(int control)
 /* ---- MODERN (maintainer 2026-11-26) -----------------------------------------------------
  *            on foot                       in a car
  * stick and  walk where it points          steer (left / right)
- * d-pad      (8 directions on the d-pad)   d-pad up / down: radio next / previous
+ * d-pad      (8 directions on the d-pad)
+ * R-stick    turn / aim                    left / right: radio previous / next
  * A          jump                          gas
  * X          attack                        brake / reverse
  * B          special 1                     handbrake
@@ -76,7 +79,7 @@ static uint8_t map_menu(int control)
  * L2         special 2                     special 1
  * Y          enter                         exit
  * LB / RB    previous / next weapon
- * R3 special 3, Select the next radio station, START the menu
+ * R3 special 3, START the menu, Select unused
  * The stick's direction on foot is set in the on-foot control step
  * (gta2_modern_on_foot, wrapper of sub_004A5C50); this table only presses
  * "forward" while the stick is pushed. */
@@ -86,9 +89,11 @@ static int modern_action(int c, int driving)
     /* stick and d-pad alike (maintainer 2026-11-26) */
     case WR_PAD_LEFT_STICK_UP: case WR_PAD_LEFT_STICK_DOWN:
         return driving ? -1 : ACT_UP;
-    /* in a car the d-pad's up / down change the radio station (F2 / F1) */
-    case WR_PAD_DPAD_UP: return driving ? ACT_RADIO_NEXT : ACT_UP;
-    case WR_PAD_DPAD_DOWN: return driving ? ACT_RADIO_PREV : ACT_UP;
+    case WR_PAD_DPAD_UP: case WR_PAD_DPAD_DOWN: return driving ? -1 : ACT_UP;
+    /* right stick: aiming on foot (analogue, gta2_state.c), the radio in a car */
+    case WR_PAD_RIGHT_STICK_LEFT: return driving ? ACT_RADIO_PREV : -1;
+    case WR_PAD_RIGHT_STICK_RIGHT: return driving ? ACT_RADIO_NEXT : -1;
+    case WR_PAD_RIGHT_STICK_UP: case WR_PAD_RIGHT_STICK_DOWN: return -1;
     case WR_PAD_LEFT_STICK_LEFT: case WR_PAD_DPAD_LEFT: return driving ? ACT_LEFT : ACT_UP;
     case WR_PAD_LEFT_STICK_RIGHT: case WR_PAD_DPAD_RIGHT: return driving ? ACT_RIGHT : ACT_UP;
     /* car buttons (maintainer 2026-11-26): A gas, X brake, B handbrake, R2 shoot */
@@ -113,12 +118,13 @@ static const struct { const char *label; int act; } k_fn[GTA2_BIND_N] = {
     { "FORWARD", ACT_UP }, { "BACKWARD", ACT_DOWN }, { "LEFT", ACT_LEFT }, { "RIGHT", ACT_RIGHT },
     { "ATTACK", ACT_ATTACK }, { "ENTER / EXIT", ACT_ENTER }, { "JUMP / HANDBRAKE", ACT_JUMP },
     { "PREVIOUS WEAPON", ACT_PREV }, { "NEXT WEAPON", ACT_NEXT }, { "SPECIAL 1", ACT_SPECIAL },
-    { "SPECIAL 2", ACT_SPECIAL2 }, { "SPECIAL 3", ACT_STATUS }, { "RADIO", ACT_RADIO_NEXT },
-    { "MENU", ACT_ESCAPE },
+    { "SPECIAL 2", ACT_SPECIAL2 }, { "SPECIAL 3", ACT_STATUS }, { "RADIO NEXT", ACT_RADIO_NEXT },
+    { "RADIO PREVIOUS", ACT_RADIO_PREV }, { "MENU", ACT_ESCAPE },
 };
 static const int k_bind_default[GTA2_BIND_N] = {
     WR_PAD_DPAD_UP, WR_PAD_DPAD_DOWN, WR_PAD_DPAD_LEFT, WR_PAD_DPAD_RIGHT, WR_PAD_WEST, WR_PAD_SOUTH,
-    WR_PAD_EAST, WR_PAD_LB, WR_PAD_RB, WR_PAD_NORTH, WR_PAD_LT, WR_PAD_RSTICK, WR_PAD_BACK, WR_PAD_START,
+    WR_PAD_EAST, WR_PAD_LB, WR_PAD_RB, WR_PAD_NORTH, WR_PAD_LT, WR_PAD_RSTICK, WR_PAD_RIGHT_STICK_RIGHT,
+    WR_PAD_RIGHT_STICK_LEFT, WR_PAD_START,
 };
 static int g_bind[GTA2_BIND_N];
 static int g_bind_loaded;

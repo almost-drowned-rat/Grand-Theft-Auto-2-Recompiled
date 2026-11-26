@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define GTA2_BIND_N 14   /* 12 game actions + RADIO + MENU (the keyboard: the first 12) */
+#define GTA2_BIND_N 15   /* 12 game actions + RADIO NEXT / PREVIOUS + MENU (the keyboard: the first 12) */
 
 int  gta2_bind_count(int keyboard);
 const char *gta2_bind_label(int i);
