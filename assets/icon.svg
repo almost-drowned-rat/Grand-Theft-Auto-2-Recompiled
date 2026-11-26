@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- GTA 2 Recompiled icon (agent L, 2026-11-26): a black gangster car with gold stripes seen from above on a crossing at night, police red and blue in the corners -
+       the game's top-down view; the family style of the maintainer's ports (dark rounded square, one symbol, no
+       logos, no text). Original drawing, CC0 / the repository's licence. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b1630"/><stop offset="1" stop-color="#0b0a14"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.08" cy="0.08" r="0.7">
+      <stop offset="0" stop-color="#ff1e3c" stop-opacity="0.55"/><stop offset="1" stop-color="#ff1e3c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.92" cy="0.92" r="0.7">
+      <stop offset="0" stop-color="#2f6bff" stop-opacity="0.55"/><stop offset="1" stop-color="#2f6bff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#050507"/><stop offset="0.45" stop-color="#3a3a44"/><stop offset="0.55" stop-color="#3a3a44"/><stop offset="1" stop-color="#050507"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b4452"/><stop offset="1" stop-color="#0d1016"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#fff6c8" stop-opacity="0.55"/><stop offset="1" stop-color="#fff6c8" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="r"><rect width="256" height="256" rx="56"/></clipPath>
+  </defs>
+  <g transform="translate(8 8) scale(0.9375)"><g clip-path="url(#r)">
+    <rect width="256" height="256" fill="url(#bg)"/>
+    <!-- city blocks -->
+    <g fill="#241f3d">
+      <rect x="0" y="0" width="86" height="86"/><rect x="170" y="0" width="86" height="86"/>
+      <rect x="0" y="170" width="86" height="86"/><rect x="170" y="170" width="86" height="86"/>
+    </g>
+    <g fill="#2f2850">
+      <rect x="14" y="14" width="58" height="58" rx="4"/><rect x="184" y="14" width="58" height="58" rx="4"/>
+      <rect x="14" y="184" width="58" height="58" rx="4"/><rect x="184" y="184" width="58" height="58" rx="4"/>
+    </g>
+    <rect x="0" y="0" width="256" height="256" fill="url(#glow)"/>
+    <rect x="0" y="0" width="256" height="256" fill="url(#glow2)"/>
+    <!-- road markings -->
+    <g fill="#f2c230">
+      <rect x="125" y="4" width="6" height="22" rx="2"/><rect x="125" y="40" width="6" height="22" rx="2"/>
+      <rect x="125" y="196" width="6" height="22" rx="2"/><rect x="125" y="232" width="6" height="22" rx="2"/>
+      <rect x="4" y="125" width="22" height="6" rx="2"/><rect x="40" y="125" width="22" height="6" rx="2"/>
+      <rect x="196" y="125" width="22" height="6" rx="2"/><rect x="232" y="125" width="22" height="6" rx="2"/>
+    </g>
+    <!-- headlight beams and the car, heading down (maintainer 2026-11-26) -->
+    <g transform="rotate(180 128 128)">
+    <!-- headlight beams -->
+    <path d="M110 70 L92 6 L126 6 Z" fill="url(#beam)"/><path d="M146 70 L130 6 L164 6 Z" fill="url(#beam)"/>
+    <!-- the car, from above, heading up -->
+    <g>
+      <rect x="98" y="66" width="60" height="122" rx="22" fill="#0a0810" opacity="0.5" transform="translate(-4 -6)"/>
+      <rect x="98" y="66" width="60" height="122" rx="22" fill="url(#body)" stroke="#9aa0b4" stroke-width="2.5"/>
+      <rect x="106" y="94" width="44" height="26" rx="8" fill="url(#glass)"/>
+      <rect x="108" y="146" width="40" height="18" rx="6" fill="url(#glass)" opacity="0.8"/>
+      <rect x="106" y="122" width="44" height="22" rx="4" fill="#15151b"/>
+      <rect x="112" y="69" width="7" height="116" rx="2" fill="#e0b445"/>
+      <rect x="137" y="69" width="7" height="116" rx="2" fill="#e0b445"/>
+      <rect x="104" y="70" width="12" height="7" rx="3" fill="#fff4c0"/><rect x="140" y="70" width="12" height="7" rx="3" fill="#fff4c0"/>
+      <rect x="104" y="179" width="12" height="5" rx="2" fill="#ff5050"/><rect x="140" y="179" width="12" height="5" rx="2" fill="#ff5050"/>
+    </g>
+    </g>
+  </g></g>
+</svg>
