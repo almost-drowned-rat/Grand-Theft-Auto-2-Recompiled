@@ -77,7 +77,13 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [ ] Test on the Odin 2
 
 ## After M8 (maintainer 2026-11-26; rumble + soundtracks moved to M4c)
-- [ ] Own milestone (source texts: the game's e.gxt / bob_e.gxt, English, with s.gxt as a cross-check - the freeware edition ships only EN + ES; maintainer 2026-11-26: "das reicht"): complete translation of ALL story content and UI (radio station names and their music lines stay English everywhere; maintainer 2026-11-26) (game texts + our menus/launcher) into EN, FR, DE, IT, ES, JA, ZH, RU, PL; own text renderer + font (Latin-Ext, Cyrillic, CJK); shipped as a translations pak next to the launcher (like ZOE-subtitles.pak); LANGUAGE in the RECOMP menu
+- [x] Translations DONE 2026-11-26 (all game texts; our own menus stay English, maintainer): DE, FR, IT on the game
+      font; PL, RU, JA, ZH on our own glyphs (src/gta2_text.c, Noto Sans / Noto Sans CJK Bold cut per language,
+      OFL); GTA2-translations.pak (data/<letter>.gxt + data/fonts/<letter>.otf), letters g f i p r n c; tools gxt.py,
+      tr_check.py (0 problems for every language), make_font.py, make_translations.sh. German checked in game by the
+      maintainer; the others load clean and were looked at in screenshots (RU, JA, ZH). Open: radio station names
+      8..11 still to be heard.
+- [x] (was:) Own milestone (source texts: the game's e.gxt / bob_e.gxt, English, with s.gxt as a cross-check - the freeware edition ships only EN + ES; maintainer 2026-11-26: "das reicht"): complete translation of ALL story content and UI (radio station names and their music lines stay English everywhere; maintainer 2026-11-26) (game texts + our menus/launcher) into EN, FR, DE, IT, ES, JA, ZH, RU, PL; own text renderer + font (Latin-Ext, Cyrillic, CJK); shipped as a translations pak next to the launcher (like ZOE-subtitles.pak); LANGUAGE in the RECOMP menu
 
 ## M9 — Multiplayer (optional)
 - [ ] DirectPlay (DPLAYX) -> own network layer (LAN/IP)
