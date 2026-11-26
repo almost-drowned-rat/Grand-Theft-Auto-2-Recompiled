@@ -58,7 +58,7 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [x] DirectInput 8: keyboard, gamepad (SDL3), controller layout (CLASSIC/MODERN/CUSTOM pad, CLASSIC/MODERN/KEYBOARD + MOUSE keys, CONTROLLER LAYOUT + CONTROL OVERVIEW pages, 2026-11-26)
 - [ ] Android: touch controls
 
-## M6 — Playable on Linux
+## M6 — Playable on Linux (DONE 2026-11-26: maintainer test "sieht alles gut aus")
 - [x] Frontend/menu, missions load, saves (POSIX-safe writes): replaced files go through <name>.tmp + fsync + rename (+ folder fsync) in winrecomp kernel32 CloseHandle; checked 2026-11-26 (plyslot0.dat rewritten, no .tmp left)
 - [x] RECOMP OPTIONS and CHEATS lines in the game's own options menu (CHEATS: the game's cheats as ON/OFF switches, one-shot cheats as actions; maintainer 2026-11-26)
 - ~~Play through all three districts~~ dropped (maintainer 2026-11-26: too long; crashes are fixed as they show up)
