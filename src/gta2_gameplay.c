@@ -45,7 +45,7 @@ static uint32_t g_life_spr[1024];
 
 static uint32_t g_body[MAX_BODIES];   /* kept dead peds, oldest first */
 static uint32_t g_body_t0[MAX_BODIES];   /* when each was first kept (ms) */
-#define BODY_KEEP_MS 113000   /* about as long as its blood lasts (fresh, drying, pale) */
+#define BODY_KEEP_MS 93000   /* as long as its blood lasts: ~33 s fresh + 20 s drying + 40 s pale */
 static int g_nbody;
 
 static int body_index(uint32_t ped)
@@ -64,7 +64,7 @@ static void body_drop(int i)
 }
 
 /* Before the game's tick of one ped: 1 = keep it this tick (the caller then
- * undoes its count). */
+ * undoes its count), 2 = remove it now (the caller calls sub_0043E650). */
 int gta2_body_before_tick(uint32_t ped)
 {
     new_game_check();
@@ -86,9 +86,8 @@ int gta2_body_before_tick(uint32_t ped)
         g_body_t0[g_nbody] = wr_time_ms();
         g_body[g_nbody++] = ped;
     } else if (wr_time_ms() - g_body_t0[i] > BODY_KEEP_MS) {
-        /* its time is up: the game's own rules again (it goes once off screen);
-         * the slot stays taken so it is not kept anew */
-        return 0;
+        body_drop(i);
+        return 2;   /* its time is up: it goes now, with its pale stain (maintainer) */
     }
     wr_wr16(ped + 0x20E, 0);
     static uint32_t last;
@@ -127,7 +126,7 @@ static int life_slot(uint32_t spr, int add)
 #define FADE_TICKS 300      /* the last ~10 s: darker and fading */
 static uint32_t g_pale[MAX_PALE];
 static uint32_t g_pale_t0[MAX_PALE];   /* when each turned pale (ms) */
-#define PALE_KEEP_MS 60000
+#define PALE_KEEP_MS 40000
 
 void gta2_blood_before_tick(uint32_t p)
 {

@@ -431,7 +431,16 @@ extern void sub_004454E0_gen(RECOMP_PARAMS);
 void sub_004454E0(RECOMP_PARAMS)   /* one ped's tick (thiscall ped) */
 {
     uint32_t ped = ctx->r_ecx;
-    if (!gta2_body_before_tick(ped)) {
+    int keep = gta2_body_before_tick(ped);
+    if (keep == 2) {   /* KEEP BODIES: its time is up - the game's own removal */
+        uint32_t esp = ctx->r_esp;
+        ctx->r_ecx = ped;
+        wr_call_guest(ctx, 0x0043E650u, 0, NULL);
+        ctx->r_esp = esp;
+        ctx->r_ecx = ped;
+        keep = 0;
+    }
+    if (!keep) {
         sub_004454E0_gen(ctx, base);
         return;
     }
