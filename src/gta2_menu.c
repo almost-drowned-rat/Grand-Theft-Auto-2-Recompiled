@@ -1155,11 +1155,12 @@ void gta2_pause_draw(X86Ctx *ctx)
 /* names and music from the maintainer's list (2026-11-26); numbers: 1 and 5 play in every
  * district (Head Radio, Futuro FM), 2 / 3 / 4 are the district stations without a gang
  * (Rockstar Radio downtown, KREZ residential, Lo-Fi FM industrial). 6..11 are the two gang
- * stations of each district: Downtown 6 Funami FM, 7 King 130.7 (both heard by the maintainer;
- * the wiki's district lists are wrong here). 8..11 = Lithium FM, Osmosis FM, Heavenly Radio,
- * KGBH in an order still to be heard in Residential (8, 9) and Industrial (10, 11). */
+ * stations of each district: Downtown 6 Funami FM (Japanese), 7 Lithium FM (oldies, electro, a
+ * Jesus song only Lithium / Heavenly play; its host does voices) - both heard, as the wiki says.
+ * Residential 8 / 9 = King 130.7 / Osmosis FM, Industrial 10 / 11 = Heavenly Radio / KGBH, in an
+ * order still to be heard (until then "STATION n"). */
 static const char *const k_station_name[12] = {
-    "", "HEAD RADIO", "ROCKSTAR RADIO", "KREZ", "LO-FI FM", "FUTURO FM", "FUNAMI FM", "KING 130.7",
+    "", "HEAD RADIO", "ROCKSTAR RADIO", "KREZ", "LO-FI FM", "FUTURO FM", "FUNAMI FM", "LITHIUM FM",
 };
 static const char *const k_station_info[12][2] = {
     { "", "" },
@@ -1169,7 +1170,7 @@ static const char *const k_station_info[12][2] = {
     { "FUNK, JAZZ, OLDIES AND CLASSIC ROCK", "" },
     { "FUNK, DANCE AND CLASSIC ROCK", "" },
     { "ACID, ELECTRONIC AND DRUM N BASS", "" },   /* 6: heard (Japanese commercials) */
-    { "HARD ROCK AND SOFT ROCK", "" },   /* 7: heard (Southern host, Elvis sounds) - the wiki puts it in Residential */
+    { "TECHNO, OLDIES, ELECTRONIC AND CHRISTIAN ROCK", "" },   /* 7: heard: oldies, electro, a Jesus song */
 };
 
 void gta2_radio_label_draw(X86Ctx *ctx)
