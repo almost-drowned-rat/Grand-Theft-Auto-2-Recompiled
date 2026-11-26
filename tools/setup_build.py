@@ -153,8 +153,12 @@ def lift(a, mod):
     src = os.path.join(out, "src")
     cfg = ["--game-config", os.path.join(a.config, "game.toml")] if mod == "gta2" else []
     split = ["--split", "1000"] if mod == "bink" else []
-    py = [sys.executable, "-m"]
-    env = dict(os.environ, PYTHONPATH=a.toolkit + os.pathsep + os.environ.get("PYTHONPATH", ""))
+    # each lifter step as `python -I -B -c <run the module>`: the toolkit put on sys.path by the child itself (an
+    # isolated interpreter - the Android setup's embedded one - ignores PYTHONPATH)
+    boot = ("import runpy, sys; sys.path.insert(0, %r); m = sys.argv.pop(1); "
+            "runpy.run_module(m, run_name='__main__', alter_sys=True)" % a.toolkit)
+    py = [os.environ.get("GTA2_SETUP_PYTHON") or sys.executable, "-I", "-B", "-c", boot]
+    env = os.environ
     steps = [
         ["tools.disasm", exe] + cfg + ["-o", os.path.join(an, "disasm"), "--force"],
         ["tools.func_id", exe, "--functions", os.path.join(an, "disasm", "functions.json"),
