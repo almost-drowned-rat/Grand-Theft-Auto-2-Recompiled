@@ -32,7 +32,7 @@ unpacks the game files, translates `gta2.exe` and the movie decoder to C and com
 minutes, once. Later starts go straight into the game. Your installer or folder is only read, never changed.
 
 Everything stays in the game's folder: `game/` (the game's files), `saves/` (your saves and settings), `data/`
-(logs, caches - safe to delete), `media/` (your own music). Nothing is written anywhere else.
+(logs, caches - safe to delete), `media/` (your own music), `shader/` (your shader packs). Nothing is written anywhere else.
 
 ## Features
 
@@ -43,7 +43,7 @@ Everything stays in the game's folder: `game/` (the game's files), `saves/` (you
   - **Frame rate:** 30 (original), 60 or 120 interpolated - the game logic keeps its original 30 ticks per second,
     the frames in between are drawn from it, so the game never runs faster
   - **Performance:** V-Sync, FPS counter, frame time, game speed
-  - **Shaders:** RetroArch slang shader presets (librashader) - put a shader pack into `media/shaders/`
+  - **Shaders:** RetroArch slang shader presets (librashader) - put a shader pack into `shader/`
   - **Gameplay:** the settings of the old GTA 2 Manager (pedestrians, traffic, sprint, more blood)
   - **Cheats:** the game's own cheats as switches
 - **Controls:** any SDL3 gamepad with hot-plug and rumble (explosions), a classic and a modern pad layout plus your
