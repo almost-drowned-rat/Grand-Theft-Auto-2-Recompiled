@@ -26,6 +26,7 @@
 #include "gta2_state.h"
 #include "render/gta2_render.h"
 #include "gta2_input.h"
+#include "gta2_gameplay.h"
 #include "platform/wr_platform.h"
 #include "wr.h"
 
@@ -777,6 +778,7 @@ void gta2_pause_tick(X86Ctx *ctx)
         return;
     }
     apply_aspect_live(ctx, g);
+    gta2_peds_live(ctx);
     {   /* dev: WR_TEST_BLOOD=1 - one blood pool at the player after 12 s of play */
         static int done;
         static uint32_t t0;

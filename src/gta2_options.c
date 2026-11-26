@@ -46,6 +46,8 @@ static int g_val[OPT_COUNT];
 static void apply_window(int c) { (void)c; gfx_apply_window(); }
 static void apply_vsync(int c) { gfx_apply_vsync(c); }
 static void apply_radio(int c) { wr_miles_set_half_stereo_rate(c); }
+extern int g_gta2_peds_pending;
+static void apply_peds(int c) { (void)c; g_gta2_peds_pending = 1; }   /* live in a game (gta2_gameplay.c) */
 static void apply_nothing(int c) { (void)c; }   /* read by the renderer each frame */
 
 static void apply_perf(int c)
@@ -83,7 +85,7 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_PERF_SPEED]     = { "GAME SPEED", NULL, 2, v_onoff, l_onoff, 0, apply_perf },
     [OPT_RADIO_HALF_RATE] = { "RADIO RATE FIX", "radio_half_rate", 2, v_onoff, l_onoff, 1, apply_radio },
     [OPT_CONTROL_SCHEME] = { "CONTROLLER", "control_scheme", 3, v_scheme, l_scheme, 0, apply_nothing },
-    [OPT_PEDESTRIANS]    = { "PEDESTRIANS", "pedestrians", 4, v_factor, l_factor, 0, apply_nothing },
+    [OPT_PEDESTRIANS]    = { "PEDESTRIANS", "pedestrians", 4, v_factor, l_factor, 0, apply_peds },
     [OPT_SPRINT]         = { "SPRINT", "sprint", 2, v_onoff, l_onoff, 1, apply_nothing },
     [OPT_MORE_BLOOD]     = { "MORE BLOOD", "more_blood", 2, v_onoff, l_onoff, 0, apply_nothing },
 };
