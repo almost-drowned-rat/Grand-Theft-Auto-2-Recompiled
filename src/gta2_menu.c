@@ -919,7 +919,8 @@ void gta2_pause_draw(X86Ctx *ctx)
     int sw = (int)g_gfx.w, sh = (int)g_gfx.h;
     gbh_port_rect(0, 0, (float)sw, (float)sh, 0xA0000000u);   /* dim the game */
     const mpage *pg = &g_pages[g_vp];
-    int pw = 420, x0 = (sw - pw) / 2, xr = x0 + pw;
+    int wide = g_vp == VP_SHADERS || g_vp == VP_SHBROWSE || g_vp == VP_SHPARAMS;   /* long preset names */
+    int pw = wide ? 580 : 420, x0 = (sw - pw) / 2, xr = x0 + pw;
     int y0 = sh / 2 - 110;
     gbh_port_rect((float)(x0 - 20), (float)(y0 - 48), (float)(pw + 40), 300.0f, 0xC0201410u);
     put_text(ctx, pg->title, x0, y0 - 38, P_HI, 0x4000);
