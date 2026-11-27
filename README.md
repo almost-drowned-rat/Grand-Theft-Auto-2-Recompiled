@@ -43,7 +43,11 @@ Everything stays in the game's folder: `game/` (the game's files), `saves/` (you
   - **Frame rate:** 30 (original), 60 or 120 interpolated - the game logic keeps its original 30 ticks per second,
     the frames in between are drawn from it, so the game never runs faster
   - **Performance:** V-Sync, FPS counter, frame time, game speed
-  - **Shaders:** RetroArch slang shader presets (librashader) - put a shader pack into `shader/`
+  - **Shaders:** RetroArch slang shader presets (librashader). Each sub-folder or `.zip` in `shader/` is one pack,
+    with its presets (`.slangp`) inside it - loose presets in `shader/` itself are not read. The easiest pack is the
+    whole libretro collection: on https://github.com/libretro/slang-shaders choose Code -> Download ZIP and put
+    `slang-shaders-master.zip` into `shader/` as it is (it is unpacked once to `data/shaders/`). Then pick a preset
+    in RECOMP OPTIONS -> SHADERS -> SHADER SELECTION.
   - **Enhancements:** language, the minimap, a manual camera, and the settings of the old GTA 2 Manager
     (pedestrians, traffic, sprint, more blood)
   - **Cheats:** the game's own cheats as switches
