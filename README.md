@@ -44,10 +44,20 @@ Everything stays in the game's folder: `game/` (the game's files), `saves/` (you
     the frames in between are drawn from it, so the game never runs faster
   - **Performance:** V-Sync, FPS counter, frame time, game speed
   - **Shaders:** RetroArch slang shader presets (librashader) - put a shader pack into `shader/`
-  - **Gameplay:** the settings of the old GTA 2 Manager (pedestrians, traffic, sprint, more blood)
+  - **Enhancements:** language, the minimap, a manual camera, and the settings of the old GTA 2 Manager
+    (pedestrians, traffic, sprint, more blood)
   - **Cheats:** the game's own cheats as switches
+- **Minimap:** a radar drawn from the game's own map files - size, zoom and position of your choice, missions and
+  gang phones, churches, garages, tokens, weapons, power-ups, kill frenzies and police cars each on their own switch,
+  the game's own arrows off / on / near the target, and a map of the whole district with a legend in the pause menu
+- **Manual camera** (off by default): zoom the camera out step by step with a button of your choice (LT in the
+  modern layout)
 - **Controls:** any SDL3 gamepad with hot-plug and rumble (explosions), a classic and a modern pad layout plus your
-  own mapping, keyboard only or keyboard + mouse; an illustrated controller layout and a control overview
+  own mapping (the modern layout keeps its right-stick aiming, on foot and in a car mapped apart), three mapping
+  profiles beside the stock one, keyboard only or keyboard + mouse; an illustrated controller layout and a control
+  overview
+- **Mods:** every folder in `mods/` is one mod whose files stand in for the game's (graphics, maps, scripts,
+  texts, sounds) - nothing in the game's own folder is changed; a folder name starting with `_` switches it off
 - **MIXTAPE**, a radio station of your own: put your music (MP3, FLAC, Ogg Vorbis, WAV) into album folders under
   `media/`; it plays on like a radio station after the game's stations. All albums or one, in order or shuffled.
 - **Languages:** English and Spanish come with the game. The translations pack adds **German, French, Italian, Polish,
