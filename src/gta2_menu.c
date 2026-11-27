@@ -28,6 +28,7 @@
 #include "gta2_input.h"
 #include "gta2_padview.h"
 #include "gta2_mixtape.h"
+#include "gta2_radar.h"
 #include <ctype.h>
 #include "gta2_shaders.h"
 #include "gta2_gameplay.h"
@@ -67,7 +68,8 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 /* ---- pages -------------------------------------------------------------------------------- */
 
 enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
-       VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_OVERVIEW, VP_PADVIEW, VP_SOUNDTRACK, VP_COUNT };
+       VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_OVERVIEW, VP_PADVIEW, VP_SOUNDTRACK,
+       VP_MINIMAP, VP_MAP, VP_COUNT };
 enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM, L_OVR, L_PADVIEW, L_MTSRC, L_MTMODE };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
        ACT_RESTART_YES, ACT_NO, ACT_QUITPROG_YES, ACT_TEST_PICTURE };
@@ -156,7 +158,16 @@ static const gta2_shader_item *g_browse_items;
 /* LANGUAGE is GAMEPLAY's last line (no sub-page, maintainer 2026-11-26); leaving GAMEPLAY with a language other
  * than the one the game started with opens the pop-up RESTART? (RESTART NOW / RESTART LATER) - every time */
 static const mline l_gameplay[] = { { NULL, L_OPT, OPT_PEDESTRIANS }, { NULL, L_OPT, OPT_TRAFFIC }, { NULL, L_OPT, OPT_SPRINT },
-                                    { NULL, L_OPT, OPT_MORE_BLOOD }, { "LANGUAGE", L_LANG, 0 } };
+                                    { NULL, L_OPT, OPT_MORE_BLOOD }, { "MINIMAP", L_PAGE, VP_MINIMAP },
+                                    { "LANGUAGE", L_LANG, 0 } };
+/* GAMEPLAY > MINIMAP (maintainer 2026-11-27): the radar's look, then an ON/OFF switch per element */
+static const mline l_minimap[] = {
+    { NULL, L_OPT, OPT_MINIMAP }, { NULL, L_OPT, OPT_MINIMAP_SIZE }, { NULL, L_OPT, OPT_MINIMAP_ZOOM },
+    { NULL, L_OPT, OPT_MINIMAP_X }, { NULL, L_OPT, OPT_MINIMAP_Y },
+    { NULL, L_OPT, OPT_PAUSE_MAP }, { NULL, L_OPT, OPT_NAV_ARROWS },
+    { NULL, L_OPT, OPT_BLIP_MISSIONS }, { NULL, L_OPT, OPT_BLIP_PLACES }, { NULL, L_OPT, OPT_BLIP_TOKENS },
+    { NULL, L_OPT, OPT_BLIP_WEAPONS }, { NULL, L_OPT, OPT_BLIP_BONUSES }, { NULL, L_OPT, OPT_BLIP_FRENZY },
+};
 static const mline l_lang_restart[] = { { "RESTART NOW", L_ACTION, ACT_RESTART_NOW },
                                         { "RESTART LATER", L_ACTION, ACT_RESTART_LATER } };
 static int g_map_keyboard;          /* DEVICE: 0 controller, 1 keyboard */
@@ -174,6 +185,13 @@ static const mline l_pause[] = {
     { "RESTART AREA", L_PAGE, VP_RESTART }, { "EXIT GAME", L_PAGE, VP_QUITPROG },
     { "EXIT TO MAIN MENU", L_PAGE, VP_QUIT },
 };
+/* ... with MINIMAP > PAUSE MAP on: MAP under RESUME, the whole district (maintainer 2026-11-27) */
+static const mline l_pause_map[] = {
+    { "RESUME", L_ACTION, ACT_RESUME }, { "MAP", L_PAGE, VP_MAP }, { "RECOMP OPTIONS", L_PAGE, VP_ROOT },
+    { "RESTART AREA", L_PAGE, VP_RESTART }, { "EXIT GAME", L_PAGE, VP_QUITPROG },
+    { "EXIT TO MAIN MENU", L_PAGE, VP_QUIT },
+};
+static const mline l_map[] = { { "BACK", L_BACK, 0 } };
 static const mline l_quitprog[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION, ACT_QUITPROG_YES } };
 static const mline l_quit[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION, ACT_QUIT_YES } };
 static const mline l_restart[] = { { "NO", L_ACTION, ACT_NO }, { "YES", L_ACTION, ACT_RESTART_YES } };
@@ -188,7 +206,8 @@ static mpage g_pages[VP_COUNT] = {
     [VP_PADVIEW] = { "CONTROLLER LAYOUT", VP_CONTROLS, l_padview, 1 },
     [VP_OVERVIEW] = { "CONTROL OVERVIEW", VP_CONTROLS, l_overview, 0 },
     [VP_MAPPING] = { "CUSTOM MAPPING", VP_CONTROLS, l_mapping, 0 },
-    [VP_GAMEPLAY] = { "GAMEPLAY", VP_ROOT, l_gameplay, 5 },
+    [VP_GAMEPLAY] = { "GAMEPLAY", VP_ROOT, l_gameplay, (int)(sizeof l_gameplay / sizeof l_gameplay[0]) },
+    [VP_MINIMAP] = { "MINIMAP", VP_GAMEPLAY, l_minimap, (int)(sizeof l_minimap / sizeof l_minimap[0]) },
     [VP_LANG]    = { "RESTART?", VP_ROOT, l_lang_restart, 2 },   /* the pop-up after GAMEPLAY */
     [VP_SHADERS] = { "SHADERS", VP_ROOT, l_shaders, 4 },
     [VP_SHPARAMS] = { "SHADER PARAMETERS", VP_SHADERS, l_shparams, 0 },
@@ -196,6 +215,7 @@ static mpage g_pages[VP_COUNT] = {
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
     [VP_EXIT]    = { "EXIT GAME?", -1, l_exit, 2 },
     [VP_PAUSE]   = { "PAUSED", -1, l_pause, 5 },
+    [VP_MAP]     = { "MAP", VP_PAUSE, l_map, 1 },
     [VP_QUITPROG] = { "EXIT GAME?", VP_PAUSE, l_quitprog, 2 },
     [VP_QUIT]    = { "EXIT TO MAIN MENU?", VP_PAUSE, l_quit, 2 },
     [VP_RESTART] = { "RESTART AREA?", VP_PAUSE, l_restart, 2 },
@@ -1109,6 +1129,13 @@ void gta2_pause_tick(X86Ctx *ctx)
         g_pause_open = 1;
         g_host = HOST_PAUSE;
         g_pages[VP_SHADERS].n = 5;   /* + TAKE TEST PICTURE */
+        if (opt_get(OPT_MINIMAP) && opt_get(OPT_PAUSE_MAP)) {
+            g_pages[VP_PAUSE].l = l_pause_map;
+            g_pages[VP_PAUSE].n = (int)(sizeof l_pause_map / sizeof l_pause_map[0]);
+        } else {
+            g_pages[VP_PAUSE].l = l_pause;
+            g_pages[VP_PAUSE].n = (int)(sizeof l_pause / sizeof l_pause[0]);
+        }
         g_wr_input_captured = 1;
         g_vp = VP_PAUSE;
         g_cur = g_top = 0;
@@ -1138,6 +1165,13 @@ void gta2_pause_draw(X86Ctx *ctx)
         return;
     }
     gbh_port_rect(0, 0, (float)sw, (float)sh, 0xA0000000u);   /* dim the game */
+    if (g_vp == VP_MAP) {   /* PAUSE MAP: the district as big as the screen's height allows, the title above */
+        float s = (float)sh * 0.80f, x = ((float)sw - s) / 2, y = (float)sh * 0.15f;
+        if (!gta2_radar_draw_full(x, y, s))
+            put_text(ctx, "NO MAP", (int)x, (int)y, P_FONT, P_FONT_SCALE);
+        put_text(ctx, "MAP", (int)x, (int)((float)sh * 0.02f), P_HI, P_HI_SCALE * 2);   /* over it, above it */
+        return;
+    }
     const mpage *pg = &g_pages[g_vp];
     int wide = g_vp == VP_SHADERS || g_vp == VP_SHBROWSE || g_vp == VP_SHPARAMS ||
                g_vp == VP_OVERVIEW;   /* long preset names, three columns */

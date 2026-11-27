@@ -9,6 +9,7 @@
 #include "gta2_options.h"
 #include "gta2_rumble.h"
 #include "gta2_mixtape.h"
+#include "gta2_radar.h"
 #include "gta2_git.h"
 #include "gta2_translations.h"
 #include "gta2_text.h"   /* GTA2_GIT, written by the build */
@@ -107,6 +108,7 @@ int main(int argc, char **argv)
     gta2_rumble_init();
     gta2_mixtape_init();   /* MIXTAPE: the albums in media/ */
     gta2_radio_test_init();
+    gta2_radar_init();     /* MINIMAP: notes the level's .gmp / .sty (after the radio test's read map) */
     wr_set_thread_hook(gta2_thread_hook);
     gta2_registry_defaults();
     opt_load_all();   /* RECOMP OPTIONS from settings.ini (sets the gameplay width) */

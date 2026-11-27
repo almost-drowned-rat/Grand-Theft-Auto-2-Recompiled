@@ -45,6 +45,16 @@ static const char *const v_factor[] = { "1", "2", "3", "4" };
 static const char *const l_factor[] = { "1X", "2X", "3X", "4X" };
 static const char *const v_onoff[] = { "0", "1" };
 static const char *const l_onoff[] = { "OFF", "ON" };
+static const char *const v_size[] = { "small", "medium", "large" };
+static const char *const l_size[] = { "SMALL", "MEDIUM", "LARGE" };
+static const char *const v_zoom[] = { "near", "medium", "far" };
+static const char *const l_zoom[] = { "NEAR", "MEDIUM", "FAR" };
+static const char *const v_pct[] = { "0", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50",
+                                     "55", "60", "65", "70", "75", "80", "85", "90", "95", "100" };
+static const char *const l_pct[] = { "0%", "5%", "10%", "15%", "20%", "25%", "30%", "35%", "40%", "45%", "50%",
+                                     "55%", "60%", "65%", "70%", "75%", "80%", "85%", "90%", "95%", "100%" };
+static const char *const v_arrows[] = { "0", "1", "near" };
+static const char *const l_arrows[] = { "OFF", "ON", "NEAR TARGET" };
 
 static int g_val[OPT_COUNT];
 
@@ -99,6 +109,19 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_TRAFFIC]        = { "TRAFFIC", "traffic", 4, v_factor, l_factor, 0, apply_peds },
     [OPT_SPRINT]         = { "SPRINT", "sprint", 2, v_onoff, l_onoff, 1, apply_nothing },
     [OPT_MORE_BLOOD]     = { "MORE BLOOD", "more_blood", 2, v_onoff, l_onoff, 0, apply_nothing },
+    [OPT_MINIMAP]        = { "MINIMAP", "minimap", 2, v_onoff, l_onoff, 1, apply_nothing },
+    [OPT_MINIMAP_SIZE]   = { "SIZE", "minimap_size", 3, v_size, l_size, 1, apply_nothing },
+    [OPT_MINIMAP_ZOOM]   = { "ZOOM", "minimap_zoom", 3, v_zoom, l_zoom, 1, apply_nothing },
+    [OPT_MINIMAP_X]      = { "POSITION X", "minimap_x", 21, v_pct, l_pct, 0, apply_nothing },
+    [OPT_MINIMAP_Y]      = { "POSITION Y", "minimap_y", 21, v_pct, l_pct, 20, apply_nothing },
+    [OPT_PAUSE_MAP]      = { "PAUSE MAP", "minimap_pause_map", 2, v_onoff, l_onoff, 1, apply_nothing },
+    [OPT_NAV_ARROWS]     = { "NAVIGATION ARROWS", "minimap_arrows", 3, v_arrows, l_arrows, 1, apply_nothing },
+    [OPT_BLIP_MISSIONS]  = { "MISSIONS", "minimap_missions", 2, v_onoff, l_onoff, 1, apply_nothing },
+    [OPT_BLIP_PLACES]    = { "CHURCHES + GARAGES", "minimap_places", 2, v_onoff, l_onoff, 1, apply_nothing },
+    [OPT_BLIP_TOKENS]    = { "TOKENS", "minimap_tokens", 2, v_onoff, l_onoff, 1, apply_nothing },
+    [OPT_BLIP_WEAPONS]   = { "WEAPONS", "minimap_weapons", 2, v_onoff, l_onoff, 0, apply_nothing },
+    [OPT_BLIP_BONUSES]   = { "POWER-UPS", "minimap_powerups", 2, v_onoff, l_onoff, 1, apply_nothing },
+    [OPT_BLIP_FRENZY]    = { "KILL FRENZY", "minimap_frenzy", 2, v_onoff, l_onoff, 1, apply_nothing },
 };
 
 static int find_choice(int id, const char *v)
