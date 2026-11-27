@@ -7,6 +7,7 @@
   "project": "Grand Theft Auto 2 Recompiled",
   "status": "released",
   "targets": [
+    "Windows",
     "Linux",
     "Android"
   ],
@@ -34,5 +35,5 @@
       "url": "https://github.com/almost-drowned-rat/winrecomp"
     }
   ],
-  "notes": "Static recompilation of Grand Theft Auto 2 (PC, the 2004 freeware release: the installer GTA2.exe or an installed GTA 2); Linux now, Windows to follow. Made with AI assistance."
+  "notes": "Static recompilation of Grand Theft Auto 2 (PC, the 2004 freeware release: the installer GTA2.exe or an installed GTA 2); Windows and Linux. Made with AI assistance."
 }
