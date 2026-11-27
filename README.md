@@ -9,8 +9,6 @@ x86 code is translated to C and compiled for your machine, with a Vulkan rendere
 no emulator, no Windows layer and no original DLLs. Windows and Linux, and an
 [Android version](https://github.com/almost-drowned-rat/Grand-Theft-Auto-2-Recompiled-Android).
 
-<a href="https://recomplauncher.com"><picture><source media="(prefers-color-scheme: dark)" srcset="https://recomplauncher.com/assets/press/launcher/badge-light.svg"><img alt="Get it on RecompLauncher" src="https://recomplauncher.com/assets/press/launcher/badge-dark.svg" height="48"></picture></a>
-
 > This project contains **no game data and no game code**. You need GTA 2 yourself: the **2004 Rockstar freeware
 > release** (`GTA2.exe`, the installer, about 360 MB) or a GTA 2 you installed from it. The game is translated and
 > compiled **on your own PC** from your copy at the first start.
