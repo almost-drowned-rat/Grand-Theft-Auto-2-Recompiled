@@ -96,7 +96,8 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [x] CUSTOM MAPPING: MODERN by function (on foot / in a car), groups with headings, PROFILE STOCK / 1 / 2 / 3
 - [x] mods/: one folder per mod read before the game's files (winrecomp wr_path_add_mod_dirs)
 - [ ] Texture packs in mods/textures (postponed by the maintainer)
-- [ ] Ray tracing: own Vulkan path, all RT GPUs (decided 2026-11-27, start after the maintainer's go)
+- [ ] Ray tracing: own Vulkan path, all RT GPUs (decided 2026-11-27, start after the maintainer's go), with a
+      day / night cycle (maintainer 2026-11-27)
 
 ## M9 — Multiplayer (optional)
 - [ ] DirectPlay (DPLAYX) -> own network layer (LAN/IP)
