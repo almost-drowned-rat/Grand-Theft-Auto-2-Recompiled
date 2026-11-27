@@ -14,6 +14,7 @@
 #include "gta2_text.h"
 #include "gta2_radar.h"
 #include "gta2_input.h"
+#include "gta2_daynight.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -482,6 +483,7 @@ void sub_004CA440(RECOMP_PARAMS)   /* draws the HUD each frame (thiscall HUD) */
 {
     gta2_camera_keys();             /* CAMERA KEYS: Page Up / Down, MODERN d-pad up / down */
     gta2_camera_distance_apply();   /* CAMERA DISTANCE: writes only when the setting changed */
+    gbh_daynight_world_end();       /* DAY / NIGHT: the world is drawn - the HUD's sprites carry the same light flag */
     gta2_radar_draw(ctx);   /* MINIMAP: over the world, under all of the game's HUD (texts, bars, panels) */
     sub_004CA440_gen(ctx, base);
     uint32_t eax = ctx->r_eax;

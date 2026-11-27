@@ -62,6 +62,8 @@ static const char *const v_arrows[] = { "0", "1", "near" };
 static const char *const v_camdist[] = { "1", "1.25", "1.5", "1.75", "2" };
 static const char *const l_camdist[] = { "1.0X", "1.25X", "1.5X", "1.75X", "2.0X" };
 static const char *const l_arrows[] = { "OFF", "ON", "NEAR TARGET" };
+static const char *const v_daylen[] = { "24", "48", "96" };   /* gta2_daynight.c k_minutes */
+static const char *const l_daylen[] = { "24 MIN", "48 MIN", "96 MIN" };
 
 static int g_val[OPT_COUNT];
 
@@ -134,6 +136,9 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_BLIP_BONUSES]   = { "POWER-UPS", "minimap_powerups", 2, v_onoff, l_onoff, 1, apply_nothing },
     [OPT_BLIP_FRENZY]    = { "KILL FRENZY", "minimap_frenzy", 2, v_onoff, l_onoff, 1, apply_nothing },
     [OPT_BLIP_POLICE]    = { "POLICE", "minimap_police", 2, v_onoff, l_onoff, 1, apply_nothing },
+    /* ENHANCEMENTS (maintainer 2026-11-27): off by default - the original picture */
+    [OPT_DAY_NIGHT]      = { "DAY / NIGHT", "day_night", 2, v_onoff, l_onoff, 0, apply_nothing },
+    [OPT_DAY_LENGTH]     = { "DAY LENGTH", "day_length", 3, v_daylen, l_daylen, 0, apply_nothing },
 };
 
 static int find_choice(int id, const char *v)

@@ -160,6 +160,7 @@ static const gta2_shader_item *g_browse_items;
  * (the camera buttons set it). LANGUAGE has no sub-page; leaving the page with a language other than the one
  * the game started with opens the pop-up RESTART? (RESTART NOW / RESTART LATER) - every time */
 static const mline l_gameplay[] = { { "LANGUAGE", L_LANG, 0 }, { "MINIMAP", L_PAGE, VP_MINIMAP },
+                                    { NULL, L_OPT, OPT_DAY_NIGHT }, { NULL, L_OPT, OPT_DAY_LENGTH },
                                     { NULL, L_OPT, OPT_MANUAL_CAMERA },
                                     { NULL, L_OPT, OPT_PEDESTRIANS }, { NULL, L_OPT, OPT_TRAFFIC },
                                     { NULL, L_OPT, OPT_SPRINT }, { NULL, L_OPT, OPT_MORE_BLOOD } };

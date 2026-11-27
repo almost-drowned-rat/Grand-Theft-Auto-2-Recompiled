@@ -45,6 +45,8 @@ enum {
     OPT_BLIP_BONUSES,      /* OFF / ON: power-ups */
     OPT_BLIP_FRENZY,       /* OFF / ON: kill frenzies, also on cars */
     OPT_BLIP_POLICE,       /* OFF / ON: police / law cars (maintainer 2026-11-27) */
+    OPT_DAY_NIGHT,         /* OFF / ON: the DAY / NIGHT cycle (gta2_daynight.c) */
+    OPT_DAY_LENGTH,        /* 24 / 48 / 96 MIN: real minutes for one full day */
     OPT_COUNT
 };
 
