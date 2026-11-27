@@ -1122,7 +1122,7 @@ WR_HANDLER(gbh_SetAmbient)
     (void)base;
     g_ambient = rdf(g_esp + 4) * 255.0f;
     /* the world's ambient (0x00472132) only: the HUD sets its own 1.0 after the world (0x004C6DAE, sub_004C6D90) */
-    g_dn = g_dn_end_frame != g_gfx.frames && gta2_daynight_ambient(g_ambient, g_dn_amb);
+    g_dn = g_dn_end_frame != g_gfx.frames ? gta2_daynight_ambient(g_ambient, g_dn_amb) : 0;
     g_dn_frame = g_gfx.frames;
     if (g_trace > 0 && (uint32_t)g_trace == (uint32_t)g_gfx.frames)
         wr_log("trace: SetAmbient %.1f -> day / night %d (%.0f %.0f %.0f)", g_ambient, g_dn, g_dn_amb[0],

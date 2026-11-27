@@ -15,6 +15,9 @@
 #include "gta2_radar.h"
 #include "gta2_input.h"
 #include "gta2_daynight.h"
+#include "gta2_state.h"
+#include "gta2_options.h"
+#include <stdio.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -592,26 +595,311 @@ void sub_0048BE60(RECOMP_PARAMS)   /* the blood pool particle's tick (thiscall p
 
 extern void sub_004BE060_gen(RECOMP_PARAMS);
 uint32_t g_gta2_sprite_draws;   /* sprites drawn (frame-rate experiments) */
+
+/* DAY / NIGHT: headlights off in the day (maintainer 2026-11-27) - the game's own "light broken" mechanism, at draw
+ * time only. A car's delta mask car+8 holds the lights: bit 6 / 23 = left / right headlight, 11-14 / 28-31 the
+ * pop-up frames (car info +0xD flag 2); a frontal crash (sub_00422F00 corners 0 / 1) clears them and the game never
+ * sets them again for that corner. sub_004BE060 itself saves and restores car+8 around its draw (0x004BE224,
+ * 0x004BE2E4 / 0x004BE518), so masking it here around the call is never seen by the simulation: at night the real
+ * mask is back, damaged corners stay dark, brake lights (5 / 22) are untouched. Sprite = car when spr+0x30 == 2,
+ * car = spr+8; car info = [[style 0x670684]+0x5C][model car+0x84]. */
+static uint32_t daylight_mask_begin(uint32_t spr, uint32_t *saved)
+{
+    if (!gta2_daynight_lights_off() || !wr_mem_valid(spr + 0x30, 4) || MEM32(spr + 0x30) != 2)
+        return 0;
+    uint32_t car = MEM32(spr + 8);
+    if (!car || !wr_mem_valid(car, 0x88))
+        return 0;
+    /* maintainer 2026-11-27: in the day every lamp off EXCEPT the sirens and the rear lights (they are the brake
+     * lights too). docs/re/car_lights.md: keep 5 / 22 (brake), 16 + 15 on siren cars (the two siren phases), 17 / 18
+     * (rear emergency lamps); off 6 / 23 (headlights), the pop-up frames (car info +0xD & 2), bit 15 when it is a
+     * roof lamp (+0xC & 4: bus, limos, tow truck) or a taxi sign (+0xC & 0x20) - never on a siren car (+0xC & 2 or
+     * model 0x54) or a decal car (+0xC & 0x40: painted, not a lamp). Lamps painted into a base sprite (U-Jerk Truck,
+     * model 69) have no bit and stay. */
+    uint32_t off = (1u << 6) | (1u << 23);   /* left / right headlight */
+    uint32_t style = MEM32(0x670684), tab = style ? MEM32(style + 0x5C) : 0;
+    if (tab) {
+        uint32_t model = MEM8(car + 0x84), ci = MEM32(tab + 4u * model);
+        if (ci && wr_mem_valid(ci + 0xC, 2)) {
+            uint8_t f1 = MEM8(ci + 0xC), f2 = MEM8(ci + 0xD);
+            if (f2 & 2)
+                off |= 0x7800u | 0xF0000000u;   /* pop-up frames 11-14 and 28-31 */
+            int siren_car = (f1 & 0x02) || model == 0x54;
+            if (!siren_car && !(f1 & 0x40) && (f1 & (0x04 | 0x20)))
+                off |= 1u << 15;                 /* roof lamp / taxi sign */
+        }
+    }
+    *saved = MEM32(car + 8);
+    MEM32(car + 8) = *saved & ~off;
+    return car;
+}
+
+/* ---- painted headlamps (maintainer 2026-11-27: "the right one should be off") ---------------------------------
+ * Some car sprites have their lamps painted into the base picture (U-Jerk Truck, model 69): the game switches the
+ * headlight delta off (day, crash damage) but the painted lamp still shines. sub_0044AEA0 applies a car sprite's
+ * deltas for every cache build and in-place patch (docs/re/car_lights.md); after it, for a headlight bit (6, or 23
+ * mirrored) that is OFF in the full mask being built, the delta-6 pixel positions get the body pixel two rows
+ * toward the car's middle (sprites face down: a smaller row; 8-bit palette indices, safe for every remap). When
+ * the bit comes on later, the in-place patch writes delta 6 over exactly these pixels; when it goes off, the cache
+ * must rebuild (no subset entry has the bit) - so the picture always follows the bit. Only with DAY / NIGHT on
+ * (the original look otherwise), never on pop-up cars (their lowered look is the base sprite). */
+static int g_lamp_patch;   /* set per car draw in sub_004BE060: patch this car's lamps */
+static int g_lamp_model;   /* that car's model (car+0x84) */
+
+/* Models whose lamps are painted beyond the headlight delta (maintainer: "the U-Jerk Truck: all 4 lamps lit at
+ * night, none in the day"): per side the painted lamp rectangles in sprite pixels (front at the bottom; the
+ * image's right half is the car's left = bit 6, the left half bit 23). Off = filled from the body two rows
+ * toward the middle. Rendered from wil.sty sprite 62 (docs/re/car_lights.md). */
+typedef struct { uint8_t x0, x1, y0, y1; } lamp_rect;
+typedef struct { int model; lamp_rect left[2], right[2]; } lamp_model;   /* left = bit 6, right = bit 23 */
+static const lamp_model k_lamp_models[] = {
+    { 69, { { 31, 33, 53, 55 }, { 36, 38, 52, 55 } },   /* U-Jerk Truck: inner lamp, outer corner lamp */
+          { { 20, 22, 53, 55 }, { 15, 17, 52, 55 } } },
+};
+
+static const lamp_model *lamp_model_of(int model)
+{
+    for (size_t i = 0; i < sizeof k_lamp_models / sizeof k_lamp_models[0]; i++)
+        if (k_lamp_models[i].model == model)
+            return &k_lamp_models[i];
+    return NULL;
+}
+
+/* body layer: the lamp area gets the nearest body pixel above it in its column (2..8 rows up, skipping transparent
+ * ones - the outer corners are rounded, two rows up is outside the car there; maintainer test 11-27) */
+static void lamp_rects_off(const lamp_rect *r, int n, uint32_t dst)
+{
+    for (int k = 0; k < n; k++)
+        for (uint32_t c = r[k].x0; c <= r[k].x1; c++) {
+            uint8_t v = 0;
+            for (uint32_t up = 2; up <= 8 && !v && r[k].y0 >= up; up++)
+                v = MEM8(dst + (r[k].y0 - up) * 256u + c);
+            if (!v)   /* nothing above in this column: the neighbour column's choice */
+                for (uint32_t up = 2; up <= 8 && !v && r[k].y0 >= up; up++)
+                    v = MEM8(dst + (r[k].y0 - up) * 256u + (c > r[k].x0 ? c - 1 : c + 1));
+            if (!v)
+                continue;
+            for (uint32_t y = r[k].y0; y <= r[k].y1; y++)
+                if (MEM8(dst + y * 256u + c))   /* keep transparent pixels (a dent may have cut the corner) */
+                    MEM8(dst + y * 256u + c) = v;
+        }
+}
+
+/* GTA2_LAMP_DUMP=1: a lamp-model car's picture before / after the lamp patch as data/lampdump_<n>_<layer>_<pre|post>.pgm
+ * (8-bit palette indices as grey, 64 rows; the first 24 builds) - which pixels the patch really changed */
+static void lamp_dump(uint32_t dst, uint32_t w, int light_layer, const char *when)
+{
+    static int on = -1, n;
+    if (on < 0)
+        on = getenv("GTA2_LAMP_DUMP") != NULL;
+    if (!on || n >= 48 || !w || w > 256)
+        return;
+    char path[1200];
+    snprintf(path, sizeof path, "%s/lampdump_%02d_%s_%s.pgm", g_wr_paths.data, n / 2, light_layer ? "light" : "body",
+             when);
+    if (when[1] == 'o')   /* "post": the pair is complete */
+        n += 2;
+    FILE *f = fopen(path, "wb");
+    if (!f)
+        return;
+    fprintf(f, "P5\n%u 64\n255\n", w);
+    for (uint32_t y = 0; y < 64; y++)
+        for (uint32_t x = 0; x < w; x++)
+            fputc(MEM8(dst + y * 256u + x), f);
+    fclose(f);
+}
+
+/* the lamp's lit colour: the first non-zero pixel of the sprite's headlight delta 6 (the game's own lit lamp) */
+static uint8_t lamp_lit_index(uint32_t spr)
+{
+    uint32_t style = MEM32(0x670684), tbl = style ? MEM32(style + 0x54) : 0, e;
+    if (!tbl || spr >= MEM16(tbl) || !(e = MEM32(tbl + 4 + 4 * spr)) || MEM8(e + 2) <= 6)
+        return 0;
+    uint32_t rec = e + 4 + 6 * 8, p = MEM32(rec), end = p + MEM16(rec + 4);
+    if (!p || !wr_mem_valid(p, end - p))
+        return 0;
+    while (p + 3 <= end) {
+        uint32_t len = MEM8(p + 2);
+        for (uint32_t j = 0; j < len; j++)
+            if (MEM8(p + 3 + j))
+                return MEM8(p + 3 + j);
+        p += 3 + len;
+    }
+    return 0;
+}
+
+/* light layer (lighting on: sub_004BE060 draws the body, then a layer of only the light deltas over a transparent
+ * base): a side whose headlight is on gets its whole painted lamps there in the lit colour - all four lamps glow
+ * at night, not only the delta's few pixels */
+static void lamp_rects_on(const lamp_rect *r, int n, uint32_t dst, uint8_t lit)
+{
+    for (int k = 0; k < n; k++)
+        for (uint32_t y = r[k].y0; y <= r[k].y1; y++)
+            for (uint32_t c = r[k].x0; c <= r[k].x1; c++)
+                MEM8(dst + y * 256u + c) = lit;
+}
+
+static void lamp_off(uint32_t spr, uint32_t dst, uint32_t w, int mirror)
+{
+    uint32_t style = MEM32(0x670684), tbl = style ? MEM32(style + 0x54) : 0, e, cur = 0, n = 0;
+    uint16_t pos[256];
+    uint8_t top[256];
+    if (!tbl || spr >= MEM16(tbl) || !(e = MEM32(tbl + 4 + 4 * spr)) || MEM8(e + 2) <= 6)
+        return;
+    uint32_t rec = e + 4 + 6 * 8, p = MEM32(rec), end = p + MEM16(rec + 4);
+    if (!p || !wr_mem_valid(p, end - p))
+        return;
+    memset(top, 0xFF, sizeof top);
+    while (p + 3 <= end && n < 256) {   /* {u16 skip, u8 len, len bytes} (sub_004C0290) */
+        uint32_t len = MEM8(p + 2);
+        cur += MEM16(p);
+        for (uint32_t j = 0; j < len && n < 256; j++, cur++) {
+            uint32_t r = cur >> 8, c = cur & 0xFF;
+            pos[n++] = (uint16_t)cur;
+            if (r < top[c])
+                top[c] = (uint8_t)r;
+        }
+        p += 3 + len;
+    }
+    for (uint32_t i = 0; i < n; i++) {
+        uint32_t r = pos[i] >> 8, c = pos[i] & 0xFF, cm = mirror ? w - 1 - c : c;   /* sub_004C02D0's mirror */
+        if (top[c] < 2 || cm >= 256)
+            continue;
+        uint8_t v = MEM8(dst + (top[c] - 2u) * 256u + cm);
+        if (v)   /* 0 = transparent: leave it */
+            MEM8(dst + r * 256u + cm) = v;
+    }
+}
+
+extern void sub_0044AEA0_gen(RECOMP_PARAMS);
+void sub_0044AEA0(RECOMP_PARAMS)   /* applies a car sprite's deltas (stdcall 4 args, ecx = the full mask*) */
+{
+    uint32_t sp = ctx->r_esp;   /* the args before _gen pops them: +4 u16* sprite, +8 dest, +0xC mask*, +0x10 u8* w */
+    int on = g_lamp_patch;
+    uint32_t spr = 0, dst = 0, w = 0, full = 0;
+    if (on && wr_mem_valid(sp + 4, 0x10) && ctx->r_ecx) {
+        spr = MEM16(MEM32(sp + 4));
+        dst = MEM32(sp + 8);
+        w = MEM8(MEM32(sp + 0x10));
+        full = MEM32(ctx->r_ecx);
+    } else {
+        on = 0;
+    }
+    sub_0044AEA0_gen(ctx, base);
+    if (on && dst && w) {
+        uint32_t eax = ctx->r_eax;
+        const lamp_model *lm = lamp_model_of(g_lamp_model);
+        if (lm) {   /* painted lamps known per model: the whole lamp per side follows its headlight bit */
+            /* light layer = a transparent base with only light deltas: the middle column is empty from top to
+             * bottom (lamps and brake lights sit off-centre); the body layer has the car there. (The sprite's
+             * height byte after the width was not reliable: the body was taken for the light layer - test 11-27.) */
+            int light_layer = 1;
+            for (uint32_t y = 0; y < 64 && light_layer; y++)
+                if (MEM8(dst + y * 256u + w / 2))
+                    light_layer = 0;
+            static int lamp_log = -1;
+            if (lamp_log < 0)
+                lamp_log = getenv("GTA2_LIGHT_LOG") != NULL;
+            if (lamp_log)
+                wr_log("lamps: model %d sprite %u w %u %s layer, mask %08X", g_lamp_model, spr, w,
+                       light_layer ? "light" : "body", full);
+            lamp_dump(dst, w, light_layer, "pre");
+            if (light_layer) {
+                /* all four only at full night; sunrise / sunset: the game's own headlight delta alone - the two
+                 * middle lamps, as the original (maintainer 2026-11-27). The light layer's cache key holds the
+                 * light bits only, so a change of phase must not reuse it: the hour decides per build, and the
+                 * game rebuilds when the bits change (day <-> sunset); sunset -> night keeps the bits, so the
+                 * sub_004BE060 wrapper sets bit 18 for the draw at full night (a lamp-model car has no delta 18
+                 * and the game never sets it there: in the light mask 0xC78060, so the light layer's key changes) */
+                uint8_t lit = (full & (1u << 18)) ? lamp_lit_index(spr) : 0;   /* bit 18 = full night marker */
+                if (lit && (full & (1u << 6)))
+                    lamp_rects_on(lm->left, 2, dst, lit);
+                if (lit && (full & (1u << 23)))
+                    lamp_rects_on(lm->right, 2, dst, lit);
+            } else {
+                if (!(full & (1u << 6)))
+                    lamp_rects_off(lm->left, 2, dst);
+                if (!(full & (1u << 23)))
+                    lamp_rects_off(lm->right, 2, dst);
+            }
+            lamp_dump(dst, w, light_layer, "post");
+        } else {    /* else: the headlight delta's own pixels */
+            if (!(full & (1u << 6)))
+                lamp_off(spr, dst, w, 0);
+            if (!(full & (1u << 23)))
+                lamp_off(spr, dst, w, 1);
+        }
+        ctx->r_eax = eax;
+    }
+}
+
+/* GTA2_LIGHT_LOG=1: the player's car's delta mask (car+8), light flags (car+0xA4), model and car info flags in the
+ * log whenever one changes - which bits a model lights, which ones a crash clears (docs/re/car_lights.md) */
+static void light_log(uint32_t spr)
+{
+    static int on = -1;
+    static uint32_t last_car, last_mask, last_a4;
+    if (on < 0)
+        on = getenv("GTA2_LIGHT_LOG") != NULL;
+    if (!on || !wr_mem_valid(spr + 0x30, 4) || MEM32(spr + 0x30) != 2)
+        return;
+    uint32_t car = MEM32(spr + 8), ped = gta2_player_ped();
+    if (!car || !ped || !wr_mem_valid(ped, 0x170) || MEM32(ped + 0x16C) != car || !wr_mem_valid(car, 0xA8))
+        return;
+    uint32_t mask = MEM32(car + 8), a4 = MEM32(car + 0xA4), model = MEM8(car + 0x84);
+    if (car == last_car && mask == last_mask && a4 == last_a4)
+        return;
+    uint32_t style = MEM32(0x670684), tab = style ? MEM32(style + 0x5C) : 0, ci = tab ? MEM32(tab + 4u * model) : 0;
+    int cic = ci && wr_mem_valid(ci + 0xC, 2) ? MEM8(ci + 0xC) : -1, cid = ci && wr_mem_valid(ci + 0xD, 1) ? MEM8(ci + 0xD) : -1;
+    wr_log("lights: car %08X model %u mask %08X a4 %08X state %u ci+C %02X ci+D %02X (day off %d)", car, model, mask,
+           a4, MEM32(car + 0x9C), cic & 0xFF, cid & 0xFF, gta2_daynight_lights_off());
+    last_car = car;
+    last_mask = mask;
+    last_a4 = a4;
+}
+
 void sub_004BE060(RECOMP_PARAMS)   /* draws one sprite through gbh_DrawQuad (thiscall sprite) */
 {
     g_gta2_sprite_draws++;
     float sc, ti, al;
     uint32_t spr = ctx->r_ecx;
+    light_log(spr);
+    uint32_t lights_saved = 0, lights_car = daylight_mask_begin(spr, &lights_saved);
+    g_lamp_patch = 0;   /* painted headlamps follow the bits: DAY / NIGHT on, a car, not a pop-up car */
+    if (opt_get(OPT_DAY_NIGHT) && wr_mem_valid(spr + 0x30, 4) && MEM32(spr + 0x30) == 2) {
+        uint32_t car = MEM32(spr + 8), style = MEM32(0x670684), tab = style ? MEM32(style + 0x5C) : 0;
+        uint32_t ci = car && tab && wr_mem_valid(car + 0x84, 1) ? MEM32(tab + 4u * MEM8(car + 0x84)) : 0;
+        g_lamp_patch = ci && wr_mem_valid(ci + 0xD, 1) && !(MEM8(ci + 0xD) & 2);
+        g_lamp_model = g_lamp_patch ? MEM8(car + 0x84) : -1;
+        /* lamp-model cars, for this draw only: bit 20 always (the body layer's mask is then never 0 - with 0 the
+         * game builds the body without sub_0044AEA0 and the painted lamps stayed in the day, test 11-27; no delta
+         * 20 on these cars, not in the light mask), bit 18 at full night (the light layer paints all four lamps) */
+        if (g_lamp_patch && lamp_model_of(g_lamp_model)) {
+            if (!lights_car) {
+                lights_car = car;
+                lights_saved = MEM32(car + 8);
+            }
+            MEM32(car + 8) |= 1u << 20;
+            if (gta2_daynight_full_night())
+                MEM32(car + 8) |= 1u << 18;
+        }
+    }
     int moved = gta2_fps_sprite_before(spr);   /* FRAME RATE: blended position */
     gta2_sprite_look(spr, &sc, &ti, &al);
     if (sc == 1.0f && ti == 1.0f && al == 1.0f) {
         sub_004BE060_gen(ctx, base);
-        if (moved)
-            gta2_fps_sprite_after(spr);
-        return;
+    } else {
+        g_port_quad_scale = sc;
+        g_port_quad_tint = ti;
+        g_port_quad_alpha = al;
+        sub_004BE060_gen(ctx, base);   /* its quads are changed as they are emitted */
+        g_port_quad_scale = g_port_quad_tint = g_port_quad_alpha = 1.0f;
     }
-    g_port_quad_scale = sc;
-    g_port_quad_tint = ti;
-    g_port_quad_alpha = al;
-    sub_004BE060_gen(ctx, base);   /* its quads are changed as they are emitted */
-    g_port_quad_scale = g_port_quad_tint = g_port_quad_alpha = 1.0f;
     if (moved)
         gta2_fps_sprite_after(spr);
+    if (lights_car)
+        MEM32(lights_car + 8) = lights_saved;   /* the real lights back */
+    g_lamp_patch = 0;
 }
 
 /* ---- PEDESTRIANS 1x..4x (gta2_gameplay.c) ------------------------------------------------ */
