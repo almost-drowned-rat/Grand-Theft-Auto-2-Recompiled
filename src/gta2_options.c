@@ -37,8 +37,9 @@ static const char *const l_filter[] = { "ORIGINAL", "NEAREST", "BILINEAR" };
 /* the logic stays at 30 ticks; 60 / 120 draw interpolated frames in between (maintainer 2026-11-26) */
 static const char *const v_rate[] = { "30", "60", "120" };
 static const char *const l_rate[] = { "30", "60 INTERPOLATED", "120 INTERPOLATED" };
-static const char *const v_kscheme[] = { "classic", "modern", "mouse" };   /* modern = keyboard only (the pad layout) */
-static const char *const l_kscheme[] = { "CLASSIC", "MODERN", "KEYBOARD + MOUSE" };
+/* modern = keyboard only (the pad layout); custom = the keyboard's CUSTOM MAPPING by situation (maintainer 2026-11-27) */
+static const char *const v_kscheme[] = { "classic", "modern", "mouse", "custom" };
+static const char *const l_kscheme[] = { "CLASSIC", "MODERN", "KEYBOARD + MOUSE", "CUSTOM" };
 static const char *const v_scheme[] = { "classic", "modern", "custom" };
 static const char *const l_scheme[] = { "CLASSIC", "MODERN", "CUSTOM" };
 static const char *const v_factor[] = { "1", "2", "3", "4" };
@@ -113,7 +114,7 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_RADIO_HALF_RATE] = { "RADIO RATE FIX", "radio_half_rate", 2, v_onoff, l_onoff, 1, apply_radio },
     [OPT_CONTROL_SCHEME] = { "CONTROLLER", "control_scheme", 3, v_scheme, l_scheme, 0, apply_nothing },
     [OPT_RUMBLE]         = { "RUMBLE", "rumble", 2, v_onoff, l_onoff, 1, apply_nothing },
-    [OPT_KEY_SCHEME]     = { "KEYBOARD", "keyboard_scheme", 3, v_kscheme, l_kscheme, 0, apply_keys },
+    [OPT_KEY_SCHEME]     = { "KEYBOARD", "keyboard_scheme", 4, v_kscheme, l_kscheme, 0, apply_keys },
     [OPT_PEDESTRIANS]    = { "PEDESTRIANS", "pedestrians", 4, v_factor, l_factor, 0, apply_peds },
     [OPT_TRAFFIC]        = { "TRAFFIC", "traffic", 4, v_factor, l_factor, 0, apply_peds },
     [OPT_SPRINT]         = { "SPRINT", "sprint", 2, v_onoff, l_onoff, 1, apply_nothing },
@@ -125,17 +126,19 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_MINIMAP]        = { "MINIMAP", "minimap", 2, v_onoff, l_onoff, 1, apply_nothing },
     [OPT_MINIMAP_SIZE]   = { "SIZE", "minimap_size", 3, v_size, l_size, 0, apply_nothing },   /* SMALL (maintainer) */
     [OPT_MINIMAP_ZOOM]   = { "ZOOM", "minimap_zoom", 3, v_zoom, l_zoom, 0, apply_nothing },   /* NEAR */
-    [OPT_MINIMAP_X]      = { "POSITION X", "minimap_x", 41, v_pct, l_pct, 0, apply_nothing },
-    [OPT_MINIMAP_Y]      = { "POSITION Y", "minimap_y", 41, v_pct, l_pct, 40, apply_nothing },
+    /* defaults = the maintainer's own settings (2026-11-27): 2.5 % from the left, 97.5 % down */
+    [OPT_MINIMAP_X]      = { "POSITION X", "minimap_x", 41, v_pct, l_pct, 1, apply_nothing },
+    [OPT_MINIMAP_Y]      = { "POSITION Y", "minimap_y", 41, v_pct, l_pct, 39, apply_nothing },
     [OPT_PAUSE_MAP]      = { "PAUSE MAP", "minimap_pause_map", 2, v_onoff, l_onoff, 1, apply_nothing },
     [OPT_NAV_ARROWS]     = { "NAVIGATION ARROWS", "minimap_arrows", 3, v_arrows, l_arrows, 1, apply_nothing },
     [OPT_BLIP_MISSIONS]  = { "MISSIONS", "minimap_missions", 2, v_onoff, l_onoff, 1, apply_nothing },
     [OPT_BLIP_PLACES]    = { "CHURCHES + GARAGES", "minimap_places", 2, v_onoff, l_onoff, 1, apply_nothing },
-    [OPT_BLIP_TOKENS]    = { "TOKENS", "minimap_tokens", 2, v_onoff, l_onoff, 1, apply_nothing },
+    /* TOKENS, POWER-UPS, KILL FRENZY, POLICE off by default (maintainer's own settings, 2026-11-27) */
+    [OPT_BLIP_TOKENS]    = { "TOKENS", "minimap_tokens", 2, v_onoff, l_onoff, 0, apply_nothing },
     [OPT_BLIP_WEAPONS]   = { "WEAPONS", "minimap_weapons", 2, v_onoff, l_onoff, 0, apply_nothing },
-    [OPT_BLIP_BONUSES]   = { "POWER-UPS", "minimap_powerups", 2, v_onoff, l_onoff, 1, apply_nothing },
-    [OPT_BLIP_FRENZY]    = { "KILL FRENZY", "minimap_frenzy", 2, v_onoff, l_onoff, 1, apply_nothing },
-    [OPT_BLIP_POLICE]    = { "POLICE", "minimap_police", 2, v_onoff, l_onoff, 1, apply_nothing },
+    [OPT_BLIP_BONUSES]   = { "POWER-UPS", "minimap_powerups", 2, v_onoff, l_onoff, 0, apply_nothing },
+    [OPT_BLIP_FRENZY]    = { "KILL FRENZY", "minimap_frenzy", 2, v_onoff, l_onoff, 0, apply_nothing },
+    [OPT_BLIP_POLICE]    = { "POLICE", "minimap_police", 2, v_onoff, l_onoff, 0, apply_nothing },
     /* ENHANCEMENTS (maintainer 2026-11-27): off by default - the original picture */
     [OPT_DAY_NIGHT]      = { "DAY / NIGHT", "day_night", 2, v_onoff, l_onoff, 0, apply_nothing },
     [OPT_DAY_LENGTH]     = { "DAY LENGTH", "day_length", 3, v_daylen, l_daylen, 0, apply_nothing },
