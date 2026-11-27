@@ -351,3 +351,33 @@ void gta2_traffic_tick(void)
     uint32_t c = wr_rd16(p + 0x680) + (uint32_t)(k - 1);
     wr_wr16(p + 0x680, (uint16_t)(c > 100 ? 100 : c));
 }
+
+/* ---- CAMERA DISTANCE (issue #2, maintainer 2026-11-27; docs/re/camera_distance.md) -------------
+ * The follow camera aims at one zoom constant, [0x5E3EB4] (0.8875, Q14 0x38CC, on foot and in a car),
+ * and [0x5E3ECC] for a dead player (3.55). Both are only read by the camera code; dividing them by F
+ * moves the view out by F, the smoothing glides there, and the view rect - drawing, culling, the
+ * spawn ring, removal - follows by itself. The live camera fields are never touched. */
+#define ZOOM_WALK 0x005E3EB4u
+#define ZOOM_DEAD 0x005E3ECCu
+
+void gta2_camera_distance_apply(void)
+{
+    static const uint32_t f_q14[] = { 0x4000, 0x5000, 0x6000, 0x7000, 0x8000 };   /* 1.0 .. 2.0 */
+    static uint32_t orig_walk, orig_dead;
+    static int applied = -1;
+    int c = opt_get(OPT_CAMERA_DISTANCE);
+    if (c == applied || !wr_mem_valid(ZOOM_WALK, 4) || !wr_mem_valid(ZOOM_DEAD, 4))
+        return;
+    if (!orig_walk) {   /* the game's own values, read before the first change */
+        orig_walk = wr_rd32(ZOOM_WALK);
+        orig_dead = wr_rd32(ZOOM_DEAD);
+        if (!orig_walk || !orig_dead)
+            return;
+    }
+    uint32_t f = f_q14[c < 0 || c > 4 ? 0 : c];
+    wr_wr32(ZOOM_WALK, (uint32_t)(((uint64_t)orig_walk << 14) / f));
+    wr_wr32(ZOOM_DEAD, (uint32_t)(((uint64_t)orig_dead << 14) / f));
+    applied = c;
+    wr_log("camera distance: %s (zoom 0x%X -> 0x%X)", opt_choice_label(OPT_CAMERA_DISTANCE, c), orig_walk,
+           wr_rd32(ZOOM_WALK));
+}

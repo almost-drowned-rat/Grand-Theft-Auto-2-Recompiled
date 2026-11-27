@@ -333,3 +333,85 @@ From gameplay_input_pause.md section 2 [V]:
 3. Car-bound kill frenzies (3.3) and the crusher manager layout (4).
 4. Target type 5 and arrow target+0x20 (on-screen flag?) are named from use only.
 5. Whether ped+0x1AC/+0x1B0 track the car while driving (5).
+
+---
+
+## 9. Cars / police
+
+### 9.1 Car pool [V]
+
+| what | address | notes |
+|---|---|---|
+| car pool | `[0x5E4CA0]` | alloc 0xE0C4 (0x00428FDE); ctor `sub_00426DB0`: `+0` free head, **`+4` active list head**, `+8` **306 (0x132) cars x 0xBC**, link = **car+0x4C** (0x00426DBE-0x00426DE4); `+0xE050` dword, `+0xE0C0` u16 |
+| car physics pool | `[0x66AB7C]` | 306 x 0xB0 (`sub_00420F80`), the object at car+0x58 |
+| pop | `sub_00425480` (push at the list head) / `sub_004254A0` (append at the tail) | both put the car on the **active list** (pool+4, next = car+0x4C) [V 0x0042548B-0x0042548E, 0x004254C9 / 0x004254D5] |
+| create | `sub_00426AC0(x, y, z, rot, model, ...)` (wrappers `sub_00426E10`, `sub_00426E40`) | `car+0x84 = model`, **`car+0x88 = 1`** (0x00426B37 / 0x00426B3D), `car+0x50` = new sprite at (x, y, z) |
+
+**Walk the active list** instead of the 306 slots:
+`for (c = R32(pool+4); c; c = R32(c+0x4C))`. Freed cars go back to the free list, so everything on
+the active list is a live car slot.
+* model `car+0x84`, position sprite `[car+0x50]`+0x14/+0x18/+0x1C (Q14), heading u16 `[car+0x50]+0`
+* state `car+0x88`: see 9.1b. 5 means "being removed", **not** "destroyed"; a destroyed car is
+  `car+0x74 >= 32000`. Models 72..81 are named "Wreck 0..9" [D gxt], but an exploded car does not
+  switch to them (9.1b).
+* driver `car+0x54` (ped, 0 = empty) [V gameplay_input_pause.md 2] [I meaning].
+* Hidden or not drawn: not traced. The game flags (sprite) are open; the active list holds parked and
+  moving cars alike.
+
+### 9.1b Destroyed cars (follow-up: a blown-up cop car stayed on the radar)
+
+**car+0x88 is not a damage state.** It is the car's life/traffic state [V writes]:
+
+| value | where | meaning |
+|---|---|---|
+| 1 | create 0x00426B3D; 2/3/4 → 1 at 0x00421605 (function just before `sub_00421610`) | normal (in use) |
+| 2, 3, 4 | `sub_00421470` (→ 4 unless 2/3/5), `sub_00421490` (→ 3 unless 5), `sub_004241C0` (4 → 2); `sub_004214B0` tests for "2, 3 or 4" | recyclable traffic stages [I] |
+| 5 | `sub_004241C0`: 2 → 5 when `sub_00424010` allows it, 3 → 5 (0x004241F1); a car in state 5 is taken off the collision list `[0x5E668C]` (0x0040FBE7, 0x00429E87) | being removed / not solid [I] |
+| 6 | `sub_004241C0`: 5 → 6 and returns 1, then the car is freed (`sub_0040F490`, 0x0040FC39) | freed this tick |
+| 7 | `sub_004214E0` (only from the crane code `sub_00448450`); tested by `sub_004214D0` | held by a crane [I] |
+
+So an exploded car normally stays at 1 and passes the old filter.
+
+**Damage** = s16 **car+0x74**, 0..**32000 (0x7D00)**. Hits add to it and it is clamped at 32000. The
+damage effects use the byte car+0x8C (3 from 16000, 4 from 25000); at 31500 or more `sub_00426F60` runs.
+At **exactly 32000** the car is blown up by **`sub_00426FA0`** (0x004271F0-0x00427275) [V].
+`sub_00426FA0` reads car+0x84 but never writes it, so **a burnt-out car keeps its model 12/52/84**
+[V: no write to +0x84 in `sub_00426FA0`; the only car write is at creation, 0x00426B37].
+
+**The game's own "car wrecked" test** (mission script, 0x0047B834-0x0047B843) [V]:
+```c
+wrecked = (s16)R16(car+0x74) >= 0x7D00 || R32(car+0x88) == 5;
+```
+**Radar filter:** `model in {12, 52, 84} && !wrecked`, walking the active list (9.1). The police code
+uses the same 32000 test to skip wrecked cars (0x004B139F); it is also used at 0x00450D40.
+
+### 9.2 Models (names = e.gxt key `car<model>` [D]; numbers confirmed by code where tagged)
+
+| model | name (e.gxt) | role | evidence |
+|---|---|---|---|
+| **12 (0x0C)** | Cop Car | police | [V `sub_0041F6E0` "is police car" = {12, 52, 84}; `sub_00421790`; wanted spawn 0x004B3B00] |
+| **52 (0x34)** | SWAT Van | police | [V `sub_0041F6E0`, `sub_004217A0`] |
+| **84 (0x54)** | Special Agent Car | FBI | [V `sub_0041F6E0`, `sub_00411920`; wanted spawn 0x004B3AF6] |
+| **22 (0x16)** | Armed Land Roamer | army | [V `sub_00411910`; wanted spawn 0x004B3AEC] |
+| **54 (0x36)** | Tank | army | [V `sub_00411900`; army random spawn 0x004B3B88; also a KF car 3.3] |
+| **3** | Pacifier | army [I: APC] | [V army random spawn 0x004B3B81] |
+| **30 (0x1E)** | Land Roamer | army (default of the random pick) | [V 0x004B3B8F; `sub_004217B0`] |
+| 17 | Fire Truck, 34 Medicar | emergency (not law) | [D gxt] |
+
+Wanted-level dispatch `sub_004B34E0` (turns a traffic car into a law car, 0x004B3AAD-0x004B3B94) [V]:
+it uses the value `[[0x66B7A0]+0x65C]`. When the chosen car is a Cop Car and the police-car count
+`+0x658` is below `+0x659`, value 3 → Cop Car, 4 → Special Agent Car, 6 → Armed Land Roamer.
+Otherwise, at value 6, it rolls 0..6 through table 0x4B49F0 → 0..3 Pacifier, 4..6 Tank, out of range
+Land Roamer. [I] +0x65C is the wanted level (enhancements.md uses +0x654 for the ped cap; the two are
+not reconciled).
+
+For the radar: **law car = model in {12, 52, 84, 22, 54, 3}** (30 Land Roamer only when you want to
+include the army jeep, since the plain Land Roamer is also a civilian car [I]); skip wrecked cars
+(9.1b: `car+0x74 >= 0x7D00 || car+0x88 == 5`).
+
+### 9.3 Chasing vs parked (optional, cheap)
+
+* `car+0x54 != 0` = someone is driving [V field, I meaning]; a parked police car has no driver.
+* A police driver is a class-4 ped (ped+0x238 == 4, enhancements.md 1.2) [I]. A cop car on the active
+  list with a class-4 driver is a police unit. Whether it is chasing the player (police objective) is
+  not traced.

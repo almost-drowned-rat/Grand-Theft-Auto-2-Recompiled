@@ -13,6 +13,7 @@
 #include "gta2_mixtape.h"
 #include "gta2_text.h"
 #include "gta2_radar.h"
+#include "gta2_input.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -479,6 +480,8 @@ void sub_004A5C50(RECOMP_PARAMS)   /* on-foot control step (thiscall player, ped
 extern void sub_004CA440_gen(RECOMP_PARAMS);
 void sub_004CA440(RECOMP_PARAMS)   /* draws the HUD each frame (thiscall HUD) */
 {
+    gta2_camera_keys();             /* CAMERA KEYS: Page Up / Down, MODERN d-pad up / down */
+    gta2_camera_distance_apply();   /* CAMERA DISTANCE: writes only when the setting changed */
     gta2_radar_draw(ctx);   /* MINIMAP: over the world, under all of the game's HUD (texts, bars, panels) */
     sub_004CA440_gen(ctx, base);
     uint32_t eax = ctx->r_eax;

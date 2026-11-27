@@ -195,13 +195,13 @@ static int shapes_ready(void)
 #define C_YELLOW  RGB(255, 220, 40)
 #define C_GREEN   RGB(60, 225, 60)
 #define C_CHURCH  RGB(255, 255, 255)
-#define C_SPRAY   RGB(80, 160, 255)
-#define C_BOMB    RGB(255, 140, 0)
+#define C_SPRAY   RGB(80, 160, 255)   /* garage block */
 #define C_CRANE   RGB(175, 175, 175)
 #define C_TOKEN   RGB(255, 205, 0)
 #define C_WEAPON  RGB(255, 95, 60)
 #define C_POWERUP RGB(70, 225, 255)
 #define C_FRENZY  RGB(230, 25, 25)
+#define C_POLICE  RGB(60, 110, 255)
 
 /* object models (docs/re/minimap.md 3.2; COLLECT_n = 200 + n, names after the GTA 2 script compiler's
  * list: 00..23 weapons incl. car weapons, 28..40 power-ups) */
@@ -230,9 +230,20 @@ static int g_kf_model = -1;   /* -1 = not read yet */
 #define ARROW_N_GAME 17
 #define ARROW_SIZE 0x7C
 #define SCRIPT_PTR 0x006644BCu
+#define CAR_POOL_PTR 0x005E4CA0u   /* +4 active list head, link car+0x4C, 306 cars */
+#define CAR_N 306
 #define OP_CHURCH 0x1B6
 
 static float q14(uint32_t v) { return (float)(int32_t)v / 16384.0f; }
+
+/* a car that is destroyed or going: damage s16 car+0x74 at its cap 32000 (blown up - the game's own test,
+ * mission script 0x0047B834, police 0x004B139F) or car+0x88 5/6 (taken off the lists); docs/re/minimap.md 9.1b.
+ * A wreck keeps its model. */
+static int car_wrecked(uint32_t c)
+{
+    uint32_t st = wr_rd32(c + 0x88);
+    return (int16_t)wr_rd16(c + 0x74) >= 0x7D00 || st == 5 || st == 6;
+}
 
 typedef struct { float x, y, z; int shape; uint32_t colour; int keep_on_edge; float size; } blip;
 #define MAX_BLIPS 512
@@ -308,7 +319,7 @@ static void scan_churches(void)
 static int kf_car_place(uint32_t e, float *x, float *y, float *z)
 {
     uint32_t car = wr_rd32(e + 8);
-    if (!car || !wr_mem_valid(car, 0x90) || wr_rd32(car + 0x88) == 5)   /* 5: wrecked (minimap.md 2.1) */
+    if (!car || !wr_mem_valid(car, 0xBC) || car_wrecked(car))
         return 0;
     uint32_t spr = wr_rd32(car + 0x50);
     if (!spr || !wr_mem_valid(spr, 0x20))
@@ -373,9 +384,9 @@ static void collect_blips(float pz)
                 static const uint32_t pc[3] = { C_RED, C_YELLOW, C_GREEN };
                 on = missions, shape = SH_RING, col = pc[(m - M_PHONE_RED0) / 2], size = 1.15f;
             } else if (m == M_GARAGE) {
-                uint32_t t = wr_rd8(o + 0x26);
-                on = places, shape = SH_SQUARE, col = (t >= 0xFA && t <= 0xFC) || t == 0xFE ? C_BOMB : C_SPRAY;
-                size = 1.1f;
+                /* a garage block: four doors side by side (log of wil: obj+0x26 = a respray colour, FA, FB,
+                 * FE - the spray shop and three car-weapon shops), one blip per block */
+                on = places, shape = SH_SQUARE, col = C_SPRAY, size = 1.1f;
             } else if (m == M_CRANE || m == M_CRUSHER)
                 on = places, shape = SH_SQUARE, col = C_CRANE, size = 1.1f;
             else if (m == M_TOKEN)
@@ -391,16 +402,11 @@ static void collect_blips(float pz)
             if (m == M_GARAGE || m == M_CRANE || m == M_CRUSHER) {
                 /* one garage / crane has several trigger objects (24 in Downtown): one blip per place */
                 float x = q14(wr_rd32(spr + 0x14)), y = q14(wr_rd32(spr + 0x18));
-                int dup = -1;
-                for (int i = 0; i < g_nblips && dup < 0; i++)
-                    if (g_blips[i].shape == SH_SQUARE && g_blips[i].colour != C_WEAPON &&
-                        fabsf(g_blips[i].x - x) < 4 && fabsf(g_blips[i].y - y) < 4)
-                        dup = i;
-                if (dup >= 0) {   /* the same place: a bomb shop trigger makes it a bomb shop */
-                    if (col == C_BOMB)
-                        g_blips[dup].colour = C_BOMB;
+                int dup = 0;   /* the doors of one block lie within 6 blocks */
+                for (int i = 0; i < g_nblips && !dup; i++)
+                    dup = g_blips[i].colour == col && fabsf(g_blips[i].x - x) < 7 && fabsf(g_blips[i].y - y) < 7;
+                if (dup)
                     continue;
-                }
             }
             add_blip(q14(wr_rd32(spr + 0x14)), q14(wr_rd32(spr + 0x18)), q14(wr_rd32(spr + 0x1C)), shape, col, 0,
                      size);
@@ -419,6 +425,26 @@ static void collect_blips(float pz)
             if (kf_car_place(g_kf_entry[i], &x, &y, &z))
                 add_blip(x, y, z, SH_X, C_FRENZY, 0, 1.0f);
         }
+    /* POLICE (maintainer 2026-11-27: patrol cars and SWAT vans): the active car list (docs/re/minimap.md 9) -
+     * cop car 12, SWAT van 52, special agent car 84 (the game's own police test sub_0041F6E0); the army
+     * (22 / 54 / 3) is left out; each car checked on its own: no wrecks (car_wrecked); crewed (driver
+     * car+0x54) bigger than parked */
+    uint32_t cars = wr_rd32(CAR_POOL_PTR);
+    if (opt_get(OPT_BLIP_POLICE) && cars && wr_mem_valid(cars, 8)) {
+        uint32_t c = wr_rd32(cars + 4);
+        for (int k = 0; c && k < CAR_N; k++, c = wr_rd32(c + 0x4C)) {
+            if (!wr_mem_valid(c, 0xBC))
+                break;
+            uint32_t m = wr_rd32(c + 0x84);
+            if ((m != 12 && m != 52 && m != 84) || car_wrecked(c))
+                continue;
+            uint32_t spr = wr_rd32(c + 0x50);
+            if (!spr || !wr_mem_valid(spr, 0x20))
+                continue;
+            add_blip(q14(wr_rd32(spr + 0x14)), q14(wr_rd32(spr + 0x18)), q14(wr_rd32(spr + 0x1C)), SH_CIRCLE,
+                     C_POLICE, 0, wr_rd32(c + 0x54) ? 0.85f : 0.55f);
+        }
+    }
     /* mission targets: the game's own script arrows (gang arrows point at the phones drawn above) */
     uint32_t hud = wr_rd32(HUD_PTR);
     if (missions && hud && wr_mem_valid(hud + ARROW_MGR, ARROW_N_GAME * ARROW_SIZE))
@@ -633,6 +659,45 @@ static uint32_t player_place(float *px, float *py, float *pz)
     return ped;
 }
 
+/* ---- PAUSE MAP legend --------------------------------------------------------------------------- */
+
+typedef struct { const char *label; int opt; int shape; uint32_t colour; } legend_item;
+#define SH_PLAYER (-1)
+static const legend_item g_legend[] = {
+    { "YOU", -1, SH_PLAYER, 0xFFFFFFFFu },
+    { "MISSION", OPT_BLIP_MISSIONS, SH_CIRCLE, C_MISSION },
+    { "GANG PHONE", OPT_BLIP_MISSIONS, SH_RING, C_YELLOW },
+    { "CHURCH", OPT_BLIP_PLACES, SH_CROSS, C_CHURCH },
+    { "GARAGE", OPT_BLIP_PLACES, SH_SQUARE, C_SPRAY },
+    { "CRANE", OPT_BLIP_PLACES, SH_SQUARE, C_CRANE },
+    { "TOKEN", OPT_BLIP_TOKENS, SH_DIAMOND, C_TOKEN },
+    { "WEAPON", OPT_BLIP_WEAPONS, SH_SQUARE, C_WEAPON },
+    { "POWER-UP", OPT_BLIP_BONUSES, SH_CIRCLE, C_POWERUP },
+    { "KILL FRENZY", OPT_BLIP_FRENZY, SH_X, C_FRENZY },
+    { "POLICE", OPT_BLIP_POLICE, SH_CIRCLE, C_POLICE },
+};
+
+const char *gta2_radar_legend(int n, float x, float y, float d)
+{
+    for (size_t i = 0; i < sizeof g_legend / sizeof g_legend[0]; i++) {
+        const legend_item *it = &g_legend[i];
+        if (it->opt >= 0 && !opt_get(it->opt))
+            continue;
+        if (n-- > 0)
+            continue;
+        if (it->shape == SH_PLAYER) {
+            if (arrow_ready())
+                gbh_port_atlas_quad(g_arrow, x - d * 0.75f, y - d * 0.75f, d * 1.5f, d * 1.5f, 0, 0, 0.125f, 0.125f,
+                                    0xFFFFFFFFu, 0);
+        } else if (shapes_ready()) {
+            float u0 = (float)it->shape / SH_N;
+            gbh_port_atlas_quad(g_shapes, x - d / 2, y - d / 2, d, d, u0, 0, u0 + 1.0f / SH_N, 1, it->colour, 0);
+        }
+        return it->label;
+    }
+    return NULL;
+}
+
 /* PAUSE MAP: the whole district in the square (x, y, s) of the game screen; 0 if there is none */
 int gta2_radar_draw_full(float x, float y, float s)
 {
@@ -669,9 +734,10 @@ void gta2_radar_draw(X86Ctx *ctx)
     float sw = (float)g_gfx.w, sh = (float)g_gfx.h;
     view v;
     v.s = floorf(sh * size[opt_get(OPT_MINIMAP_SIZE)]);
-    /* POSITION X / Y: 0..100 % of the free room, a margin kept on every side so it stays whole on screen */
-    float m = floorf(sh * 0.03f);
-    float fx = (float)opt_get(OPT_MINIMAP_X) / 20.0f, fy = (float)opt_get(OPT_MINIMAP_Y) / 20.0f;
+    /* POSITION X / Y: 0..100 % of the free room; at 0 / 100 % it sits in the corner, only its frame
+     * (drawn outside the square) kept on screen (maintainer 2026-11-27: "ins letzte Eck") */
+    float m = fmaxf(1.0f, v.s / 90.0f);
+    float fx = (float)opt_get(OPT_MINIMAP_X) / 40.0f, fy = (float)opt_get(OPT_MINIMAP_Y) / 40.0f;
     v.x = floorf(m + (sw - v.s - 2 * m) * fx);
     v.y = floorf(m + (sh - v.s - 2 * m) * fy);
     v.cx = px;

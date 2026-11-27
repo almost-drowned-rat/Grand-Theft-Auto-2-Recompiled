@@ -97,6 +97,13 @@ int main(int argc, char **argv)
     wr_log_init();
     wr_log_header("GTA 2 Recompiled", "build " GTA2_GIT " (" __DATE__ ")");
     wr_settings_init("GTA2");   /* saves/settings.ini, GTA2_<KEY> overrides */
+    {   /* <root>/mods: every folder in it is one mod, read before the game's own files and before
+         * our translations (maintainer 2026-11-27); mods/textures is for texture packs */
+        char mods[1100];
+        snprintf(mods, sizeof mods, "%s/mods", g_wr_paths.root);
+        int n = wr_path_add_mod_dirs(mods);
+        wr_log("mods: %d in %s", n, mods);
+    }
     gta2_translations_init();   /* GTA2-translations.pak: data\\<letter>.gxt for more languages */
     gta2_text_init();           /* p r c n: the language's own glyphs (data\\fonts\\<letter>.otf) */
     wr_crash_init();
