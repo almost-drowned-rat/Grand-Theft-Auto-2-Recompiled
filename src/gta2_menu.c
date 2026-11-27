@@ -156,11 +156,11 @@ static mline l_browse[1024];
 static char g_browse_title[64] = "SHADER PACKS";
 static const gta2_shader_item *g_browse_items;
 /* ENHANCEMENTS (was GAMEPLAY, renamed by the maintainer 2026-11-27; VP_GAMEPLAY keeps its name in the code) */
-/* Its order (maintainer 2026-11-27): CAMERA DISTANCE, MANUAL CAMERA, LANGUAGE, MINIMAP, then the rest.
- * LANGUAGE has no sub-page; leaving the page with a language other than the one the game started with
- * opens the pop-up RESTART? (RESTART NOW / RESTART LATER) - every time */
-static const mline l_gameplay[] = { { NULL, L_OPT, OPT_CAMERA_DISTANCE }, { NULL, L_OPT, OPT_MANUAL_CAMERA },
-                                    { "LANGUAGE", L_LANG, 0 }, { "MINIMAP", L_PAGE, VP_MINIMAP },
+/* Its order (maintainer 2026-11-27): LANGUAGE, MINIMAP, MANUAL CAMERA, then the rest; no CAMERA DISTANCE line
+ * (the camera buttons set it). LANGUAGE has no sub-page; leaving the page with a language other than the one
+ * the game started with opens the pop-up RESTART? (RESTART NOW / RESTART LATER) - every time */
+static const mline l_gameplay[] = { { "LANGUAGE", L_LANG, 0 }, { "MINIMAP", L_PAGE, VP_MINIMAP },
+                                    { NULL, L_OPT, OPT_MANUAL_CAMERA },
                                     { NULL, L_OPT, OPT_PEDESTRIANS }, { NULL, L_OPT, OPT_TRAFFIC },
                                     { NULL, L_OPT, OPT_SPRINT }, { NULL, L_OPT, OPT_MORE_BLOOD } };
 /* GAMEPLAY > MINIMAP (maintainer 2026-11-27): the radar's look, then an ON/OFF switch per element */

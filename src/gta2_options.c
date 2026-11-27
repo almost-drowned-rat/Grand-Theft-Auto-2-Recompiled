@@ -116,11 +116,13 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_TRAFFIC]        = { "TRAFFIC", "traffic", 4, v_factor, l_factor, 0, apply_peds },
     [OPT_SPRINT]         = { "SPRINT", "sprint", 2, v_onoff, l_onoff, 1, apply_nothing },
     [OPT_MORE_BLOOD]     = { "MORE BLOOD", "more_blood", 2, v_onoff, l_onoff, 0, apply_nothing },
+    /* no menu line: the camera buttons step it, MANUAL CAMERA off means 1.0X (maintainer 2026-11-27) */
     [OPT_CAMERA_DISTANCE] = { "CAMERA DISTANCE", "camera_distance", 5, v_camdist, l_camdist, 0, apply_nothing },
-    [OPT_MANUAL_CAMERA]  = { "MANUAL CAMERA", "manual_camera", 2, v_onoff, l_onoff, 1, apply_nothing },
+    /* off by default (maintainer 2026-11-27: a changed distance made the camera correct itself all the time) */
+    [OPT_MANUAL_CAMERA]  = { "MANUAL CAMERA", "manual_camera", 2, v_onoff, l_onoff, 0, apply_nothing },
     [OPT_MINIMAP]        = { "MINIMAP", "minimap", 2, v_onoff, l_onoff, 1, apply_nothing },
-    [OPT_MINIMAP_SIZE]   = { "SIZE", "minimap_size", 3, v_size, l_size, 1, apply_nothing },
-    [OPT_MINIMAP_ZOOM]   = { "ZOOM", "minimap_zoom", 3, v_zoom, l_zoom, 1, apply_nothing },
+    [OPT_MINIMAP_SIZE]   = { "SIZE", "minimap_size", 3, v_size, l_size, 0, apply_nothing },   /* SMALL (maintainer) */
+    [OPT_MINIMAP_ZOOM]   = { "ZOOM", "minimap_zoom", 3, v_zoom, l_zoom, 0, apply_nothing },   /* NEAR */
     [OPT_MINIMAP_X]      = { "POSITION X", "minimap_x", 41, v_pct, l_pct, 0, apply_nothing },
     [OPT_MINIMAP_Y]      = { "POSITION Y", "minimap_y", 41, v_pct, l_pct, 40, apply_nothing },
     [OPT_PAUSE_MAP]      = { "PAUSE MAP", "minimap_pause_map", 2, v_onoff, l_onoff, 1, apply_nothing },

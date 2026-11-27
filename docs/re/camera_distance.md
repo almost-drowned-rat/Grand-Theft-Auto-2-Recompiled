@@ -136,3 +136,84 @@ player+0x14C +0x98..) still interpolates only x/y/z, not a stale zoom.
 3. Whether `sub_0047DAD0` and other script camera commands set their own zoom (they use the follow +
    snap functions, so they should pick up the scaled constant) [I].
 4. HUD arrow behaviour and audio fall-off at 2x.
+
+---
+
+## 6. Jitter (follow-up: with F != 1 the camera keeps correcting itself)
+
+### 6.1 What was ruled out [V]
+
+* **No zoom clamp.** No code compares +0xA4, the zoom target +0x1C or `[0x5E3EB4]` with a range.
+  0.44 is accepted.
+* **The zoom smoothing converges.** `sub_00472670` (used for x, y and zoom) is an
+  accelerate-then-snap controller: `d = target - cur`. If the rate points the other way it becomes 0
+  (no move that tick). Else `rate += accel`, capped at `max`; when `rate + accel` would pass `d`,
+  `rate = d`, so cur lands exactly on the target (0x00472670-0x004727D7). With a constant zoom target
+  it settles and stays.
+* **No second zoom writer.** The only readers of `[0x5E3EB4]` are the follow code, the camera ctor and
+  the aux camera (`sub_0041EE30`, player+0x208, used only with player+0x2D0). No code writes +0x1C with
+  the old value.
+* **The rect and tiles do not flip.** `sub_0041E7A0` and the per-layer ranges in `sub_00472110` are
+  pure functions of the current x/y/z/zoom. They change only when those values change.
+
+### 6.2 The cause: the follow target is defined in screen pixels, the chase in world units
+
+* **The car look-ahead is in pixels.** `sub_0041EBF0(car, &x, &y, &z)`:
+  * It takes a fixed look length (240 or 180, chosen by the heading case, x0.75 in one case, scaled by
+    the counter byte cam+0x44 / 128). It turns it into a world offset with the depth
+    `(8 - z_car + z_cam)` **divided by cam+0x64** (= 640 x current zoom, set by `sub_0041E7A0`)
+    (0x0041EDA0-0x0041EE1A, `sub_0041E210` polar → x/y) [V use of cam+0x64; I exact operand order].
+  * The car's speed is also **added to the target height**: `*z += speed` when speed > `[0x5E3F74]`
+    (0x0041EC5A-0x0041EC80) [V].
+* **The look-around / perspective offset is in pixels too.** `sub_0041F0D0` (follow, on foot and in a
+  car) adds `cam+0x48/+0x4C x (8 - z_ped + z_cam) / cam+0x64` to the target x/y (0x0041F0D0-0x0041F159)
+  [V]. +0x48/+0x4C are the look-around offsets (`sub_0041EEF0`, reset by `sub_0041F0A0`).
+* **So at zoom / F every pixel offset becomes F times longer in world units.** When the car turns,
+  brakes or changes speed, the look-ahead target jumps F times further.
+* **The chase controller is tuned in world units and does not see the zoom.** In `sub_0041F2F0` x/y
+  use `accel = [0x5E3F38]` and `max = [0x5E3DCC] x cam z (+0xA0)` (0x0041F300-0x0041F37B) [V]. Both
+  constants are built at static init from `[0x5E3D34]` (x1 and /12, 0x004FE255 / 0x004FE27B), and
+  their only readers are 0x0041F306 / 0x0041F34C / 0x0041F36A [V xrefs].
+* **Result [I]:** the target moves F times further while the camera's acceleration and top speed stay
+  the same, so the camera chases longer. Each sign change of the error drops its speed to 0 (6.1), and
+  it accelerates again from zero. That is the "keeps correcting" motion, worst while driving. At F = 1
+  the offsets fit the tuning. The on-foot part is weaker (only +0x48/+0x4C and the ped movement). If
+  it is clearly restless on foot too, see 6.3 option 2.
+
+### 6.3 Fix
+
+**Option 1 (minimal): keep the zoom hook and scale the chase by F.**
+```c
+// once, together with the zoom constants (read the originals first, as for 0x5E3EB4)
+R32(0x5E3F38) = orig_accel * F;      // x/y acceleration per tick
+R32(0x5E3DCC) = orig_capk  * F;      // x/y top speed factor (x cam z)
+```
+The camera then moves F times faster in world units, which is the same on screen as at 1x, against
+an F times larger look-ahead. Readers are only in `sub_0041F2F0`, so nothing else changes.
+The height smoothing (0x5E4050 / 0x5E3CFC / 0x5E3DEC / 0x5E3EBC) needs no change: the height does not
+depend on the zoom. Measure in play; if the look-ahead still feels too long, scale the look length
+too. The 240/180 are immediates at 0x0041ED01 / 0x0041ED17 (`push 0xf0` / `push 0xb4`), so that
+means patching those immediates or wrapping `sub_0041EBF0` and scaling its x/y output by
+`1 + (1/F - 1)`.
+
+**Option 2 (robust): zoom only in the projection, leave the camera logic at 1x.**
+Undo the constant change. In the port's existing `sub_0041E7A0` wrapper (src/gta2_manual.c), after
+the original, scale **only** the drawing values by 1/F:
+* `+0x60` (projection scale) /= F
+* the rect half-widths E (both x and y, so +0x78..+0x84 and +0x20..+0x2C) *= F
+* **leave +0x64 unchanged**, because the follow code divides by it
+* the block renderer's ranges come from `D/zoom` in `sub_00472110`, not from +0x60. The port already
+  hooks 0x004721C2 (x span); the y span `[S+0x24]` also needs `*= F`, and the x span `*= A*F`.
+
+The follow target and the chase then stay exactly as at 1x (no new jitter possible). The look-ahead
+is F times shorter on screen, which is what 1x would show "from further away". Check every user of
++0x60: vertex projection `sub_0046BC70/BD40/BDF0`, the per-layer scales in `sub_00472110`
+(0x00472357-0x004723FF), the HUD arrows and `sub_0041E710`. All are listed in widescreen.md 2a/2c.
+This is more work but removes the dependency on the follow tuning.
+
+**Not the fix:** writing +0xA4 after the smoothing (it fights the controller), and changing the zoom
+smoothing constants (the zoom itself settles; 6.1).
+
+Verification hint: log `cam+0x98/+0x9C` and the target `+0x10/+0x14` of player+0x90 per tick at
+F = 2 while driving straight and turning. The expected pattern is the error changing sign and the rate
++0xAC/+0xB0 dropping to 0 repeatedly.
