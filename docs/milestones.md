@@ -96,8 +96,20 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [x] CUSTOM MAPPING: MODERN by function (on foot / in a car), groups with headings, PROFILE STOCK / 1 / 2 / 3
 - [x] mods/: one folder per mod read before the game's files (winrecomp wr_path_add_mod_dirs)
 - [ ] Texture packs in mods/textures (postponed by the maintainer)
-- [ ] Ray tracing: own Vulkan path, all RT GPUs (decided 2026-11-27, start after the maintainer's go), with a
-      day / night cycle (maintainer 2026-11-27)
+- [ ] Ray tracing: own Vulkan path, all RT GPUs (decided 2026-11-27, start after the maintainer's go)
+
+## v0.9.0 — Day / night, save anywhere, steady camera (maintainer 2026-11-28, from issues #4 and #6)
+- [x] Shader packs: Windows crash with any pack in shader/ fixed (one heap; issue #4), messages in gta2.log, hint
+      for packs without presets; librashader.dll ships with every release (Windows too)
+- [x] DAY / NIGHT (ENHANCEMENTS, off by default): day fully lit, sunset / night / sunrise over the game's own
+      lighting, HUD never darkened; car lights by the time of day (headlights off in the day, sirens and brake
+      lights stay, painted lamps covered, the U-Jerk Truck's four lamps), damage kept (docs/re/car_lights.md)
+- [x] MANUAL CAMERA = a steady camera: fixed height, no speed zoom, no look-ahead (issue #6;
+      docs/re/camera_distance.md 7)
+- [x] SAVE ANYWHERE (ENHANCEMENTS, off by default): pause SAVE GAME, main-menu LOAD GAME (issue #6;
+      docs/re/save_anywhere.md)
+- [x] KEYBOARD CUSTOM: the keyboard's mapping by situation; minimap defaults = the maintainer's settings
+- [x] Frame interpolation stays as it is (maintainer 2026-11-28: no further work; 30 fps recommended)
 
 ## M9 — Multiplayer (optional)
 - [ ] DirectPlay (DPLAYX) -> own network layer (LAN/IP)
