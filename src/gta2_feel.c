@@ -14,6 +14,7 @@
 #include "gta2_feel.h"
 #include "gta2_options.h"
 #include "gta2_state.h"
+#include "gta2_input.h"
 #include "wr.h"
 #include "platform/wr_platform.h"
 
@@ -32,7 +33,13 @@ static const gta2_feel k_preset[4] = {
 
 static const char *const k_name[4] = { "default", "smooth", "snappy", "heavy" };
 
-int gta2_feel_active(void) { return SCHEME_ALT(); }
+/* v0.9.0 (maintainer 2026-11-28): the PR's ANALOGUE scheme split into its parts - analogue walking is always on (the
+ * on-foot feel, MODERN's stick), the car steering is the ANALOGUE STEERING switch, the pedals are analogue on their own
+ * when gas / brake are mapped to the triggers (gta2_gas_on_rt / gta2_brake_on_lt). Never in a network game. */
+static int single_player(void) { return !wr_rd32(0x00673E2Cu); }
+int gta2_feel_active(void) { return single_player(); }   /* the on-foot feel */
+static int steer_active(void) { return single_player() && opt_get(OPT_ANALOGUE_STEERING); }
+static int pedals_active(void) { return single_player() && (gta2_gas_on_rt() || gta2_brake_on_lt()); }
 
 static float ovr(const char *key, float v)
 {
@@ -213,7 +220,7 @@ static float g_pull_r, g_pull_l, g_duty = -1;
 void gta2_feel_car_pre(void)
 {
     g_duty = -1;
-    if (!SCHEME_ALT())
+    if (!pedals_active())
         return;
     uint32_t ped = gta2_player_ped();
     if (!ped || !gta2_player_driving() || !wr_mem_valid(ped, 0x170))
@@ -223,7 +230,7 @@ void gta2_feel_car_pre(void)
         return;
     g_pull_r = trigger_pull(1);
     g_pull_l = trigger_pull(0);
-    float pr = pedal_of(g_pull_r), pl = pedal_of(g_pull_l);
+    float pr = gta2_gas_on_rt() ? pedal_of(g_pull_r) : 0, pl = gta2_brake_on_lt() ? pedal_of(g_pull_l) : 0;
     int dig = wr_rd8(player + 0x78) || wr_rd8(player + 0x79);   /* Cross / Square / keys: full, as before */
     if (pr > 0)
         wr_wr8(player + 0x78, 1);   /* the game's own gas / brake / reverse logic sees the pull as a press ... */
@@ -238,7 +245,7 @@ void gta2_feel_car_step(void)
     static float err, acc_gas;
     static int hold_left, out;
     static int logged, bad, tlogged;
-    int steer_on = gta2_feel_active(), trig_on = SCHEME_ALT();
+    int steer_on = steer_active(), trig_on = pedals_active();
     if (!steer_on && !trig_on)
         return;
     uint32_t ped = gta2_player_ped();

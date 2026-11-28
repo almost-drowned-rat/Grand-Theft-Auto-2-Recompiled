@@ -8,6 +8,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 void wr_reg_set_dword(const char *key, const char *name, uint32_t value);
@@ -40,7 +41,7 @@ static const char *const l_rate[] = { "30", "60 INTERPOLATED", "120 INTERPOLATED
 /* modern = keyboard only (the pad layout); custom = the keyboard's CUSTOM MAPPING by situation (maintainer 2026-11-27) */
 static const char *const v_kscheme[] = { "classic", "modern", "mouse", "custom" };
 static const char *const l_kscheme[] = { "CLASSIC", "MODERN", "KEYBOARD + MOUSE", "CUSTOM" };
-static const char *const v_scheme[] = { "classic", "modern", "custom" };   /* ANALOGUE: OPT_ANALOGUE_CONTROLS */
+static const char *const v_scheme[] = { "classic", "modern", "custom" };   /* PR #7's ANALOGUE: the switches below */
 static const char *const l_scheme[] = { "CLASSIC", "MODERN", "CUSTOM" };
 /* ANALOGUE SETTINGS (the page under CONTROLS): the car steering of the ANALOGUE scheme (gta2_feel.c turns the index into the number) */
 static const char *const v_spreset[] = { "smooth", "snappy", "heavy", "custom" };
@@ -48,6 +49,8 @@ static const char *const l_spreset[] = { "SMOOTH", "SNAPPY", "HEAVY", "CUSTOM" }
 static const char *const v_sdead[] = { "0.04", "0.06", "0.08", "0.10", "0.12", "0.14", "0.16", "0.20" };
 static const char *const v_scurve[] = { "1.0", "1.2", "1.4", "1.6", "1.8", "2.0", "2.4", "3.0" };
 static const char *const v_shold[] = { "1", "2", "3", "4" };
+static const char *const v_spreset2[] = { "1", "2" };   /* SPRINT > PRESET */
+static const char *const l_spreset2[] = { "PRESET 1", "PRESET 2" };
 static const char *const v_factor[] = { "1", "2", "3", "4" };
 static const char *const l_factor[] = { "1X", "2X", "3X", "4X" };
 static const char *const v_onoff[] = { "0", "1" };
@@ -69,8 +72,9 @@ static const char *const v_arrows[] = { "0", "1", "near" };
 static const char *const v_camdist[] = { "1", "1.25", "1.5", "1.75", "2" };
 static const char *const l_camdist[] = { "1.0X", "1.25X", "1.5X", "1.75X", "2.0X" };
 static const char *const l_arrows[] = { "OFF", "ON", "NEAR TARGET" };
-static const char *const v_daylen[] = { "24", "48", "96" };   /* gta2_daynight.c k_minutes */
-static const char *const l_daylen[] = { "24 MIN", "48 MIN", "96 MIN" };
+static const char *const v_dpreset[] = { "1", "2", "3", "custom" };   /* DAY / NIGHT > PRESET */
+static const char *const l_dpreset[] = { "PRESET 1", "PRESET 2", "PRESET 3", "CUSTOM" };
+#define DN_SECS_MAX 7200   /* a phase: 0:00 .. 120:00 */
 
 static int g_val[OPT_COUNT];
 
@@ -109,6 +113,35 @@ static void apply_steer_value(int c)   /* a number was changed by hand: the pres
             opt_get(OPT_STEER_HOLD) == k_spreset[i][2])
             p = i;
     opt_set(OPT_STEER_PRESET, p);   /* its apply sees CUSTOM or the same numbers again: nothing more happens */
+}
+
+/* DAY / NIGHT presets (maintainer 2026-11-28): the DAY LENGTHs of before, 24 / 48 / 96 minutes a day, in the cycle's
+ * proportions DAY 9 : SUNSET 4 : NIGHT 7.5 : SUNRISE 3.5 (the hours of gta2_daynight.c) */
+static const int k_dpreset[3][4] = { { 540, 240, 450, 210 }, { 1080, 480, 900, 420 }, { 2160, 960, 1800, 840 } };
+static int g_day_busy;
+static void apply_day_preset(int c)
+{
+    if (c < 0 || c > 2)
+        return;   /* CUSTOM: the lengths stay */
+    g_day_busy = 1;
+    for (int i = 0; i < 4; i++)
+        opt_set(OPT_DAY_SECS + i, k_dpreset[c][i]);
+    g_day_busy = 0;
+}
+static void apply_day_secs(int c)   /* a length changed by hand: the preset it equals, else CUSTOM */
+{
+    (void)c;
+    if (g_day_busy)
+        return;
+    int p = 3;
+    for (int k = 0; k < 3 && p == 3; k++) {
+        int same = 1;
+        for (int i = 0; i < 4; i++)
+            same &= opt_get(OPT_DAY_SECS + i) == k_dpreset[k][i];
+        if (same)
+            p = k;
+    }
+    opt_set(OPT_DAY_PRESET, p);
 }
 
 static void apply_perf(int c)
@@ -151,6 +184,7 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_KEY_SCHEME]     = { "KEYBOARD", "keyboard_scheme", 4, v_kscheme, l_kscheme, 0, apply_keys },
     [OPT_PEDESTRIANS]    = { "PEDESTRIANS", "pedestrians", 4, v_factor, l_factor, 0, apply_peds },
     [OPT_TRAFFIC]        = { "TRAFFIC", "traffic", 4, v_factor, l_factor, 0, apply_peds },
+    /* the stamina sprint in every scheme (maintainer 2026-11-28; its numbers: OPT_SPRINT_PRESET) */
     [OPT_SPRINT]         = { "SPRINT", "sprint", 2, v_onoff, l_onoff, 1, apply_nothing },
     [OPT_MORE_BLOOD]     = { "MORE BLOOD", "more_blood", 2, v_onoff, l_onoff, 0, apply_nothing },
     /* no menu line: the camera buttons step it, MANUAL CAMERA off means 1.0X (maintainer 2026-11-27) */
@@ -174,26 +208,43 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_BLIP_FRENZY]    = { "KILL FRENZY", "minimap_frenzy", 2, v_onoff, l_onoff, 0, apply_nothing },
     [OPT_BLIP_POLICE]    = { "POLICE", "minimap_police", 2, v_onoff, l_onoff, 0, apply_nothing },
     /* ENHANCEMENTS (maintainer 2026-11-27): off by default - the original picture */
-    [OPT_DAY_NIGHT]      = { "DAY / NIGHT", "day_night", 2, v_onoff, l_onoff, 0, apply_nothing },
-    [OPT_DAY_LENGTH]     = { "DAY LENGTH", "day_length", 3, v_daylen, l_daylen, 0, apply_nothing },
+    [OPT_DAY_NIGHT]      = { "CYCLE", "day_night", 2, v_onoff, l_onoff, 0, apply_nothing },   /* DAY / NIGHT page */
+    [OPT_DAY_PRESET]     = { "PRESET", "day_preset", 4, v_dpreset, l_dpreset, 0, apply_day_preset },
+    /* numeric (values NULL): the choice is the number of seconds, shown M:SS */
+    [OPT_DAY_SECS]       = { "DAY", "day_secs", DN_SECS_MAX + 1, NULL, NULL, 540, apply_day_secs },
+    [OPT_SUNSET_SECS]    = { "SUNSET", "sunset_secs", DN_SECS_MAX + 1, NULL, NULL, 240, apply_day_secs },
+    [OPT_NIGHT_SECS]     = { "NIGHT", "night_secs", DN_SECS_MAX + 1, NULL, NULL, 450, apply_day_secs },
+    [OPT_SUNRISE_SECS]   = { "SUNRISE", "sunrise_secs", DN_SECS_MAX + 1, NULL, NULL, 210, apply_day_secs },
     /* issue #6 (maintainer 2026-11-28: an ENHANCEMENTS switch - purists do not need it): off = church saves only */
     [OPT_SAVE_ANYWHERE]  = { "SAVE ANYWHERE", "save_anywhere", 2, v_onoff, l_onoff, 0, apply_nothing },
-    /* PR #7 (maverick-hunter) as an ENHANCEMENTS switch (maintainer 2026-11-28), off by default */
-    [OPT_ANALOGUE_CONTROLS] = { "ANALOGUE CONTROLS", "analogue_controls", 2, v_onoff, l_onoff, 0, apply_nothing },
+    /* PR #7 (maverick-hunter) as ENHANCEMENTS switches (maintainer 2026-11-28), off by default (the original); each
+     * acts in single player only (its writes are local: in a network game they would desync the others) */
+    [OPT_ANALOGUE_STEERING] = { "ANALOGUE STEERING", "analogue_steering", 2, v_onoff, l_onoff, 0, apply_nothing },
+    [OPT_PUNCH]          = { "PUNCH", "punch", 2, v_onoff, l_onoff, 0, apply_nothing },
+    [OPT_CAMERA_PAN]     = { "CAMERA PAN", "camera_pan", 2, v_onoff, l_onoff, 0, apply_nothing },
     [OPT_STEER_PRESET]   = { "PRESET", "steer_preset", 4, v_spreset, l_spreset, 0, apply_steer_preset },
     [OPT_STEER_DEAD]     = { "DEAD ZONE", "steer_dead", 8, v_sdead, v_sdead, 3, apply_steer_value },
     [OPT_STEER_CURVE]    = { "CURVE", "steer_curve", 8, v_scurve, v_scurve, 3, apply_steer_value },
     [OPT_STEER_HOLD]     = { "SMOOTHING", "steer_hold", 4, v_shold, v_shold, 1, apply_steer_value },
-    [OPT_TURRET_AIM]     = { "TURRET AIM", "turret_aim", 2, v_onoff, l_onoff, 1, apply_nothing },
-    [OPT_STAMINA_SPRINT] = { "STAMINA SPRINT", "stamina_sprint", 2, v_onoff, l_onoff, 1, apply_nothing },
+    [OPT_TURRET_AIM]     = { "TURRET AIM", "turret_aim", 2, v_onoff, l_onoff, 0, apply_nothing },   /* off: the original */
     [OPT_ENDLESS_SPRINT] = { "ENDLESS SPRINTING", "cheat_endless_sprint", 2, v_onoff, l_onoff, 0, apply_nothing },
-    [OPT_SPRINT_BAR]     = { "SPRINT BAR", "sprint_bar", 2, v_onoff, l_onoff, 1, apply_nothing },
+    /* 1: 2.5 s / refill after 2.5 s / full in 8 s (maintainer, default); 2: 3.5 / 0.5 / 3 (PR #7) */
+    [OPT_SPRINT_PRESET]  = { "PRESET", "sprint_preset", 2, v_spreset2, l_spreset2, 0, apply_nothing },
+    [OPT_SPRINT_BAR]     = { "SPRINT BAR", "sprint_bar", 2, v_onoff, l_onoff, 0, apply_nothing },   /* off (maintainer 2026-11-28) */
+    /* defaults = the maintainer's own place (2026-11-28): 52.5 % across, 10 % down */
+    [OPT_SPRINT_BAR_X]   = { "POSITION X", "sprint_bar_x", 41, v_pct, l_pct, 21, apply_nothing },
+    [OPT_SPRINT_BAR_Y]   = { "POSITION Y", "sprint_bar_y", 41, v_pct, l_pct, 4, apply_nothing },
 };
 
 static int find_choice(int id, const char *v)
 {
     if (!v)
         return g_def[id].def;
+    if (!g_def[id].values) {   /* numeric */
+        char *end;
+        long n = strtol(v, &end, 10);
+        return end != v && n >= 0 && n < g_def[id].n ? (int)n : g_def[id].def;
+    }
     for (int c = 0; c < g_def[id].n; c++)
         if (!strcmp(v, g_def[id].values[c]))
             return c;
@@ -205,6 +256,14 @@ void opt_load_all(void)
     for (int id = 0; id < OPT_COUNT; id++)
         if (g_def[id].key)
             g_val[id] = find_choice(id, wr_settings_get(g_def[id].key, NULL));
+    /* DAY / NIGHT: the DAY LENGTH of before (24 / 48 / 96) becomes PRESET 1 / 2 / 3; a preset sets the four lengths */
+    if (!wr_settings_get("day_preset", NULL)) {
+        const char *old = wr_settings_get("day_length", NULL);
+        g_val[OPT_DAY_PRESET] = old && !strcmp(old, "48") ? 1 : old && !strcmp(old, "96") ? 2 : 0;
+    }
+    if (g_val[OPT_DAY_PRESET] < 3)
+        for (int i = 0; i < 4; i++)
+            g_val[OPT_DAY_SECS + i] = k_dpreset[g_val[OPT_DAY_PRESET]][i];
     int m = wr_overlay_parse(wr_settings_get("performance_overlay", "off"));
     g_val[OPT_PERF_FPS] = !!(m & WR_PERF_FPS);
     g_val[OPT_PERF_FRAMETIME] = !!(m & WR_PERF_FRAMETIME);
@@ -226,23 +285,32 @@ int opt_count(int id) { return id >= 0 && id < OPT_COUNT ? g_def[id].n : 0; }
 int opt_default(int id) { return id >= 0 && id < OPT_COUNT ? g_def[id].def : 0; }
 int opt_get(int id) { return id >= 0 && id < OPT_COUNT ? g_val[id] : 0; }
 
-/* ANALOGUE CONTROLS (PR #7): never in a network game - the steering, pedal, turret and punch writes act on the local
- * simulation only and would desync the other players (review 2026-11-28; as TRAFFIC / PEDESTRIANS) */
-int gta2_analogue_on(void) { return g_val[OPT_ANALOGUE_CONTROLS] && !wr_rd32(0x00673E2Cu); }
-
 const char *opt_choice_label(int id, int c)
 {
     if (id < 0 || id >= OPT_COUNT || c < 0 || c >= g_def[id].n)
         return "";
+    if (!g_def[id].labels) {   /* numeric: seconds as M:SS (a few buffers: callers print it at once) */
+        static char buf[4][16];
+        static int k;
+        char *b = buf[k++ & 3];
+        snprintf(b, 16, "%d:%02d", c / 60, c % 60);
+        return b;
+    }
     return g_def[id].labels[c];
 }
+
+int opt_is_numeric(int id) { return id >= 0 && id < OPT_COUNT && !g_def[id].values; }
 
 void opt_set(int id, int c)
 {
     if (id < 0 || id >= OPT_COUNT || c < 0 || c >= g_def[id].n || g_val[id] == c)
         return;
     g_val[id] = c;
-    if (g_def[id].key) {
+    if (g_def[id].key && !g_def[id].values) {
+        char v[16];
+        snprintf(v, sizeof v, "%d", c);
+        wr_settings_set(g_def[id].key, v);
+    } else if (g_def[id].key) {
         wr_settings_set(g_def[id].key, g_def[id].values[c]);
     } else {   /* the PERFORMANCE switches: one value */
         char v[48];

@@ -1,8 +1,11 @@
 # ANALOGUE CONTROLS, SPRINT and ENDLESS SPRINTING
 
-Contributed by maverick-hunter (pull request #7). Since v0.9.0 ANALOGUE is a switch in RECOMP OPTIONS > ENHANCEMENTS
-(ANALOGUE CONTROLS, off by default; maintainer 2026-11-28) instead of a CONTROLLER choice: while it is on, the
-controller plays the layout below whatever CONTROLLER says. "CONTROLLER = ANALOGUE" below means that switch.
+Contributed by maverick-hunter (pull request #7). In v0.9.0 the ANALOGUE scheme is split into its parts (maintainer
+2026-11-28), each scheme keeps its own buttons: analogue walking is always on (the stick); the pedals are analogue when
+gas / brake are mapped to R2 / L2; RECOMP OPTIONS > ENHANCEMENTS has ANALOGUE STEERING (a page: on / off, preset, dead
+zone, curve, smoothing), PUNCH (MODERN's X on foot by default, CUSTOM MAPPING moves it), TURRET AIM and CAMERA PAN, all
+off by default and single player only; the sprint is ENHANCEMENTS > SPRINT for every scheme. The d-pad weapons / radio
+and the right-stick vehicle fire are not taken over (a player can map them). The text below describes the PR as it came.
 
 Not playtested by its author beyond the notes below; numbers are picks, not measurements of any GTA.
 
@@ -56,9 +59,10 @@ hypothesis from reading two fire functions; if the weapon still fires, `data/gta
 
 Every scheme keeps the original sprint (GAMEPLAY > SPRINT): 1.5 s at 1.4x, then 10 s before the next. With CONTROLLER =
 ANALOGUE, STAMINA SPRINT (CONTROLS > ANALOGUE SETTINGS, under ON FOOT, ON by default; OFF gives the original sprint back) replaces it with a
-stamina bar: a full bar lasts 2.5 s of running at 1.4x. It drains only while the ped walks, starts refilling 2.5 s after you
-stop, and refills from empty in 8 s standing still (16 s while walking) - the maintainer's values for v0.9.0 (GTA 2 had no
-sprint at all; it stays a short burst, about the original port sprint's 1.5 s run / 10 s rest). Running dry locks the sprint
+stamina bar. SPRINT PRESET (same page) picks its numbers: **1** (default, the maintainer's for v0.9.0 - GTA 2 had no
+sprint at all, it stays a short burst): a full bar lasts 2.5 s of running at 1.4x, refilling starts 2.5 s after you stop,
+empty to full in 8 s standing still (16 s while walking); **2** (this PR's own): 3.5 s, after 0.5 s, 3 s (6 s). The bar
+drains only while the ped walks. Running dry locks the sprint
 until the button is released and the bar is full. SPRINT BAR (same page, ON by default) draws the bar at the top centre, in
 10 segments, while sprinting and refilling, fading out 1.5 s after it is full.
 

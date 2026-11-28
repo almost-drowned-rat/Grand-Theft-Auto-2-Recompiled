@@ -59,18 +59,21 @@ Everything stays in the game's folder: `game/` (the game's files), `saves/` (you
   (LT in the modern layout)
 - **Day / night cycle** (off by default): day, sunset, night and sunrise over the game's own lighting - the street
   lamps light the city at night, the cars' headlights come on at dusk and go off in the day (sirens and brake lights
-  stay), a lamp broken in a crash stays dark; a full day takes 24, 48 or 96 minutes
+  stay), a lamp broken in a crash stays dark; a full day takes 24, 48 or 96 minutes, or set each phase's length
+  to the second yourself (a phase at 0:00 is skipped - e.g. only daylight)
 - **Save anywhere** (off by default): SAVE GAME in the pause menu (free; not on a job, while wanted, in a car or in
   water) and LOAD GAME in the main menu bring you back exactly where you saved; the church saves work as before
 - **Controls:** any SDL3 gamepad with hot-plug and rumble (explosions), a classic and a modern pad layout plus your
   own mapping (the modern layout keeps its right-stick aiming, on foot and in a car mapped apart), three mapping
   profiles beside the stock one, keyboard only or keyboard + mouse, and a keyboard mapping of your own in the same
   layout (on foot and in a car apart); an illustrated controller layout and a control overview
-- **Analogue controls** (off by default; by maverick-hunter): analogue walking, gas and brake on the triggers,
-  proportional steering, the right stick aims turrets and pans the camera, a stamina sprint - fine-tuned in
-  CONTROLS > ANALOGUE SETTINGS
+- **Analogue controls** (by maverick-hunter): analogue walking with the stick, analogue gas and brake when they are
+  mapped to the triggers, and in ENHANCEMENTS (off by default) ANALOGUE STEERING (with presets, dead zone, curve,
+  smoothing), PUNCH (with the weapon put away), TURRET AIM (the right stick) and CAMERA PAN (Select + right stick)
+- **Sprint** (ENHANCEMENTS > SPRINT): a short sprint with a stamina bar, two presets, the bar's place of your choice
 - **Mods:** every folder in `mods/` is one mod whose files stand in for the game's (graphics, maps, scripts,
-  texts, sounds) - nothing in the game's own folder is changed; a folder name starting with `_` switches it off
+  texts, sounds) - nothing in the game's own folder is changed; a folder name starting with `_` switches it off.
+  Planned: mods that bring their own code, so new features no longer need a pull request
 - **MIXTAPE**, a radio station of your own: put your music (MP3, FLAC, Ogg Vorbis, WAV) into album folders under
   `media/`; it plays on like a radio station after the game's stations. All albums or one, in order or shuffled.
 - **Languages:** English and Spanish come with the game. The translations pack adds **German, French, Italian, Polish,

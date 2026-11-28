@@ -70,7 +70,7 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 
 enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
        VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_OVERVIEW, VP_PADVIEW, VP_SOUNDTRACK,
-       VP_MINIMAP, VP_MAP, VP_ANALOGUE, VP_COUNT };
+       VP_MINIMAP, VP_MAP, VP_ANALOGUE, VP_SPRINTBAR, VP_DAYNIGHT, VP_COUNT };
 enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM, L_OVR, L_PADVIEW, L_MTSRC, L_MTMODE, L_PROFILE, L_SUBPAGE /* a page entered from a line of its own: drawn at the right edge with a ">" */,
        L_HEAD /* a heading or an empty line: not chosen, the cursor passes over it */,
        L_SAVE /* SAVE GAME (issue #6): its value is why not, if a save is refused now */ };
@@ -134,15 +134,25 @@ static const mline l_perf[] = {
     { NULL, L_OPT, OPT_PERF_SPEED },
 };
 static mline l_cheats[N_CHEATS + 2];
-static mline l_controls[8];   /* built by controls_sync: ANALOGUE SETTINGS only with ENHANCEMENTS > ANALOGUE CONTROLS on */
+static mline l_controls[8];   /* built by controls_sync */
+/* ENHANCEMENTS > ANALOGUE STEERING (PR #7's car steering, maintainer 2026-11-28: a switch with his choices) */
 static const mline l_analogue[] = {
-    { "DRIVING", L_HEAD, 0 },
+    { NULL, L_OPT, OPT_ANALOGUE_STEERING },
     { NULL, L_OPT, OPT_STEER_PRESET }, { NULL, L_OPT, OPT_STEER_DEAD }, { NULL, L_OPT, OPT_STEER_CURVE },
     { NULL, L_OPT, OPT_STEER_HOLD },
-    { NULL, L_OPT, OPT_TURRET_AIM },
-    { "", L_HEAD, 0 },
-    { "ON FOOT", L_HEAD, 0 },
-    { NULL, L_OPT, OPT_STAMINA_SPRINT }, { NULL, L_OPT, OPT_SPRINT_BAR },
+};
+/* ENHANCEMENTS > SPRINT (maintainer 2026-11-28: a page of its own as the minimap - SPRINT on / off, the PRESET, then the
+ * bar: on / off and its position) */
+static const mline l_sprintbar[] = {
+    { NULL, L_OPT, OPT_SPRINT }, { NULL, L_OPT, OPT_SPRINT_PRESET },
+    { NULL, L_OPT, OPT_SPRINT_BAR }, { NULL, L_OPT, OPT_SPRINT_BAR_X }, { NULL, L_OPT, OPT_SPRINT_BAR_Y },
+};
+/* ENHANCEMENTS > DAY / NIGHT (maintainer 2026-11-28): the cycle on / off, PRESET 1 / 2 / 3 / CUSTOM, then each phase's
+ * length in real time to the second (0:00 skips it: only DAY > 0 = always day) */
+static const mline l_daynight[] = {
+    { NULL, L_OPT, OPT_DAY_NIGHT }, { NULL, L_OPT, OPT_DAY_PRESET },
+    { NULL, L_OPT, OPT_DAY_SECS }, { NULL, L_OPT, OPT_SUNSET_SECS }, { NULL, L_OPT, OPT_NIGHT_SECS },
+    { NULL, L_OPT, OPT_SUNRISE_SECS },
 };
 static const mline l_padview[] = { { "VIEW", L_PADVIEW, 0 } };
 static int g_pv_car;   /* CONTROLLER LAYOUT shows IN A CAR */
@@ -166,13 +176,19 @@ static const gta2_shader_item *g_browse_items;
 /* Its order (maintainer 2026-11-27): LANGUAGE, MINIMAP, MANUAL CAMERA, then the rest; no CAMERA DISTANCE line
  * (the camera buttons set it). LANGUAGE has no sub-page; leaving the page with a language other than the one
  * the game started with opens the pop-up RESTART? (RESTART NOW / RESTART LATER) - every time */
+/* 2026-11-28 (maintainer): the lines with a page of their own first (after SPRINT), the other choices, then the ON / OFF
+ * switches - "first the complicated options, then the on / off switches" */
 static const mline l_gameplay[] = { { "LANGUAGE", L_LANG, 0 }, { "MINIMAP", L_PAGE, VP_MINIMAP },
-                                    { NULL, L_OPT, OPT_DAY_NIGHT }, { NULL, L_OPT, OPT_DAY_LENGTH },
+                                    { "SPRINT", L_PAGE, VP_SPRINTBAR },
+                                    { "DAY / NIGHT", L_PAGE, VP_DAYNIGHT },
+                                    { "ANALOGUE STEERING", L_PAGE, VP_ANALOGUE },   /* PR #7 */
+                                    { NULL, L_OPT, OPT_PEDESTRIANS }, { NULL, L_OPT, OPT_TRAFFIC },
                                     { NULL, L_OPT, OPT_MANUAL_CAMERA },   /* + the fixed camera (issue #6) */
                                     { NULL, L_OPT, OPT_SAVE_ANYWHERE },   /* SAVE GAME / LOAD GAME (issue #6) */
-                                    { NULL, L_OPT, OPT_ANALOGUE_CONTROLS },   /* PR #7; its settings: CONTROLS */
-                                    { NULL, L_OPT, OPT_PEDESTRIANS }, { NULL, L_OPT, OPT_TRAFFIC },
-                                    { NULL, L_OPT, OPT_SPRINT }, { NULL, L_OPT, OPT_MORE_BLOOD } };
+                                    { NULL, L_OPT, OPT_PUNCH },           /* PR #7: X on foot, CUSTOM MAPPING */
+                                    { NULL, L_OPT, OPT_TURRET_AIM },      /* PR #7 */
+                                    { NULL, L_OPT, OPT_CAMERA_PAN },      /* PR #7: SPECIAL 2 + right stick */
+                                    { NULL, L_OPT, OPT_MORE_BLOOD } };
 /* GAMEPLAY > MINIMAP (maintainer 2026-11-27): the radar's look, then an ON/OFF switch per element */
 static const mline l_minimap[] = {
     { NULL, L_OPT, OPT_MINIMAP }, { NULL, L_OPT, OPT_MINIMAP_SIZE }, { NULL, L_OPT, OPT_MINIMAP_ZOOM },
@@ -196,15 +212,15 @@ static const mline l_exit[] = { { "NO", L_ACTION, ACT_EXIT_NO }, { "YES", L_ACTI
 /* the pause menu over the game (START / Esc in play; maintainer 2026-11-26) */
 /* + SAVE GAME under RESUME (save anywhere, issue #6; maintainer 2026-11-28: in the pause menu during play) */
 static const mline l_pause[] = {
-    { "RESUME", L_ACTION, ACT_RESUME }, { "SAVE GAME", L_SAVE, 0 }, { "RECOMP OPTIONS", L_PAGE, VP_ROOT },
-    { "RESTART AREA", L_PAGE, VP_RESTART }, { "EXIT GAME", L_PAGE, VP_QUITPROG },
+    { "RESUME", L_ACTION, ACT_RESUME }, { "SAVE GAME", L_SAVE, 0 }, { "RESTART AREA", L_PAGE, VP_RESTART },
+    { "RECOMP OPTIONS", L_PAGE, VP_ROOT }, { "EXIT GAME", L_PAGE, VP_QUITPROG },   /* swapped (maintainer 2026-11-28) */
     { "EXIT TO MAIN MENU", L_PAGE, VP_QUIT },
 };
 /* ... with MINIMAP > PAUSE MAP on: MAP under RESUME, the whole district (maintainer 2026-11-27) */
 static const mline l_pause_map[] = {
     { "RESUME", L_ACTION, ACT_RESUME }, { "SAVE GAME", L_SAVE, 0 }, { "MAP", L_PAGE, VP_MAP },
-    { "RECOMP OPTIONS", L_PAGE, VP_ROOT },
-    { "RESTART AREA", L_PAGE, VP_RESTART }, { "EXIT GAME", L_PAGE, VP_QUITPROG },
+    { "RESTART AREA", L_PAGE, VP_RESTART },
+    { "RECOMP OPTIONS", L_PAGE, VP_ROOT }, { "EXIT GAME", L_PAGE, VP_QUITPROG },
     { "EXIT TO MAIN MENU", L_PAGE, VP_QUIT },
 };
 static const mline l_map[] = { { "BACK", L_BACK, 0 } };
@@ -219,7 +235,9 @@ static mpage g_pages[VP_COUNT] = {
     [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, (int)(sizeof l_display / sizeof l_display[0]) },
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 6 },
-    [VP_ANALOGUE] = { "ANALOGUE SETTINGS", VP_CONTROLS, l_analogue, 10 },
+    [VP_ANALOGUE] = { "ANALOGUE STEERING", VP_GAMEPLAY, l_analogue, (int)(sizeof l_analogue / sizeof l_analogue[0]) },
+    [VP_SPRINTBAR] = { "SPRINT", VP_GAMEPLAY, l_sprintbar, (int)(sizeof l_sprintbar / sizeof l_sprintbar[0]) },
+    [VP_DAYNIGHT] = { "DAY / NIGHT", VP_GAMEPLAY, l_daynight, (int)(sizeof l_daynight / sizeof l_daynight[0]) },
     [VP_PADVIEW] = { "CONTROLLER LAYOUT", VP_CONTROLS, l_padview, 1 },
     [VP_OVERVIEW] = { "CONTROL OVERVIEW", VP_CONTROLS, l_overview, 0 },
     [VP_MAPPING] = { "CUSTOM MAPPING", VP_CONTROLS, l_mapping, 0 },
@@ -494,9 +512,7 @@ static void build_mapping_page(void);
 static void controls_sync(void)
 {
     int n = 0;
-    l_controls[n++] = (mline){ NULL, L_OPT, OPT_CONTROL_SCHEME };
-    if (SCHEME_ALT())
-        l_controls[n++] = (mline){ "ANALOGUE SETTINGS", L_SUBPAGE, VP_ANALOGUE };
+    l_controls[n++] = (mline){ NULL, L_OPT, OPT_CONTROL_SCHEME };   /* (ANALOGUE STEERING: ENHANCEMENTS, 2026-11-28) */
     l_controls[n++] = (mline){ NULL, L_OPT, OPT_KEY_SCHEME };
     l_controls[n++] = (mline){ NULL, L_OPT, OPT_RUMBLE };
     l_controls[n++] = (mline){ "CUSTOM MAPPING", L_PAGE, VP_MAPPING };
@@ -685,14 +701,48 @@ static void go_back(X86Ctx *ctx, uint32_t f)
     g_top = g_cur >= VISIBLE ? g_cur - VISIBLE + 1 : 0;
 }
 
+/* SPRINT BAR > POSITION X / Y (maintainer 2026-11-28): after a change a full sample bar shows at the new place for 2 s
+ * (the last 0.5 s fading), over the menu, wherever the menu is drawn */
+static uint32_t g_bar_preview_ms;
+
+static void sprint_bar_preview(void)
+{
+    if (!g_bar_preview_ms)
+        return;
+    uint32_t t = wr_time_ms() - g_bar_preview_ms;
+    if (t >= 2000 || g_vp != VP_SPRINTBAR) {
+        g_bar_preview_ms = 0;
+        return;
+    }
+    gta2_sprint_bar_preview(t < 1500 ? 1.0f : (float)(2000 - t) / 500.0f);
+}
+
 static void change(X86Ctx *ctx, const mline *l, int d)
 {
     switch (l->kind) {
     case L_OPT: {
         int n = opt_count(l->arg);
+        if (opt_is_numeric(l->arg)) {
+            /* seconds: held left / right count faster - 1 s, after 2 s 5 s, after 4 s 15 s, after 6 s 60 s steps;
+             * no wrap-around (0:00 .. the top) */
+            static uint32_t last, start;
+            uint32_t now = wr_time_ms();
+            if (now - last > 200)
+                start = now;
+            last = now;
+            uint32_t held = now - start;
+            int step = held > 6000 ? 60 : held > 4000 ? 15 : held > 2000 ? 5 : 1;
+            int v = opt_get(l->arg) + d * step;
+            if (step > 1)
+                v = v / step * step + (d < 0 && v % step ? step : 0);   /* on round numbers */
+            opt_set(l->arg, v < 0 ? 0 : v >= n ? n - 1 : v);
+            break;
+        }
         opt_set(l->arg, (opt_get(l->arg) + d + n) % n);
         if (l->arg == OPT_CONTROL_SCHEME)
             controls_sync();
+        if (l->arg == OPT_SPRINT_BAR_X || l->arg == OPT_SPRINT_BAR_Y)
+            g_bar_preview_ms = wr_time_ms();   /* the sample bar at the new place (sprint_bar_preview) */
         break;
     }
     case L_VOL: {
@@ -1142,6 +1192,7 @@ void gta2_menu_draw(X86Ctx *ctx)
         put_text(ctx, "THE NEW LANGUAGE", xl, Y_FIRST + 3 * Y_STEP, font, SCALE);
         put_text(ctx, "NEEDS A RESTART", xl, Y_FIRST + 4 * Y_STEP, font, SCALE);
     }
+    sprint_bar_preview();
 }
 
 /* After the game read its Debug flags at start: the saved cheats. */
@@ -1248,7 +1299,7 @@ void gta2_pause_tick(X86Ctx *ctx)
             if (opt_get(OPT_MINIMAP) && opt_get(OPT_PAUSE_MAP))
                 l_pause_now[n++] = l_pause_map[2];   /* MAP */
             for (int i = 2; i < (int)(sizeof l_pause / sizeof l_pause[0]); i++)
-                l_pause_now[n++] = l_pause[i];   /* RECOMP OPTIONS ... EXIT TO MAIN MENU */
+                l_pause_now[n++] = l_pause[i];   /* RESTART AREA ... EXIT TO MAIN MENU */
             g_pages[VP_PAUSE].l = l_pause_now;
             g_pages[VP_PAUSE].n = n;
         }
@@ -1337,6 +1388,7 @@ void gta2_pause_draw(X86Ctx *ctx)
         put_text(ctx, "THE NEW LANGUAGE", x0, y0 + 3 * 24, P_FONT, 0x4000);
         put_text(ctx, "NEEDS A RESTART", x0, y0 + 4 * 24, P_FONT, 0x4000);
     }
+    sprint_bar_preview();
 }
 
 

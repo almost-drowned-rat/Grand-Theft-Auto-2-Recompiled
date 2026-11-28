@@ -78,7 +78,7 @@ static float left_push(float *sx, float *sy)
     float lx, ly, a, b;
     *sx = *sy = 0;
     wr_pad_stick(sx, sy);
-    if (!SCHEME_ALT() && sqrtf(*sx * *sx + *sy * *sy) < 0.3f && wr_pad_dpad(&dx, &dy)) {
+    if (sqrtf(*sx * *sx + *sy * *sy) < 0.3f && wr_pad_dpad(&dx, &dy)) {   /* MODERN's d-pad walks (as before) */
         *sx = (float)dx;
         *sy = (float)dy;
     }
@@ -141,14 +141,19 @@ int gta2_twin_move_angle(uint32_t obj)
  * hits zero the sprint stays locked until the button is released and the bar is full again. Counted in on-foot steps (one per game tick, 30.3 Hz). */
 #define SPRINT_FACTOR 1.4f
 #define SPRINT_HZ 30.3f
-/* maintainer 2026-11-28: 3 s of running, a clearly longer refill ("GTA had no sprint at all - like this you sprint
- * nearly all the time"): about the original port sprint's 1.5 s run / 10 s rest, as a bar; ENDLESS SPRINTING stays */
-#define SPRINT_REGEN_DELAY 2.5f   /* s after the last sprint step before the bar refills (PR #7: 0.5; maintainer: 2.5) */
-#define SPRINT_REGEN_FULL 8.0f    /* s for an empty bar to refill while standing still (PR #7: 3; then 12; 8) */
+/* SPRINT > PRESET 1 / 2 (ENHANCEMENTS > SPRINT page; maintainer 2026-11-28): two sets of numbers -
+ *   1 (default) the maintainer's: 2.5 s of running, refill after 2.5 s, empty -> full in 8 s ("GTA had no sprint at
+ *     all - like this you sprint nearly all the time")
+ *   2 the PR's own (maverick-hunter): 3.5 s, refill after 0.5 s, empty -> full in 3 s
+ * walking refills at half the standing speed in both; ENDLESS SPRINTING (cheats) stays */
+static const struct { float secs, delay, full; } k_sprint_preset[2] = { { 2.5f, 2.5f, 8.0f }, { 3.5f, 0.5f, 3.0f } };
+static int sprint_preset(void) { return opt_get(OPT_SPRINT_PRESET) == 1 ? 1 : 0; }   /* 0 = PRESET 1, 1 = PRESET 2 */
+#define SPRINT_SECS        (k_sprint_preset[sprint_preset()].secs)    /* s of running a full bar lasts */
+#define SPRINT_REGEN_DELAY (k_sprint_preset[sprint_preset()].delay)   /* s after the last sprint step before the refill */
+#define SPRINT_REGEN_FULL  (k_sprint_preset[sprint_preset()].full)    /* s for an empty bar to refill while standing */
 #define SPRINT_REGEN_MOVING 0.5f  /* refill speed while the ped keeps walking, relative to standing */
 #define SPRINT_REARM 1.0f         /* after running dry, the bar must be full before the sprint works again */
 #define SPRINT_BAR_HOLD 1.5f      /* s the bar stays up after it is full and the ped stopped sprinting */
-#define SPRINT_SECS 2.5f          /* s of running a full bar lasts (PR #7: 3.5; maintainer 2026-11-28: 2.5) */
 /* g_sprint_left (declared above): > 0 while sprinting this tick; read by the speed hook and the feel */
 static float g_stamina = 1.0f;           /* 0..1 */
 static int g_sprint_locked, g_sprint_delay, g_bar_hold;
@@ -192,42 +197,16 @@ static void sprint_step_stamina(uint32_t player)
         g_bar_hold--;
 }
 
-/* The original sprint (upstream): a 1.5 s burst at 1.4x, then 10 s before the next one; used by every scheme but ANALOGUE, and by
- * ANALOGUE with STAMINA SPRINT off. ENDLESS SPRINTING (cheats) makes it a plain hold. */
-#define BURST_TICKS 45
-#define BURST_REST 303
-static int g_sprint_rest, g_sprint_b_prev;
-static void sprint_step_burst(uint32_t player)
-{
-    (void)player;
-    int b = gta2_sprint_pressed();
-    if (getenv("WR_FAKE_SPRINT"))
-        b = 1;
-    if (opt_get(OPT_ENDLESS_SPRINT)) {
-        g_sprint_left = b ? 1 : 0;
-        g_sprint_b_prev = b;
-        return;
-    }
-    if (g_sprint_rest > 0)
-        g_sprint_rest--;
-    if (b && !g_sprint_b_prev && g_sprint_rest == 0 && g_sprint_left == 0) {
-        g_sprint_left = BURST_TICKS;
-        g_sprint_rest = BURST_TICKS + BURST_REST;
-    }
-    g_sprint_b_prev = b;
-    if (g_sprint_left > 0)
-        g_sprint_left--;
-}
-
-/* the stamina sprint and its bar belong to the ANALOGUE scheme */
-static int stamina_mode(void) { return SCHEME_ALT() && opt_get(OPT_STAMINA_SPRINT) && opt_get(OPT_SPRINT); }
+/* SPRINT ON / OFF + PRESET (maintainer 2026-11-28): the stamina sprint in every scheme - the old fixed burst
+ * (1.5 s, then 10 s) is gone; ENDLESS SPRINTING (cheats) keeps the bar full */
+static int stamina_mode(void) { return opt_get(OPT_SPRINT) != 0; }
 
 static void sprint_step(uint32_t player)
 {
     if (stamina_mode())
         sprint_step_stamina(player);
     else
-        sprint_step_burst(player);
+        g_sprint_left = 0;
 }
 
 /* PUNCH (ANALOGUE; experimental). The game only has one attack. Its input step sets a flag on the ped
@@ -297,9 +276,12 @@ void gta2_punch_restore(uint32_t ped)
     wr_wr16(pl + 0x788, g_punch_saved);
 }
 
-/* SPRINT BAR: a thin bar at the top centre of the game screen (maintainer 2026-11-28: up there, not by the bottom edge;
- * just below the game's own banner for vehicle / area names), split into 10 segments; drawn after the HUD. Shown on foot while sprinting and
+/* SPRINT BAR: a thin bar, by default at the top centre of the game screen (maintainer 2026-11-28: up there, not by the bottom
+ * edge; just below the game's own banner for vehicle / area names), its place in ENHANCEMENTS > SPRINT BAR; split into 10
+ * segments; drawn after the HUD. Shown on foot while sprinting and
  * while the bar refills, then for a moment (SPRINT_BAR_HOLD) before it fades out; green, then yellow, then red as it empties, flashing while locked out. */
+static void bar_paint(float shown, float s, int locked);
+
 void gta2_sprint_bar_draw(void)
 {
     static float shown;   /* 0..1 opacity */
@@ -309,19 +291,38 @@ void gta2_sprint_bar_draw(void)
     shown = shown < 0 ? 0 : shown > 1 ? 1 : shown;
     if (shown <= 0.0f)
         return;
+    bar_paint(shown, g_stamina, g_sprint_locked);
+}
+
+/* SPRINT BAR > POSITION X / Y changed (maintainer 2026-11-28): a full sample bar at the new place for a moment, drawn by
+ * the menu over itself (alpha 0..1 fades it out) */
+void gta2_sprint_bar_preview(float alpha)
+{
+    if (alpha > 0.0f)
+        bar_paint(alpha, 1.0f, 0);
+}
+
+static void bar_paint(float shown, float s, int locked)
+{
     /* in the game's own pixels (maintainer 2026-11-28: the first bar was too bright and "too high-def" next to the
      * HUD): one game pixel p = the screen height / 480; muted colours with a light top row and a dark bottom row like
      * the HUD's meters, the ends rounded by cut corners, slightly translucent, thin dark segment marks */
     float sw = (float)g_gfx.w, sh = (float)g_gfx.h;
     float p = fmaxf(1.0f, floorf(sh / 480.0f));
     float w = 150.0f * p, h = 6.0f * p;   /* 150 x 6 game pixels */
-    float x = floorf((sw - w) * 0.5f / p) * p, y = floorf(sh * 0.135f / p) * p;
-    float s = g_stamina;
+    /* ENHANCEMENTS > SPRINT BAR > POSITION X / Y (maintainer 2026-11-28, as the minimap): X = the bar's middle, Y = its
+     * top, in % of the screen (default 52.5 % / 10 %, the maintainer's place: top centre); kept on the screen */
+    float px = (float)opt_get(OPT_SPRINT_BAR_X) * 0.025f, py = (float)opt_get(OPT_SPRINT_BAR_Y) * 0.025f;
+    float x = sw * px - w * 0.5f, y = sh * py;
+    x = fminf(fmaxf(x, 2.0f * p), sw - w - 2.0f * p);
+    y = fminf(fmaxf(y, 2.0f * p), sh - h - 2.0f * p);
+    x = floorf(x / p) * p;
+    y = floorf(y / p) * p;
     /* muted green - yellow - red (the HUD's tones, not neon) */
     float r = s < 0.5f ? 0.80f : 0.80f - (s - 0.5f) * 2.0f * 0.55f;   /* 0.80 .. 0.25 */
     float g = s > 0.5f ? 0.70f : 0.25f + s * 2.0f * 0.45f;            /* 0.25 .. 0.70 */
     float b = 0.18f;
-    if (g_sprint_locked) {
+    if (locked) {
         static unsigned n;
         r = 0.80f; g = (n++ / 6) % 2 ? 0.30f : 0.15f; b = 0.12f;
     }

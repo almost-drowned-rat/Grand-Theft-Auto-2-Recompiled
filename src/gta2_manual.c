@@ -531,7 +531,9 @@ int gta2_turret_active(void) { return g_turret_on; }
 static void gta2_turret_pre(X86Ctx *ctx)
 {
     g_turret_on = 0;
-    if (!SCHEME_ALT() || !opt_get(OPT_TURRET_AIM) || gta2_pause_open() || gta2_pan_held() || !gta2_player_driving())
+    /* ENHANCEMENTS > TURRET AIM (PR #7's switch, on its own since 2026-11-28), single player only */
+    if (!opt_get(OPT_TURRET_AIM) || wr_rd32(0x00673E2Cu) || gta2_pause_open() || gta2_pan_held() ||
+        !gta2_player_driving())
         return;
     uint32_t ped = gta2_player_ped();
     if (!ped || !wr_mem_valid(ped, 0x170))

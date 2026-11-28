@@ -12,7 +12,8 @@ float    gta2_sprint_stamina(void); /* 0..1 sprint stamina (1 = full / INFINITE)
 void     gta2_punch_hold(void);            /* punch held: the current weapon's cooldown kept up so it can't fire */
 int      gta2_punch_swap(uint32_t ped);    /* before the ped's tick: punch held -> weapon put away; 1 = swapped */
 void     gta2_punch_restore(uint32_t ped); /* after the ped's tick: the weapon back */
-void     gta2_sprint_bar_draw(void);  /* SPRINT BAR: a stamina bar at the bottom centre, on foot, after the HUD */
+void     gta2_sprint_bar_draw(void);  /* SPRINT BAR: the stamina bar (its place: ENHANCEMENTS > SPRINT BAR), after the HUD */
+void     gta2_sprint_bar_preview(float alpha);   /* a full sample bar at the set place (the menu, after a POSITION change) */
 int      gta2_sprint_exhausted(void); /* 1 while locked out after running dry */
 
 int      gta2_turret_active(void);    /* ANALOGUE: the player drives a turret vehicle with TURRET AIM on (as of the last tick) */
