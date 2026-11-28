@@ -15,9 +15,9 @@ void     gta2_punch_restore(uint32_t ped); /* after the ped's tick: the weapon b
 void     gta2_sprint_bar_draw(void);  /* SPRINT BAR: a stamina bar at the bottom centre, on foot, after the HUD */
 int      gta2_sprint_exhausted(void); /* 1 while locked out after running dry */
 
-int      gta2_turret_active(void);    /* ANALOGUE: the player drives a turret vehicle with TURRET AIM on (as of the last tick) */
-void     gta2_pan_pre(void);          /* ANALOGUE pan: before the game tick, note the look-around offsets */
+int      gta2_turret_active(void);    /* ANALOG: the player drives a turret vehicle with TURRET AIM on (as of the last tick) */
+void     gta2_pan_pre(void);          /* ANALOG pan: before the game tick, note the look-around offsets */
 void     gta2_pan_post(void);         /* after it: the tick's change made bigger (within the game's limits) */
-void     gta2_pan_arrows_draw(void);  /* ANALOGUE pan: four arrows at the screen edges while the pan button is held */
+void     gta2_pan_arrows_draw(void);  /* ANALOG pan: four arrows at the screen edges while the pan button is held */
 
 #endif

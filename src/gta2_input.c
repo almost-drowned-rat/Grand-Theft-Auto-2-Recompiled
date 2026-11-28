@@ -28,7 +28,7 @@ enum { ACT_UP, ACT_DOWN, ACT_LEFT, ACT_RIGHT, ACT_ATTACK, ACT_ENTER, ACT_JUMP, A
        /* the camera (maintainer 2026-11-27): CAMERA and ZOOM OUT step CAMERA DISTANCE out, ZOOM IN in, each
         * going round at the end - one button reaches every step */
        ACT_CAMERA, ACT_ZOOM_IN, ACT_ZOOM_OUT,
-       /* ANALOGUE: attack with the weapon put away (gta2_punch_pressed) */
+       /* ANALOG: attack with the weapon put away (gta2_punch_pressed) */
        ACT_PUNCH };
 
 static const uint8_t k_default_dik[ACT_N] = { 0xC8, 0xD0, 0xCB, 0xCD, 0x1D, 0x1C, 0x39, 0x2C, 0x2D, 0x0F, 0x38, 0x36 };
@@ -99,7 +99,7 @@ static int modern_action(int c, int driving)
     case WR_PAD_LEFT_STICK_UP: case WR_PAD_LEFT_STICK_DOWN:
         return driving ? -1 : ACT_UP;
     case WR_PAD_DPAD_UP: case WR_PAD_DPAD_DOWN: return driving ? -1 : ACT_UP;
-    /* right stick: aiming on foot (analogue, gta2_state.c), the radio in a car */
+    /* right stick: aiming on foot (analog, gta2_state.c), the radio in a car */
     case WR_PAD_RIGHT_STICK_LEFT: return driving ? ACT_RADIO_PREV : -1;
     case WR_PAD_RIGHT_STICK_RIGHT: return driving ? ACT_RADIO_NEXT : -1;
     case WR_PAD_RIGHT_STICK_UP: case WR_PAD_RIGHT_STICK_DOWN: return -1;
@@ -237,7 +237,7 @@ static int modern_slot(int c, int driving)
     return -1;
 }
 
-/* ANALOGUE (SCHEME_ALT): in a car R2 is the gas and L2 the brake / reverse (analogue, see
+/* ANALOG (SCHEME_ALT): in a car R2 is the gas and L2 the brake / reverse (analog, see
  * gta2_feel_car_pre / _step), the right stick fires; the d-pad: up / down the weapon, left / right the radio (in a car);
  * the d-pad no longer walks (gta2_state.c). -2 = not changed. */
 static int gtav_act(int c, int driving)
@@ -640,7 +640,7 @@ static int cam_pad_button(int act)
 {
     if (SCHEME_MODERNISH()) {
         if (act == ACT_CAMERA && SCHEME_ALT())
-            return -1;   /* ANALOGUE: L2 is the brake, the camera has no button for now */
+            return -1;   /* ANALOG: L2 is the brake, the camera has no button for now */
         mbind_load();
         for (int i = 0; i < MS_N; i++)
             if (k_mslot[i].act == act)
@@ -694,7 +694,7 @@ int gta2_sprint_pressed(void)
     return ctl >= 0 && (int)(c >> ctl & 1);
 }
 
-/* PAN (ANALOGUE): while the button SPECIAL 2 is on in this situation is held (Select by default; CUSTOM MAPPING moves it) the
+/* PAN (ANALOG): while the button SPECIAL 2 is on in this situation is held (Select by default; CUSTOM MAPPING moves it) the
  * right stick is the four directions of the game's Special 2 look-around, and its aim (on foot) / fire (in a car) is off. */
 int gta2_pan_held(void)
 {
@@ -704,7 +704,7 @@ int gta2_pan_held(void)
     return c >= 0 && (int)(wr_pad_controls() >> c & 1);
 }
 
-/* PUNCH held (ANALOGUE, on foot): the pad's Circle. The same press is the game's ATTACK (map above). */
+/* PUNCH held (ANALOG, on foot): the pad's Circle. The same press is the game's ATTACK (map above). */
 int gta2_punch_pressed(void)
 {
     if (!SCHEME_ALT() || gta2_pause_open() || gta2_player_driving())

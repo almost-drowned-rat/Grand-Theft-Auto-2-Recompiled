@@ -68,7 +68,7 @@ static int turn_toward(uint32_t player, int cur, int target)
 static void modern_on_foot_steer(uint32_t player, uint32_t ped);
 static uint32_t g_twin_obj;     /* the player ped's physics object while twin-stick walks */
 static int g_sprint_left;
-static float g_feel_scale = 1.0f;   /* the ANALOGUE feel: this tick's walk speed (0..1); the game ignores a walk command below 1.0 */
+static float g_feel_scale = 1.0f;   /* the ANALOG feel: this tick's walk speed (0..1); the game ignores a walk command below 1.0 */
 static int g_twin_angle;
 
 /* where the player wants to walk: the left stick, else the d-pad, else WASD (MODERN keyboard) */
@@ -100,7 +100,7 @@ static void modern_aim(uint32_t player, uint32_t ped, float rx, float ry)
     float sx, sy;
     float lm = left_push(&sx, &sy);
     int ang = angle_of(sx, sy);
-    if (gta2_feel_active()) {   /* the ANALOGUE feel: the speed follows the push, with momentum (a slide when it lets go) */
+    if (gta2_feel_active()) {   /* the ANALOG feel: the speed follows the push, with momentum (a slide when it lets go) */
         float vx, vy, sp = gta2_feel_move(sx, sy, lm, g_sprint_left > 0, &vx, &vy);
         if (sp <= 0.03f) {
             wr_wr32(player + 0xC, 0);   /* aim in place */
@@ -190,8 +190,8 @@ static void sprint_step_stamina(uint32_t player)
         g_bar_hold--;
 }
 
-/* The original sprint (upstream): a 1.5 s burst at 1.4x, then 10 s before the next one; used by every scheme but ANALOGUE, and by
- * ANALOGUE with STAMINA SPRINT off. ENDLESS SPRINTING (cheats) makes it a plain hold. */
+/* The original sprint (upstream): a 1.5 s burst at 1.4x, then 10 s before the next one; used by every scheme but ANALOG, and by
+ * ANALOG with STAMINA SPRINT off. ENDLESS SPRINTING (cheats) makes it a plain hold. */
 #define BURST_TICKS 45
 #define BURST_REST 303
 static int g_sprint_rest, g_sprint_b_prev;
@@ -217,7 +217,7 @@ static void sprint_step_burst(uint32_t player)
         g_sprint_left--;
 }
 
-/* the stamina sprint and its bar belong to the ANALOGUE scheme */
+/* the stamina sprint and its bar belong to the ANALOG scheme */
 static int stamina_mode(void) { return SCHEME_ALT() && opt_get(OPT_STAMINA_SPRINT) && opt_get(OPT_SPRINT); }
 
 static void sprint_step(uint32_t player)
@@ -228,7 +228,7 @@ static void sprint_step(uint32_t player)
         sprint_step_burst(player);
 }
 
-/* PUNCH (ANALOGUE; experimental). The game only has one attack. Its input step sets a flag on the ped
+/* PUNCH (ANALOG; experimental). The game only has one attack. Its input step sets a flag on the ped
  * (sub_004A5010: ped+0x21C |= 0x800) and the ped's own tick acts on the player's current weapon, read through
  * sub_004A4870 (player+0x788, 0xFFFF = none = fists). While the punch button is held, the weapon is put away
  * for the length of the player ped's tick and put back right after, so the HUD, the ammo and the weapon
@@ -350,7 +350,7 @@ static void modern_on_foot_steer(uint32_t player, uint32_t ped)
     if ((!SCHEME_MODERNISH() && !kbm) || !player || !ped || !wr_mem_valid(ped, 0x180))
         return;
     wr_pad_stick_right(&rx, &ry);
-    if (gta2_pan_held())   /* ANALOGUE: the right stick pans the camera meanwhile (gta2_input.c) */
+    if (gta2_pan_held())   /* ANALOG: the right stick pans the camera meanwhile (gta2_input.c) */
         rx = ry = 0;
     if (kbm && rx * rx + ry * ry < 0.1f) {   /* MODERN keyboard: the mouse aims */
         rx = krx;
@@ -362,7 +362,7 @@ static void modern_on_foot_steer(uint32_t player, uint32_t ped)
     }
     g_twin_obj = 0;
     float sx, sy, mag = left_push(&sx, &sy);   /* the d-pad / WASD as a full push in 8 directions */
-    if (gta2_feel_active()) {   /* the ANALOGUE feel (gta2_feel.c): analog speed, momentum, eased turn */
+    if (gta2_feel_active()) {   /* the ANALOG feel (gta2_feel.c): analog speed, momentum, eased turn */
         uint32_t fobj = wr_rd32(ped + 0x168);
         if (!fobj || !wr_mem_valid(fobj + 0x40, 2))
             return;
@@ -411,10 +411,10 @@ static void modern_on_foot_steer(uint32_t player, uint32_t ped)
                (int32_t)wr_rd32(ped + 0x1B0));
 }
 
-/* ---- PAN (ANALOGUE): a snappier look-around and the four arrows --------------------------------------------------------- */
+/* ---- PAN (ANALOG): a snappier look-around and the four arrows --------------------------------------------------------- */
 
 /* The game's look-around (Special 2) moves the camera's offsets (cam = player+0x90: x +0x48, y +0x4C, fixed-point) with an
- * acceleration and a speed limit, so it lags behind the stick and drifts on. With ANALOGUE the offsets are instead set after each
+ * acceleration and a speed limit, so it lags behind the stick and drifts on. With ANALOG the offsets are instead set after each
  * tick straight from the stick: offset = push * the game's own limit ([0x5E3CD0] x, [0x5E3E74] y), so the view follows the stick
  * with no delay and no drift. Which sign the game uses for each axis is learned from its own first movement while the stick is
  * pushed (the game still sees the four direction presses); until then the game's pan is left alone. If the limits do not look

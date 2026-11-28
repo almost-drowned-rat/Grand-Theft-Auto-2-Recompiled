@@ -69,7 +69,7 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 
 enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
        VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_OVERVIEW, VP_PADVIEW, VP_SOUNDTRACK,
-       VP_MINIMAP, VP_MAP, VP_ANALOGUE, VP_COUNT };
+       VP_MINIMAP, VP_MAP, VP_ANALOG, VP_COUNT };
 enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM, L_OVR, L_PADVIEW, L_MTSRC, L_MTMODE, L_PROFILE, L_SUBPAGE /* a page entered from a line of its own: drawn at the right edge with a ">" */,
        L_HEAD /* a heading or an empty line: not chosen, the cursor passes over it */ };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
@@ -132,8 +132,8 @@ static const mline l_perf[] = {
     { NULL, L_OPT, OPT_PERF_SPEED },
 };
 static mline l_cheats[N_CHEATS + 2];
-static mline l_controls[8];   /* built by controls_sync: ANALOGUE STEERING is only listed with CONTROLLER = ANALOGUE */
-static const mline l_analogue[] = {
+static mline l_controls[8];   /* built by controls_sync: ANALOG STEERING is only listed with CONTROLLER = ANALOG */
+static const mline l_analog[] = {
     { "DRIVING", L_HEAD, 0 },
     { NULL, L_OPT, OPT_STEER_PRESET }, { NULL, L_OPT, OPT_STEER_DEAD }, { NULL, L_OPT, OPT_STEER_CURVE },
     { NULL, L_OPT, OPT_STEER_HOLD },
@@ -212,7 +212,7 @@ static mpage g_pages[VP_COUNT] = {
     [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, (int)(sizeof l_display / sizeof l_display[0]) },
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 6 },
-    [VP_ANALOGUE] = { "ANALOGUE SETTINGS", VP_CONTROLS, l_analogue, 10 },
+    [VP_ANALOG] = { "ANALOG SETTINGS", VP_CONTROLS, l_analog, 10 },
     [VP_PADVIEW] = { "CONTROLLER LAYOUT", VP_CONTROLS, l_padview, 1 },
     [VP_OVERVIEW] = { "CONTROL OVERVIEW", VP_CONTROLS, l_overview, 0 },
     [VP_MAPPING] = { "CUSTOM MAPPING", VP_CONTROLS, l_mapping, 0 },
@@ -484,7 +484,7 @@ static void controls_sync(void)
     int n = 0;
     l_controls[n++] = (mline){ NULL, L_OPT, OPT_CONTROL_SCHEME };
     if (SCHEME_ALT())
-        l_controls[n++] = (mline){ "ANALOGUE SETTINGS", L_SUBPAGE, VP_ANALOGUE };
+        l_controls[n++] = (mline){ "ANALOG SETTINGS", L_SUBPAGE, VP_ANALOG };
     l_controls[n++] = (mline){ NULL, L_OPT, OPT_KEY_SCHEME };
     l_controls[n++] = (mline){ NULL, L_OPT, OPT_RUMBLE };
     l_controls[n++] = (mline){ "CUSTOM MAPPING", L_PAGE, VP_MAPPING };

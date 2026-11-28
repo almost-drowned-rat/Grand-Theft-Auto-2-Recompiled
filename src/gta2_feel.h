@@ -1,4 +1,4 @@
-/* GTA 2 Recompiled - the ANALOGUE feel presets (gta2_feel.c): analog walking and car steering on the left stick. */
+/* GTA 2 Recompiled - the ANALOG feel presets (gta2_feel.c): analog walking and car steering on the left stick. */
 #ifndef GTA2_FEEL_H
 #define GTA2_FEEL_H
 
@@ -16,7 +16,7 @@ typedef struct {
     float turn_max;      /* most the ped turns in one tick, 4 units = 1 degree (the original game: 48) */
     float turn_min;      /* least it turns per tick while far from the target (stops the slow creep) */
     float slow_turn;     /* 0..1: how much forward speed is lost while facing far away from the stick */
-    float steer_dead;    /* car (set by CONTROLS > ANALOGUE STEERING, not settings.ini): stick sideways push that starts steering */
+    float steer_dead;    /* car (set by CONTROLS > ANALOG STEERING, not settings.ini): stick sideways push that starts steering */
     float steer_curve;   /* car: >1 = finer steering around the middle, still full lock at the edge */
     float steer_hold;    /* car: ticks one steering pulse is held (1..4); more = smoother but coarser */
     float accel;         /* on foot: speed gained per tick toward the target (1.0 = full speed in one tick) */
@@ -43,7 +43,7 @@ void  gta2_feel_move_reset(void);            /* standing still (after a car, ...
  * left / none / right steering with a pulsed analog value while the stick is pushed sideways. */
 void gta2_feel_car_step(void);
 
-/* Called just before the game's car control step: with ANALOGUE the trigger pulls are added to the player's
+/* Called just before the game's car control step: with ANALOG the trigger pulls are added to the player's
  * held forward / back bytes (player+0x78 / +0x79), so the game's own gas / brake / reverse logic runs on them. */
 void gta2_feel_car_pre(void);
 

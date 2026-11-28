@@ -66,7 +66,7 @@ void sub_00462A30(RECOMP_PARAMS)
     {   /* the pause menu (gta2_menu.c) between two loop steps */
         uint32_t ecx = ctx->r_ecx, eax = ctx->r_eax;
         gta2_pause_tick(ctx);
-        gta2_punch_hold();   /* ANALOGUE: the punch button keeps the weapon from firing */
+        gta2_punch_hold();   /* ANALOG: the punch button keeps the weapon from firing */
         ctx->r_ecx = ecx;
         ctx->r_eax = eax;
     }
@@ -76,7 +76,7 @@ void sub_00462A30(RECOMP_PARAMS)
     sub_00462A30_gen(ctx, base);
     uint32_t next = MEM32(0x00662748u);
     if (next != next0)
-        gta2_pan_post();   /* ANALOGUE: the look-around made snappier */
+        gta2_pan_post();   /* ANALOG: the look-around made snappier */
     if (next != next0) {
         gta2_fps_after_tick();    /* FRAME RATE: the tick's positions for interpolation */
         wr_overlay_game_tick();   /* GAME SPEED */
@@ -484,11 +484,11 @@ void sub_004A5C50(RECOMP_PARAMS)   /* on-foot control step (thiscall player, ped
     ctx->r_eax = eax;
 }
 
-/* ---- the ANALOGUE feel: analog car steering (gta2_feel.c) --------------------------------------- */
+/* ---- the ANALOG feel: analog car steering (gta2_feel.c) --------------------------------------- */
 void gta2_feel_car_step(void);
 void gta2_feel_car_pre(void);
 
-/* ANALOGUE: in one of the three turret vehicles the right stick points the turret. The game only turns it one fixed step a
+/* ANALOG: in one of the three turret vehicles the right stick points the turret. The game only turns it one fixed step a
  * tick, left or right (sub_00423720: Special 1 held + left / right; the step is a u16 at 0x5E4D34 / 0x5E4D60 / 0x5E501C, left
  * adds it to the turret's Ang16 at (component + 0x10), right subtracts it; the component is found in the car's list by type id
  * 0x72 / 0x94 / 0xF8 with sub_004BE980). So each tick the angle left to the stick's direction decides left, right or nothing.
@@ -579,11 +579,11 @@ static void gta2_turret_pre(X86Ctx *ctx)
 extern void sub_004A4C40_gen(RECOMP_PARAMS);
 void sub_004A4C40(RECOMP_PARAMS)   /* the player's car control step (docs/re/gameplay_input_pause.md 3.3) */
 {
-    gta2_feel_car_pre();   /* ANALOGUE: the trigger pulls become the held forward / back bytes first */
-    gta2_turret_pre(ctx);  /* ANALOGUE: right stick left / right = the turret (Special 1 held + left / right) */
+    gta2_feel_car_pre();   /* ANALOG: the trigger pulls become the held forward / back bytes first */
+    gta2_turret_pre(ctx);  /* ANALOG: right stick left / right = the turret (Special 1 held + left / right) */
     sub_004A4C40_gen(ctx, base);
     uint32_t eax = ctx->r_eax;
-    gta2_feel_car_step();   /* after the game set the steering byte; nothing happens with the ANALOGUE feel = DEFAULT */
+    gta2_feel_car_step();   /* after the game set the steering byte; nothing happens with the ANALOG feel = DEFAULT */
     ctx->r_eax = eax;
 }
 
@@ -598,7 +598,7 @@ void sub_004CA440(RECOMP_PARAMS)   /* draws the HUD each frame (thiscall HUD) */
     uint32_t eax = ctx->r_eax;
     gta2_radio_label_draw(ctx);   /* MIXTAPE: station + song for a moment */
     gta2_sprint_bar_draw();       /* SPRINT BAR: stamina, on foot */
-    gta2_pan_arrows_draw();       /* ANALOGUE: the pan arrows */
+    gta2_pan_arrows_draw();       /* ANALOG: the pan arrows */
     gta2_pause_draw(ctx);
     ctx->r_eax = eax;
 }
@@ -692,7 +692,7 @@ static void ped_tick_inner(RECOMP_PARAMS)
 void sub_004454E0(RECOMP_PARAMS)   /* one ped's tick (thiscall ped) */
 {
     uint32_t ped = ctx->r_ecx;
-    int punch = gta2_punch_swap(ped);   /* ANALOGUE: PUNCH puts the weapon away for this tick */
+    int punch = gta2_punch_swap(ped);   /* ANALOG: PUNCH puts the weapon away for this tick */
     ctx->r_ecx = ped;
     ped_tick_inner(ctx, base);
     if (punch)

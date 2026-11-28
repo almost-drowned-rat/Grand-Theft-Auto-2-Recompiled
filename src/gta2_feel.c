@@ -1,14 +1,14 @@
 /*
- * GTA 2 Recompiled - the ANALOGUE feel presets.
+ * GTA 2 Recompiled - the ANALOG feel presets.
  *
- * The game has no analogue input (docs/re/gameplay_input_pause.md): the MODERN scheme turns the left stick into
+ * The game has no analog input (docs/re/gameplay_input_pause.md): the MODERN scheme turns the left stick into
  * a full-speed walk once it passes a threshold, and cars only know left / none / right. These presets add
  *   - walking speed that follows how far the stick is pushed,
  *   - turning that eases toward the stick instead of a fixed rate, with less forward speed while the ped is
  *     still facing away (as most third-person games do),
  *   - car steering that follows the stick sideways: the game's steering is a three-state byte (phys+0xAD),
  *     so a partial push is pulsed on and off over the ticks (error diffusion), the average being the push.
- * the ANALOGUE feel = DEFAULT changes nothing. The presets are starting points to be tuned by feel; every number can be
+ * the ANALOG feel = DEFAULT changes nothing. The presets are starting points to be tuned by feel; every number can be
  * set in saves/settings.ini as feel_<name> (see gta2_feel.h; the game reads that file once, at start-up).
  */
 #include "gta2_feel.h"
@@ -71,10 +71,10 @@ const gta2_feel *gta2_feel_get(void)
                 cur.dead_out = cur.dead_in + 0.05f;
         }
         if (p != loaded)
-            wr_log("feel: the ANALOGUE feel %s", k_name[p]);
+            wr_log("feel: the ANALOG feel %s", k_name[p]);
         loaded = p;
     }
-    /* the car steering comes from the ANALOGUE STEERING page (OPT_STEER_*), read every time so a change applies at once */
+    /* the car steering comes from the ANALOG STEERING page (OPT_STEER_*), read every time so a change applies at once */
     static const float k_dead[8] = { 0.04f, 0.06f, 0.08f, 0.10f, 0.12f, 0.14f, 0.16f, 0.20f };
     static const float k_curve[8] = { 1.0f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f, 2.4f, 3.0f };
     int id = opt_get(OPT_STEER_DEAD), ic = opt_get(OPT_STEER_CURVE), ih = opt_get(OPT_STEER_HOLD);
@@ -257,7 +257,7 @@ void gta2_feel_car_step(void)
                    "(car %08x driver %08x ped %08x phys %08x) - steering left alone", car, wr_rd32(car + 0x54), ped, phys);
         return;
     }
-    if (trig_on && g_duty >= 0) {   /* ANALOGUE: the throttle the game gave (phys+0x91: gas, or gas in reverse) is
+    if (trig_on && g_duty >= 0) {   /* ANALOG: the throttle the game gave (phys+0x91: gas, or gas in reverse) is
                                      * gated to the pull; the brake flags are left to the game's own state machine */
         if (wr_rd8(phys + 0x91)) {
             acc_gas += g_duty;

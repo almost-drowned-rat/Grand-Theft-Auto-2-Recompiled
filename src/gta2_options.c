@@ -39,9 +39,9 @@ static const char *const v_rate[] = { "30", "60", "120" };
 static const char *const l_rate[] = { "30", "60 INTERPOLATED", "120 INTERPOLATED" };
 static const char *const v_kscheme[] = { "classic", "modern", "mouse" };   /* modern = keyboard only (the pad layout) */
 static const char *const l_kscheme[] = { "CLASSIC", "MODERN", "KEYBOARD + MOUSE" };
-static const char *const v_scheme[] = { "classic", "modern", "analogue", "custom" };
-static const char *const l_scheme[] = { "CLASSIC", "MODERN", "ANALOGUE", "CUSTOM" };
-/* ANALOGUE SETTINGS (the page under CONTROLS): the car steering of the ANALOGUE scheme (gta2_feel.c turns the index into the number) */
+static const char *const v_scheme[] = { "classic", "modern", "analog", "custom" };
+static const char *const l_scheme[] = { "CLASSIC", "MODERN", "ANALOG", "CUSTOM" };
+/* ANALOG SETTINGS (the page under CONTROLS): the car steering of the ANALOG scheme (gta2_feel.c turns the index into the number) */
 static const char *const v_spreset[] = { "smooth", "snappy", "heavy", "custom" };
 static const char *const l_spreset[] = { "SMOOTH", "SNAPPY", "HEAVY", "CUSTOM" };
 static const char *const v_sdead[] = { "0.04", "0.06", "0.08", "0.10", "0.12", "0.14", "0.16", "0.20" };
@@ -80,7 +80,7 @@ void gta2_keys_apply(void);
 static void apply_keys(int c) { (void)c; gta2_keys_apply(); }
 static void apply_nothing(int c) { (void)c; }   /* read by the renderer each frame */
 
-/* ANALOGUE SETTINGS presets: the indexes of dead zone / curve / smoothing in the three tables below */
+/* ANALOG SETTINGS presets: the indexes of dead zone / curve / smoothing in the three tables below */
 static const int k_spreset[3][3] = { { 3, 3, 1 },    /* SMOOTH: 0.10, 1.6, 2 */
                                      { 2, 1, 0 },    /* SNAPPY: 0.08, 1.2, 1 */
                                      { 4, 5, 1 } };  /* HEAVY:  0.12, 2.0, 2 */
