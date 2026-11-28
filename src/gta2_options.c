@@ -40,8 +40,14 @@ static const char *const l_rate[] = { "30", "60 INTERPOLATED", "120 INTERPOLATED
 /* modern = keyboard only (the pad layout); custom = the keyboard's CUSTOM MAPPING by situation (maintainer 2026-11-27) */
 static const char *const v_kscheme[] = { "classic", "modern", "mouse", "custom" };
 static const char *const l_kscheme[] = { "CLASSIC", "MODERN", "KEYBOARD + MOUSE", "CUSTOM" };
-static const char *const v_scheme[] = { "classic", "modern", "custom" };
-static const char *const l_scheme[] = { "CLASSIC", "MODERN", "CUSTOM" };
+static const char *const v_scheme[] = { "classic", "modern", "analogue", "custom" };
+static const char *const l_scheme[] = { "CLASSIC", "MODERN", "ANALOGUE", "CUSTOM" };
+/* ANALOGUE SETTINGS (the page under CONTROLS): the car steering of the ANALOGUE scheme (gta2_feel.c turns the index into the number) */
+static const char *const v_spreset[] = { "smooth", "snappy", "heavy", "custom" };
+static const char *const l_spreset[] = { "SMOOTH", "SNAPPY", "HEAVY", "CUSTOM" };
+static const char *const v_sdead[] = { "0.04", "0.06", "0.08", "0.10", "0.12", "0.14", "0.16", "0.20" };
+static const char *const v_scurve[] = { "1.0", "1.2", "1.4", "1.6", "1.8", "2.0", "2.4", "3.0" };
+static const char *const v_shold[] = { "1", "2", "3", "4" };
 static const char *const v_factor[] = { "1", "2", "3", "4" };
 static const char *const l_factor[] = { "1X", "2X", "3X", "4X" };
 static const char *const v_onoff[] = { "0", "1" };
@@ -76,6 +82,34 @@ static void apply_peds(int c) { (void)c; g_gta2_peds_pending = 1; }   /* live in
 void gta2_keys_apply(void);
 static void apply_keys(int c) { (void)c; gta2_keys_apply(); }
 static void apply_nothing(int c) { (void)c; }   /* read by the renderer each frame */
+
+/* ANALOGUE SETTINGS presets: the indexes of dead zone / curve / smoothing in the three tables below */
+static const int k_spreset[3][3] = { { 3, 3, 1 },    /* SMOOTH: 0.10, 1.6, 2 */
+                                     { 2, 1, 0 },    /* SNAPPY: 0.08, 1.2, 1 */
+                                     { 4, 5, 1 } };  /* HEAVY:  0.12, 2.0, 2 */
+static int g_steer_busy;
+static void apply_steer_preset(int c)
+{
+    if (c < 0 || c > 2)
+        return;   /* CUSTOM: the numbers stay as they are */
+    g_steer_busy = 1;
+    opt_set(OPT_STEER_DEAD, k_spreset[c][0]);
+    opt_set(OPT_STEER_CURVE, k_spreset[c][1]);
+    opt_set(OPT_STEER_HOLD, k_spreset[c][2]);
+    g_steer_busy = 0;
+}
+static void apply_steer_value(int c)   /* a number was changed by hand: the preset it now equals, else CUSTOM */
+{
+    (void)c;
+    if (g_steer_busy)
+        return;
+    int p = 3;
+    for (int i = 0; i < 3; i++)
+        if (opt_get(OPT_STEER_DEAD) == k_spreset[i][0] && opt_get(OPT_STEER_CURVE) == k_spreset[i][1] &&
+            opt_get(OPT_STEER_HOLD) == k_spreset[i][2])
+            p = i;
+    opt_set(OPT_STEER_PRESET, p);   /* its apply sees CUSTOM or the same numbers again: nothing more happens */
+}
 
 static void apply_perf(int c)
 {
@@ -112,7 +146,7 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_PERF_FRAMETIME] = { "FRAME TIME", NULL, 2, v_onoff, l_onoff, 0, apply_perf },
     [OPT_PERF_SPEED]     = { "GAME SPEED", NULL, 2, v_onoff, l_onoff, 0, apply_perf },
     [OPT_RADIO_HALF_RATE] = { "RADIO RATE FIX", "radio_half_rate", 2, v_onoff, l_onoff, 1, apply_radio },
-    [OPT_CONTROL_SCHEME] = { "CONTROLLER", "control_scheme", 3, v_scheme, l_scheme, 0, apply_nothing },
+    [OPT_CONTROL_SCHEME] = { "CONTROLLER", "control_scheme", 4, v_scheme, l_scheme, 0, apply_nothing },
     [OPT_RUMBLE]         = { "RUMBLE", "rumble", 2, v_onoff, l_onoff, 1, apply_nothing },
     [OPT_KEY_SCHEME]     = { "KEYBOARD", "keyboard_scheme", 4, v_kscheme, l_kscheme, 0, apply_keys },
     [OPT_PEDESTRIANS]    = { "PEDESTRIANS", "pedestrians", 4, v_factor, l_factor, 0, apply_peds },
@@ -144,6 +178,14 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_DAY_LENGTH]     = { "DAY LENGTH", "day_length", 3, v_daylen, l_daylen, 0, apply_nothing },
     /* issue #6 (maintainer 2026-11-28: an ENHANCEMENTS switch - purists do not need it): off = church saves only */
     [OPT_SAVE_ANYWHERE]  = { "SAVE ANYWHERE", "save_anywhere", 2, v_onoff, l_onoff, 0, apply_nothing },
+    [OPT_STEER_PRESET]   = { "PRESET", "steer_preset", 4, v_spreset, l_spreset, 0, apply_steer_preset },
+    [OPT_STEER_DEAD]     = { "DEAD ZONE", "steer_dead", 8, v_sdead, v_sdead, 3, apply_steer_value },
+    [OPT_STEER_CURVE]    = { "CURVE", "steer_curve", 8, v_scurve, v_scurve, 3, apply_steer_value },
+    [OPT_STEER_HOLD]     = { "SMOOTHING", "steer_hold", 4, v_shold, v_shold, 1, apply_steer_value },
+    [OPT_TURRET_AIM]     = { "TURRET AIM", "turret_aim", 2, v_onoff, l_onoff, 1, apply_nothing },
+    [OPT_STAMINA_SPRINT] = { "STAMINA SPRINT", "stamina_sprint", 2, v_onoff, l_onoff, 1, apply_nothing },
+    [OPT_ENDLESS_SPRINT] = { "ENDLESS SPRINTING", "cheat_endless_sprint", 2, v_onoff, l_onoff, 0, apply_nothing },
+    [OPT_SPRINT_BAR]     = { "SPRINT BAR", "sprint_bar", 2, v_onoff, l_onoff, 1, apply_nothing },
 };
 
 static int find_choice(int id, const char *v)

@@ -54,6 +54,7 @@ set(GTA2_PORT_SOURCES
     src/gta2_options.c
     src/gta2_menu.c
     src/gta2_state.c
+    src/gta2_feel.c
     src/gta2_gameplay.c
     src/gta2_shaders.c
     src/gta2_padview.c

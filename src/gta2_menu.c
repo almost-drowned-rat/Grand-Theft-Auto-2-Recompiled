@@ -70,8 +70,8 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 
 enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
        VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_OVERVIEW, VP_PADVIEW, VP_SOUNDTRACK,
-       VP_MINIMAP, VP_MAP, VP_COUNT };
-enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM, L_OVR, L_PADVIEW, L_MTSRC, L_MTMODE, L_PROFILE,
+       VP_MINIMAP, VP_MAP, VP_ANALOGUE, VP_COUNT };
+enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM, L_OVR, L_PADVIEW, L_MTSRC, L_MTMODE, L_PROFILE, L_SUBPAGE /* a page entered from a line of its own: drawn at the right edge with a ">" */,
        L_HEAD /* a heading or an empty line: not chosen, the cursor passes over it */,
        L_SAVE /* SAVE GAME (issue #6): its value is why not, if a save is refused now */ };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
@@ -133,12 +133,17 @@ static const mline l_perf[] = {
     { NULL, L_OPT, OPT_VSYNC }, { NULL, L_OPT, OPT_PERF_FPS }, { NULL, L_OPT, OPT_PERF_FRAMETIME },
     { NULL, L_OPT, OPT_PERF_SPEED },
 };
-static mline l_cheats[N_CHEATS + 1];
-static const mline l_controls[] = { { NULL, L_OPT, OPT_CONTROL_SCHEME }, { NULL, L_OPT, OPT_KEY_SCHEME },
-                                    { NULL, L_OPT, OPT_RUMBLE },
-                                    { "CUSTOM MAPPING", L_PAGE, VP_MAPPING },
-                                    { "CONTROLLER LAYOUT", L_PAGE, VP_PADVIEW },
-                                    { "CONTROL OVERVIEW", L_PAGE, VP_OVERVIEW } };
+static mline l_cheats[N_CHEATS + 2];
+static mline l_controls[8];   /* built by controls_sync: ANALOGUE STEERING is only listed with CONTROLLER = ANALOGUE */
+static const mline l_analogue[] = {
+    { "DRIVING", L_HEAD, 0 },
+    { NULL, L_OPT, OPT_STEER_PRESET }, { NULL, L_OPT, OPT_STEER_DEAD }, { NULL, L_OPT, OPT_STEER_CURVE },
+    { NULL, L_OPT, OPT_STEER_HOLD },
+    { NULL, L_OPT, OPT_TURRET_AIM },
+    { "", L_HEAD, 0 },
+    { "ON FOOT", L_HEAD, 0 },
+    { NULL, L_OPT, OPT_STAMINA_SPRINT }, { NULL, L_OPT, OPT_SPRINT_BAR },
+};
 static const mline l_padview[] = { { "VIEW", L_PADVIEW, 0 } };
 static int g_pv_car;   /* CONTROLLER LAYOUT shows IN A CAR */
 static mline l_overview[32];
@@ -213,6 +218,7 @@ static mpage g_pages[VP_COUNT] = {
     [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, (int)(sizeof l_display / sizeof l_display[0]) },
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 6 },
+    [VP_ANALOGUE] = { "ANALOGUE SETTINGS", VP_CONTROLS, l_analogue, 10 },
     [VP_PADVIEW] = { "CONTROLLER LAYOUT", VP_CONTROLS, l_padview, 1 },
     [VP_OVERVIEW] = { "CONTROL OVERVIEW", VP_CONTROLS, l_overview, 0 },
     [VP_MAPPING] = { "CUSTOM MAPPING", VP_CONTROLS, l_mapping, 0 },
@@ -484,13 +490,32 @@ static void prepare_page(uint32_t f)
 
 static void build_mapping_page(void);
 
+static void controls_sync(void)
+{
+    int n = 0;
+    l_controls[n++] = (mline){ NULL, L_OPT, OPT_CONTROL_SCHEME };
+    if (SCHEME_ALT())
+        l_controls[n++] = (mline){ "ANALOGUE SETTINGS", L_SUBPAGE, VP_ANALOGUE };
+    l_controls[n++] = (mline){ NULL, L_OPT, OPT_KEY_SCHEME };
+    l_controls[n++] = (mline){ NULL, L_OPT, OPT_RUMBLE };
+    l_controls[n++] = (mline){ "CUSTOM MAPPING", L_PAGE, VP_MAPPING };
+    l_controls[n++] = (mline){ "CONTROLLER LAYOUT", L_PAGE, VP_PADVIEW };
+    l_controls[n++] = (mline){ "CONTROL OVERVIEW", L_PAGE, VP_OVERVIEW };
+    g_pages[VP_CONTROLS].n = n;
+}
+
 static void build_cheat_page(void)
 {
+    controls_sync();
     if (g_pages[VP_CHEATS].n)
         return;
     int n = 0;
     for (int i = 0; i < N_CHEATS; i++)
+    {
         l_cheats[n++] = (mline){ g_cheats[i].label, L_CHEAT, i };
+        if (!strcmp(g_cheats[i].key, "cheat_flamethrower"))   /* port-only, with the other ENDLESS lines */
+            l_cheats[n++] = (mline){ NULL, L_OPT, OPT_ENDLESS_SPRINT };
+    }
     l_cheats[n++] = (mline){ "UNLOCK ALL AREAS", L_ACTION, ACT_UNLOCK_AREAS };
     g_pages[VP_CHEATS].n = n;
     build_mapping_page();
@@ -499,11 +524,14 @@ static void build_cheat_page(void)
 
 static void open_vpage(int vp)
 {
+    controls_sync();
     if (vp == VP_MAPPING)
         build_mapping_page();   /* its controller lines follow CONTROLLER (MODERN or CUSTOM) */
     g_cur_of[g_vp] = g_cur;
     g_vp = vp;
     g_cur = 0;
+    while (g_cur < g_pages[vp].n - 1 && g_pages[vp].l[g_cur].kind == L_HEAD)   /* not on a heading */
+        g_cur++;
     g_top = 0;
 }
 
@@ -568,7 +596,7 @@ static void page_defaults(X86Ctx *ctx)
     for (int i = 0; i < pg->n; i++) {
         const mline *l = &pg->l[i];
         switch (l->kind) {
-        case L_OPT: opt_set(l->arg, opt_default(l->arg)); break;
+        case L_OPT: opt_set(l->arg, opt_default(l->arg)); if (l->arg == OPT_CONTROL_SCHEME) controls_sync(); break;
         case L_VOL: vol_set(ctx, l->arg, 127); break;
         case L_CHEAT: if (cheat_on(l->arg) != g_cheats[l->arg].def) cheat_set(l->arg, g_cheats[l->arg].def); break;
         case L_LANG: break;   /* the language stays: Y on GAMEPLAY resets the gameplay settings only */
@@ -657,6 +685,8 @@ static void change(X86Ctx *ctx, const mline *l, int d)
     case L_OPT: {
         int n = opt_count(l->arg);
         opt_set(l->arg, (opt_get(l->arg) + d + n) % n);
+        if (l->arg == OPT_CONTROL_SCHEME)
+            controls_sync();
         break;
     }
     case L_VOL: {
@@ -736,8 +766,8 @@ static int poll_wait(X86Ctx *ctx)
         while (!(fresh >> c & 1))
             c++;
         /* MODERN keeps MODERN (its own button layout, issue #3); CLASSIC becomes CUSTOM as before */
-        if (gta2_bind_set_pad(g_wait, c) && opt_get(OPT_CONTROL_SCHEME) == 0)
-            opt_set(OPT_CONTROL_SCHEME, 2);
+        if (gta2_bind_set_pad(g_wait, c) && opt_get(OPT_CONTROL_SCHEME) == SCHEME_CLASSIC)
+            opt_set(OPT_CONTROL_SCHEME, SCHEME_CUSTOM), controls_sync();
         g_wait = -1;
         g_wait_hold = 1;   /* the menu ignores keys until everything is released */
     }
@@ -796,7 +826,7 @@ static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int 
         while (pg->l[g_cur].kind == L_HEAD && --tries > 0);
         wr_wr32(FE_SOUND, down ? SND_DOWN : SND_UP);
     } else if (enter) {
-        if (l->kind == L_PAGE) {
+        if (l->kind == L_PAGE || l->kind == L_SUBPAGE) {
             open_vpage(l->arg);
             wr_wr32(FE_SOUND, SND_SELECT);
         } else if (l->kind == L_BACK) {
@@ -1085,6 +1115,10 @@ void gta2_menu_draw(X86Ctx *ctx)
         line_value(l, v, sizeof v);
         if (l->kind == L_OVR) {
             draw_overview_row(ctx, l, v, xl, xr, y, fo, 0x2800u);
+            continue;
+        }
+        if (l->kind == L_SUBPAGE) {   /* a page of its own: the same place and type as any line */
+            put_text(ctx, l->label, xl, y, fo, SCALE);
             continue;
         }
         put_text(ctx, line_label(l), xl, y, fo, SCALE);
