@@ -48,18 +48,24 @@ Everything stays in the game's folder: `game/` (the game's files), `saves/` (you
     whole libretro collection: on https://github.com/libretro/slang-shaders choose Code -> Download ZIP and put
     `slang-shaders-master.zip` into `shader/` as it is (it is unpacked once to `data/shaders/`). Then pick a preset
     in RECOMP OPTIONS -> SHADERS -> SHADER SELECTION.
-  - **Enhancements:** language, the minimap, a manual camera, and the settings of the old GTA 2 Manager
-    (pedestrians, traffic, sprint, more blood)
+  - **Enhancements:** language, the minimap, a day / night cycle, a manual camera, and the settings of the old
+    GTA 2 Manager (pedestrians, traffic, sprint, more blood)
   - **Cheats:** the game's own cheats as switches
 - **Minimap:** a radar drawn from the game's own map files - size, zoom and position of your choice, missions and
   gang phones, churches, garages, tokens, weapons, power-ups, kill frenzies and police cars each on their own switch,
   the game's own arrows off / on / near the target, and a map of the whole district with a legend in the pause menu
-- **Manual camera** (off by default): zoom the camera out step by step with a button of your choice (LT in the
-  modern layout)
+- **Manual camera** (off by default): a steady camera - one fixed height on foot and in a car (the far view of a fast
+  car), no automatic zoom, the car kept in the middle of the screen - zoomed step by step with a button of your choice
+  (LT in the modern layout)
+- **Day / night cycle** (off by default): day, sunset, night and sunrise over the game's own lighting - the street
+  lamps light the city at night, the cars' headlights come on at dusk and go off in the day (sirens and brake lights
+  stay), a lamp broken in a crash stays dark; a full day takes 24, 48 or 96 minutes
+- **Save anywhere** (off by default): SAVE GAME in the pause menu (free; not on a job, while wanted, in a car or in
+  water) and LOAD GAME in the main menu bring you back exactly where you saved; the church saves work as before
 - **Controls:** any SDL3 gamepad with hot-plug and rumble (explosions), a classic and a modern pad layout plus your
   own mapping (the modern layout keeps its right-stick aiming, on foot and in a car mapped apart), three mapping
-  profiles beside the stock one, keyboard only or keyboard + mouse; an illustrated controller layout and a control
-  overview
+  profiles beside the stock one, keyboard only or keyboard + mouse, and a keyboard mapping of your own in the same
+  layout (on foot and in a car apart); an illustrated controller layout and a control overview
 - **Mods:** every folder in `mods/` is one mod whose files stand in for the game's (graphics, maps, scripts,
   texts, sounds) - nothing in the game's own folder is changed; a folder name starting with `_` switches it off
 - **MIXTAPE**, a radio station of your own: put your music (MP3, FLAC, Ogg Vorbis, WAV) into album folders under

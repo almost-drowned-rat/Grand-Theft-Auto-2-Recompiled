@@ -17,6 +17,7 @@
 #include "gta2_daynight.h"
 #include "gta2_state.h"
 #include "gta2_options.h"
+#include "gta2_saveany.h"
 #include <stdio.h>
 
 #include <stdlib.h>
@@ -486,6 +487,9 @@ void sub_004CA440(RECOMP_PARAMS)   /* draws the HUD each frame (thiscall HUD) */
 {
     gta2_camera_keys();             /* CAMERA KEYS: Page Up / Down, MODERN d-pad up / down */
     gta2_camera_distance_apply();   /* CAMERA DISTANCE: writes only when the setting changed */
+    gta2_fixed_camera_apply();      /* FIXED CAMERA: the fixed height of the player's cameras */
+    gta2_saveany_frame(gta2_pause_open());   /* SAVE ANYWHERE: the height-still counter */
+    gta2_saveany_game_running(ctx);          /* ... and the save name after a LOAD GAME */
     gbh_daynight_world_end();       /* DAY / NIGHT: the world is drawn - the HUD's sprites carry the same light flag */
     gta2_radar_draw(ctx);   /* MINIMAP: over the world, under all of the game's HUD (texts, bars, panels) */
     sub_004CA440_gen(ctx, base);
@@ -632,6 +636,68 @@ static uint32_t daylight_mask_begin(uint32_t spr, uint32_t *saved)
     *saved = MEM32(car + 8);
     MEM32(car + 8) = *saved & ~off;
     return car;
+}
+
+/* ---- SAVE ANYWHERE: LOAD GAME's slot name (issue #6; gta2_saveany.c) ------------------------------------------
+ * sub_004528A0: void __stdcall (u8 slot, char *out), ret 8 - writes "player\plyslotN.svg"; while LOAD GAME runs
+ * the frontend's own load path, the save-anywhere slot "player\anyslotN.svg" instead. */
+extern void sub_004528A0_gen(RECOMP_PARAMS);
+void sub_004528A0(RECOMP_PARAMS)
+{
+    if (!gta2_saveany_redirect()) {
+        sub_004528A0_gen(ctx, base);
+        return;
+    }
+    uint32_t sp = ctx->r_esp, out = MEM32(sp + 8);
+    char p[40];
+    snprintf(p, sizeof p, "player\\anyslot%u.svg", MEM32(sp + 4) & 0xFF);
+    if (out && wr_mem_valid(out, (uint32_t)strlen(p) + 1))
+        memcpy(wr_ptr(out), p, strlen(p) + 1);
+    ctx->r_esp = sp + 12;   /* the original is not called (the name is ours); ret 8: return address + both args */
+}
+
+/* ---- FIXED CAMERA (issue #6; gta2_gameplay.c) ------------------------------------------------------------------
+ * sub_0041EBF0 (thiscall camera; car, &x, &y, &z; ret 0x10) is the follow camera's car part: above a speed
+ * threshold it adds the speed zoom (z += 16 x |v|) and the look-ahead (x / y += the lead turned by the velocity
+ * heading). With FIXED CAMERA on, for the player's own cameras, the target goes back to what it was before the
+ * call: no speed zoom, no lead - the car in the middle. GTA2_CAM_LOG=1 logs the largest speed raise (to tune the
+ * fixed height, gta2_gameplay.c FIXED_HEIGHT_Q14). */
+extern void sub_0041EBF0_gen(RECOMP_PARAMS);
+void sub_0041EBF0(RECOMP_PARAMS)
+{
+    uint32_t cam = ctx->r_ecx, sp = ctx->r_esp;
+    uint32_t px = 0, py = 0, pz = 0, x0 = 0, y0 = 0, z0 = 0;
+    int ok = wr_mem_valid(sp + 4, 0x10);
+    if (ok) {
+        px = MEM32(sp + 8);
+        py = MEM32(sp + 0xC);
+        pz = MEM32(sp + 0x10);
+        ok = px && py && pz && wr_mem_valid(px, 4) && wr_mem_valid(py, 4) && wr_mem_valid(pz, 4);
+    }
+    if (ok) {
+        x0 = MEM32(px);
+        y0 = MEM32(py);
+        z0 = MEM32(pz);
+    }
+    sub_0041EBF0_gen(ctx, base);
+    if (!ok || !gta2_is_player_camera(cam))
+        return;
+    static int log = -1;
+    static int32_t peak;
+    if (log < 0)
+        log = getenv("GTA2_CAM_LOG") != NULL;
+    int32_t raise = (int32_t)MEM32(pz) - (int32_t)z0;
+    if (log && raise > peak) {
+        peak = raise;
+        wr_log("camera: speed raise peak %.3f (Q14 0x%X)", peak / 16384.0, (unsigned)peak);
+    }
+    if (!gta2_fixed_camera_on())
+        return;
+    uint32_t eax = ctx->r_eax;
+    MEM32(px) = x0;   /* no lead: the car in the middle */
+    MEM32(py) = y0;
+    MEM32(pz) = z0;   /* no speed zoom: the fixed height comes from cam+0x40 */
+    ctx->r_eax = eax;
 }
 
 /* ---- painted headlamps (maintainer 2026-11-27: "the right one should be off") ---------------------------------

@@ -65,6 +65,7 @@ set(GTA2_PORT_SOURCES
     src/gta2_radar.c
     src/gta2_radar_map.c
     src/gta2_daynight.c
+    src/gta2_saveany.c
     src/render/vid.c
     src/render/gbh.c
     src/render/bink_buffer.c

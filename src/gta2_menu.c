@@ -24,6 +24,7 @@
 #include "gta2_menu.h"
 #include "gta2_options.h"
 #include "gta2_state.h"
+#include "gta2_saveany.h"
 #include "render/gta2_render.h"
 #include "gta2_input.h"
 #include "gta2_padview.h"
@@ -71,7 +72,8 @@ enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, 
        VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_OVERVIEW, VP_PADVIEW, VP_SOUNDTRACK,
        VP_MINIMAP, VP_MAP, VP_COUNT };
 enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM, L_OVR, L_PADVIEW, L_MTSRC, L_MTMODE, L_PROFILE,
-       L_HEAD /* a heading or an empty line: not chosen, the cursor passes over it */ };
+       L_HEAD /* a heading or an empty line: not chosen, the cursor passes over it */,
+       L_SAVE /* SAVE GAME (issue #6): its value is why not, if a save is refused now */ };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
        ACT_RESTART_YES, ACT_NO, ACT_QUITPROG_YES, ACT_TEST_PICTURE };
 enum { VOL_MUSIC, VOL_SFX };
@@ -161,7 +163,8 @@ static const gta2_shader_item *g_browse_items;
  * the game started with opens the pop-up RESTART? (RESTART NOW / RESTART LATER) - every time */
 static const mline l_gameplay[] = { { "LANGUAGE", L_LANG, 0 }, { "MINIMAP", L_PAGE, VP_MINIMAP },
                                     { NULL, L_OPT, OPT_DAY_NIGHT }, { NULL, L_OPT, OPT_DAY_LENGTH },
-                                    { NULL, L_OPT, OPT_MANUAL_CAMERA },
+                                    { NULL, L_OPT, OPT_MANUAL_CAMERA },   /* + the fixed camera (issue #6) */
+                                    { NULL, L_OPT, OPT_SAVE_ANYWHERE },   /* SAVE GAME / LOAD GAME (issue #6) */
                                     { NULL, L_OPT, OPT_PEDESTRIANS }, { NULL, L_OPT, OPT_TRAFFIC },
                                     { NULL, L_OPT, OPT_SPRINT }, { NULL, L_OPT, OPT_MORE_BLOOD } };
 /* GAMEPLAY > MINIMAP (maintainer 2026-11-27): the radar's look, then an ON/OFF switch per element */
@@ -185,14 +188,16 @@ static int g_wait_hold;   /* after a pad binding: ignore keys until released */
  * 2026-11-26; the game quit at once, through the credits) */
 static const mline l_exit[] = { { "NO", L_ACTION, ACT_EXIT_NO }, { "YES", L_ACTION, ACT_EXIT_YES } };
 /* the pause menu over the game (START / Esc in play; maintainer 2026-11-26) */
+/* + SAVE GAME under RESUME (save anywhere, issue #6; maintainer 2026-11-28: in the pause menu during play) */
 static const mline l_pause[] = {
-    { "RESUME", L_ACTION, ACT_RESUME }, { "RECOMP OPTIONS", L_PAGE, VP_ROOT },
+    { "RESUME", L_ACTION, ACT_RESUME }, { "SAVE GAME", L_SAVE, 0 }, { "RECOMP OPTIONS", L_PAGE, VP_ROOT },
     { "RESTART AREA", L_PAGE, VP_RESTART }, { "EXIT GAME", L_PAGE, VP_QUITPROG },
     { "EXIT TO MAIN MENU", L_PAGE, VP_QUIT },
 };
 /* ... with MINIMAP > PAUSE MAP on: MAP under RESUME, the whole district (maintainer 2026-11-27) */
 static const mline l_pause_map[] = {
-    { "RESUME", L_ACTION, ACT_RESUME }, { "MAP", L_PAGE, VP_MAP }, { "RECOMP OPTIONS", L_PAGE, VP_ROOT },
+    { "RESUME", L_ACTION, ACT_RESUME }, { "SAVE GAME", L_SAVE, 0 }, { "MAP", L_PAGE, VP_MAP },
+    { "RECOMP OPTIONS", L_PAGE, VP_ROOT },
     { "RESTART AREA", L_PAGE, VP_RESTART }, { "EXIT GAME", L_PAGE, VP_QUITPROG },
     { "EXIT TO MAIN MENU", L_PAGE, VP_QUIT },
 };
@@ -219,7 +224,7 @@ static mpage g_pages[VP_COUNT] = {
     [VP_SHBROWSE] = { g_browse_title, VP_SHADERS, l_browse, 0 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
     [VP_EXIT]    = { "EXIT GAME?", -1, l_exit, 2 },
-    [VP_PAUSE]   = { "PAUSED", -1, l_pause, 5 },
+    [VP_PAUSE]   = { "PAUSED", -1, l_pause, (int)(sizeof l_pause / sizeof l_pause[0]) },
     [VP_MAP]     = { "MAP", VP_PAUSE, l_map, 1 },
     [VP_QUITPROG] = { "EXIT GAME?", VP_PAUSE, l_quitprog, 2 },
     [VP_QUIT]    = { "EXIT TO MAIN MENU?", VP_PAUSE, l_quit, 2 },
@@ -367,6 +372,11 @@ static void line_value(const mline *l, char *v, size_t cap)
     case L_MTMODE:
         snprintf(v, cap, "%s", strcmp(wr_settings_get("mixtape_mode", "order"), "shuffle") ? "IN ORDER" : "SHUFFLE");
         break;
+    case L_SAVE: {   /* why a save is refused now (empty = allowed) */
+        const char *why = gta2_saveany_refusal();
+        snprintf(v, cap, "%s", why ? why : "");
+        break;
+    }
     case L_OVR:
         if (gta2_overview_is_head(l->arg))
             snprintf(v, cap, "CONTROLLER %s   |   %s%s", opt_choice_label(OPT_CONTROL_SCHEME, opt_get(OPT_CONTROL_SCHEME)),
@@ -519,6 +529,26 @@ void gta2_menu_frontend_built(uint32_t f)
     }
     if (wr_rd16(f + 0x2AA) == 0x102 || wr_rd16(f + 0x2AA) == 9)   /* item 2: QUIT (credits, then quit) */
         set_item_text(f + 0x230, "EXIT GAME");
+    /* LOAD GAME under PLAY (save anywhere, issue #6; maintainer 2026-11-28: a new line in the start menu), only
+     * when this profile has a save-anywhere save: items 1, 2 move down, the new item 1 is PLAY's copy with its own
+     * text and the do-nothing action 0x10C (Enter on it is taken in gta2_menu_input). Page 0: u16 count at fe+0x122,
+     * item i at fe+0x126 + i*0x82 (+4 y, +6 text, +0x80 action), cursor markers at fe+0xCAC + 6*i (x, y, visible). */
+    if (wr_rd16(f + 0x122) == 3 && !wr_rd32(0x00673E2Cu) && opt_get(OPT_SAVE_ANYWHERE) && gta2_saveany_exists()) {
+        uint32_t it = f + 0x126, mk = f + 0xCAC;
+        memmove(wr_ptr(it + 3 * 0x82), wr_ptr(it + 2 * 0x82), 0x82);
+        memmove(wr_ptr(it + 2 * 0x82), wr_ptr(it + 1 * 0x82), 0x82);
+        memcpy(wr_ptr(it + 1 * 0x82), wr_ptr(it), 0x82);
+        set_item_text(it + 0x82 + 6, "LOAD GAME");
+        wr_wr16(it + 0x82 + 0x80, 0x10C);
+        for (uint32_t i = 0; i < 4; i++) {
+            uint16_t y = (uint16_t)(250 + 20 * i);
+            wr_wr16(it + i * 0x82 + 4, y);
+            wr_wr16(mk + 6 * i, 280);
+            wr_wr16(mk + 6 * i + 2, (uint16_t)(y + 8));
+            wr_wr8(mk + 6 * i + 4, 1);
+        }
+        wr_wr16(f + 0x122, 4);
+    }
     prepare_page(f);
 }
 
@@ -807,6 +837,11 @@ static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int 
             wr_wr32(FE_SOUND, SND_SELECT);
         } else if (l->kind == L_ACTION && l->arg == ACT_RESUME) {
             pause_close(ctx, 1);
+        } else if (l->kind == L_SAVE) {   /* SAVE GAME: saved -> back into the game, the HUD says "saved" */
+            if (gta2_saveany_save(ctx))
+                pause_close(ctx, 1);
+            else
+                wr_wr32(FE_SOUND, SND_BACK);   /* refused: the reason is on the line */
         } else if (l->kind == L_ACTION && l->arg == ACT_NO) {
             go_back(ctx, f);
         } else if (l->kind == L_ACTION && (l->arg == ACT_QUIT_YES || l->arg == ACT_RESTART_YES)) {
@@ -866,9 +901,18 @@ int gta2_menu_input(X86Ctx *ctx)
         if (e && n++ < 5000)
             wr_log("menu: page %u edges %08X %08X", page, wr_rd32(f + FE_EDGE), wr_rd32(f + FE_EDGE + 4));
     }
-    if (page == 0 && wr_rd16(f + 0x122) == 3) {   /* main menu: Esc, or Enter on EXIT GAME */
+    uint16_t n0 = page == 0 ? wr_rd16(f + 0x122) : 0;
+    if (n0 == 4 && wr_rd8(f + FE_EDGE + 4) && wr_rd16(f + FE_PAGES + 0xBC6) == 1) {   /* Enter on LOAD GAME */
+        wr_wr8(f + FE_EDGE + 4, 0);
+        if (gta2_saveany_load(ctx, f))
+            wr_wr32(FE_SOUND, SND_SELECT);
+        else
+            wr_wr32(FE_SOUND, SND_BACK);
+        return 1;
+    }
+    if (n0 == 3 || n0 == 4) {   /* main menu: Esc, or Enter on EXIT GAME (the last line; 4 with LOAD GAME) */
         int esc0 = wr_rd8(f + FE_EDGE + 5);
-        int exit0 = wr_rd8(f + FE_EDGE + 4) && wr_rd16(f + FE_PAGES + 0xBC6) == 2;
+        int exit0 = wr_rd8(f + FE_EDGE + 4) && wr_rd16(f + FE_PAGES + 0xBC6) == n0 - 1;
         if (esc0 || exit0) {
             wr_wr8(f + FE_EDGE + 4, 0);
             wr_wr8(f + FE_EDGE + 5, 0);
@@ -1155,12 +1199,18 @@ void gta2_pause_tick(X86Ctx *ctx)
         g_pause_open = 1;
         g_host = HOST_PAUSE;
         g_pages[VP_SHADERS].n = 5;   /* + TAKE TEST PICTURE */
-        if (opt_get(OPT_MINIMAP) && opt_get(OPT_PAUSE_MAP)) {
-            g_pages[VP_PAUSE].l = l_pause_map;
-            g_pages[VP_PAUSE].n = (int)(sizeof l_pause_map / sizeof l_pause_map[0]);
-        } else {
-            g_pages[VP_PAUSE].l = l_pause;
-            g_pages[VP_PAUSE].n = (int)(sizeof l_pause / sizeof l_pause[0]);
+        {   /* the lines by the switches: SAVE GAME with ENHANCEMENTS > SAVE ANYWHERE, MAP with MINIMAP > PAUSE MAP */
+            static mline l_pause_now[8];
+            int n = 0;
+            l_pause_now[n++] = l_pause[0];   /* RESUME */
+            if (opt_get(OPT_SAVE_ANYWHERE))
+                l_pause_now[n++] = l_pause[1];   /* SAVE GAME */
+            if (opt_get(OPT_MINIMAP) && opt_get(OPT_PAUSE_MAP))
+                l_pause_now[n++] = l_pause_map[2];   /* MAP */
+            for (int i = 2; i < (int)(sizeof l_pause / sizeof l_pause[0]); i++)
+                l_pause_now[n++] = l_pause[i];   /* RECOMP OPTIONS ... EXIT TO MAIN MENU */
+            g_pages[VP_PAUSE].l = l_pause_now;
+            g_pages[VP_PAUSE].n = n;
         }
         g_wr_input_captured = 1;
         g_vp = VP_PAUSE;
@@ -1214,7 +1264,13 @@ void gta2_pause_draw(X86Ctx *ctx)
     int pw = wide ? (g_vp == VP_OVERVIEW ? 600 : 580) : 420, x0 = (sw - pw) / 2, xr = x0 + pw;
     int y0 = sh / 2 - 110;
     gbh_port_rect((float)(x0 - 20), (float)(y0 - 48), (float)(pw + 40), 300.0f, 0xC0201410u);
-    put_text(ctx, pg->title, x0, y0 - 38, P_HI, 0x4000);
+    {   /* the title at its size, smaller when it would run out of the panel ("EXIT TO MAIN MENU?", maintainer 11-28) */
+        uint32_t tsc = 0x4000;
+        int tw = text_w(ctx, pg->title, P_HI, tsc);
+        if (tw > pw + 20 && tw > 0)
+            tsc = (uint32_t)((uint64_t)tsc * (uint32_t)(pw + 20) / (uint32_t)tw);
+        put_text(ctx, pg->title, x0, y0 - 38, P_HI, tsc);
+    }
     char v[128];
     for (int i = g_top; i < pg->n && i < g_top + VISIBLE; i++) {
         const mline *l = &pg->l[i];

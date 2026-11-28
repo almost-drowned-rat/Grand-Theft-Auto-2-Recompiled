@@ -47,6 +47,7 @@ enum {
     OPT_BLIP_POLICE,       /* OFF / ON: police / law cars (maintainer 2026-11-27) */
     OPT_DAY_NIGHT,         /* OFF / ON: the DAY / NIGHT cycle (gta2_daynight.c) */
     OPT_DAY_LENGTH,        /* 24 / 48 / 96 MIN: real minutes for one full day */
+    OPT_SAVE_ANYWHERE,     /* OFF / ON: SAVE GAME in the pause menu, LOAD GAME in the main menu (issue #6) */
     OPT_COUNT
 };
 

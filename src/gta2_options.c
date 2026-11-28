@@ -142,6 +142,8 @@ static const optdef g_def[OPT_COUNT] = {
     /* ENHANCEMENTS (maintainer 2026-11-27): off by default - the original picture */
     [OPT_DAY_NIGHT]      = { "DAY / NIGHT", "day_night", 2, v_onoff, l_onoff, 0, apply_nothing },
     [OPT_DAY_LENGTH]     = { "DAY LENGTH", "day_length", 3, v_daylen, l_daylen, 0, apply_nothing },
+    /* issue #6 (maintainer 2026-11-28: an ENHANCEMENTS switch - purists do not need it): off = church saves only */
+    [OPT_SAVE_ANYWHERE]  = { "SAVE ANYWHERE", "save_anywhere", 2, v_onoff, l_onoff, 0, apply_nothing },
 };
 
 static int find_choice(int id, const char *v)
