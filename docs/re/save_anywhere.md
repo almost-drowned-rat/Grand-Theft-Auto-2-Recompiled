@@ -1,6 +1,6 @@
 # Save anywhere (GTA 2 issue #6)
 
-PC-W 2026-11-28. [V] read in the disassembly, [I] inferred. Port: `src/gta2_saveany.c`, the pause line SAVE GAME and
+2026-11-28. [V] read in the disassembly, [I] inferred. Port: `src/gta2_saveany.c`, the pause line SAVE GAME and
 the main-menu line LOAD GAME in `src/gta2_menu.c`, the slot-name wrapper `sub_004528A0` in `src/gta2_manual.c`.
 
 ## The church

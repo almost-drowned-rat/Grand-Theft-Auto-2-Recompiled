@@ -220,7 +220,7 @@ F = 2 while driving straight and turning. The expected pattern is the error chan
 
 ## 7. Speed zoom and look-ahead (FIXED CAMERA, part of MANUAL CAMERA; issue #6, 2026-11-28)
 
-PC-W. [V] read in the disassembly, [I] inferred.
+[V] read in the disassembly, [I] inferred.
 
 - The follow `sub_0041F410(cam, ped)`: base target z = max(obj_z - 2.0, 1.0) ([0x5E3E44] / [0x5E3D64]) [V]. On
   foot that is all - no raise, no lead. In a car (ped+0x16C, or getting in / out: ped+0x27C 6 / 7, car ped+0x154)

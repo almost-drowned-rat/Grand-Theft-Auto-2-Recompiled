@@ -1,6 +1,6 @@
 # Car lights (sprite deltas) and damage
 
-PC-W 2026-11-27, for the DAY / NIGHT cycle (headlights off in the day; maintainer: "the lights go out when you ram
+2026-11-27, for the DAY / NIGHT cycle (headlights off in the day; maintainer: "the lights go out when you ram
 something head-on - use that behaviour"). [V] read in the disassembly, [I] inferred.
 
 ## Delta data and the car texture cache
