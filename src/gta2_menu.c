@@ -70,13 +70,15 @@ enum { SND_UP = 1, SND_DOWN = 2, SND_VALUE = 3, SND_SELECT = 5, SND_BACK = 6 };
 
 enum { VP_ROOT, VP_SOUND, VP_DISPLAY, VP_PERF, VP_LANG, VP_CONTROLS, VP_CHEATS, VP_EXIT, VP_PAUSE, VP_QUIT, VP_RESTART,
        VP_QUITPROG, VP_MAPPING, VP_GAMEPLAY, VP_SHADERS, VP_SHBROWSE, VP_SHPARAMS, VP_OVERVIEW, VP_PADVIEW, VP_SOUNDTRACK,
-       VP_MINIMAP, VP_MAP, VP_ANALOGUE, VP_SPRINTBAR, VP_DAYNIGHT, VP_COUNT };
+       VP_MINIMAP, VP_MAP, VP_ANALOGUE, VP_SPRINTBAR, VP_DAYNIGHT, VP_NEWS, VP_COUNT };
 enum { L_PAGE, L_OPT, L_VOL, L_CHEAT, L_LANG, L_ACTION, L_BACK, L_DEVICE, L_BIND, L_SHON, L_SHPRESET, L_SHITEM, L_SHRES, L_SHPARAMS, L_SHPARAM, L_OVR, L_PADVIEW, L_MTSRC, L_MTMODE, L_PROFILE, L_SUBPAGE /* a page entered from a line of its own: drawn at the right edge with a ">" */,
        L_HEAD /* a heading or an empty line: not chosen, the cursor passes over it */,
        L_SAVE /* SAVE GAME (issue #6): its value is why not, if a save is refused now */ };
 enum { ACT_UNLOCK_AREAS = 1, ACT_RESTART_NOW, ACT_RESTART_LATER, ACT_EXIT_NO, ACT_EXIT_YES, ACT_RESUME, ACT_QUIT_YES,
        ACT_RESTART_YES, ACT_NO, ACT_QUITPROG_YES, ACT_TEST_PICTURE };
 enum { VOL_MUSIC, VOL_SFX };
+enum { HOST_FRONTEND, HOST_PAUSE };
+static int g_host = HOST_FRONTEND;   /* where the menu is drawn: the frontend's page 12 or the pause menu */
 
 typedef struct { const char *label; int kind, arg; } mline;
 typedef struct { const char *title; int parent; const mline *l; int n; } mpage;
@@ -136,10 +138,16 @@ static const mline l_perf[] = {
 static mline l_cheats[N_CHEATS + 2];
 static mline l_controls[8];   /* built by controls_sync */
 /* ENHANCEMENTS > ANALOGUE STEERING (PR #7's car steering, maintainer 2026-11-28: a switch with his choices) */
-static const mline l_analogue[] = {
+static const mline l_analogue[] = {   /* ENHANCEMENTS > ANALOGUE (v0.9.1): steering, pedals, walking */
+    { "STEERING", L_HEAD, 0 },
     { NULL, L_OPT, OPT_ANALOGUE_STEERING },
     { NULL, L_OPT, OPT_STEER_PRESET }, { NULL, L_OPT, OPT_STEER_DEAD }, { NULL, L_OPT, OPT_STEER_CURVE },
-    { NULL, L_OPT, OPT_STEER_HOLD },
+    { NULL, L_OPT, OPT_STEER_HOLD }, { "", L_HEAD, 0 },
+    { "PEDALS", L_HEAD, 0 },
+    { NULL, L_OPT, OPT_ANALOGUE_TRIGGERS }, { NULL, L_OPT, OPT_PEDAL_DEAD }, { NULL, L_OPT, OPT_PEDAL_FULL },
+    { "", L_HEAD, 0 },
+    { "WALKING", L_HEAD, 0 },
+    { NULL, L_OPT, OPT_WALK_PRESET }, { NULL, L_OPT, OPT_WALK_DEAD },
 };
 /* ENHANCEMENTS > SPRINT (maintainer 2026-11-28: a page of its own as the minimap - SPRINT on / off, the PRESET, then the
  * bar: on / off and its position) */
@@ -181,12 +189,11 @@ static const gta2_shader_item *g_browse_items;
 static const mline l_gameplay[] = { { "LANGUAGE", L_LANG, 0 }, { "MINIMAP", L_PAGE, VP_MINIMAP },
                                     { "SPRINT", L_PAGE, VP_SPRINTBAR },
                                     { "DAY / NIGHT", L_PAGE, VP_DAYNIGHT },
-                                    { "ANALOGUE STEERING", L_PAGE, VP_ANALOGUE },   /* PR #7 */
+                                    { "ANALOGUE", L_PAGE, VP_ANALOGUE },   /* PR #7: steering, pedals, walking */
                                     { NULL, L_OPT, OPT_PEDESTRIANS }, { NULL, L_OPT, OPT_TRAFFIC },
                                     { NULL, L_OPT, OPT_MANUAL_CAMERA },   /* + the fixed camera (issue #6) */
                                     { NULL, L_OPT, OPT_SAVE_ANYWHERE },   /* SAVE GAME / LOAD GAME (issue #6) */
                                     { NULL, L_OPT, OPT_PUNCH },           /* PR #7: X on foot, CUSTOM MAPPING */
-                                    { NULL, L_OPT, OPT_TURRET_AIM },      /* PR #7 */
                                     { NULL, L_OPT, OPT_CAMERA_PAN },      /* PR #7: SPECIAL 2 + right stick */
                                     { NULL, L_OPT, OPT_MORE_BLOOD } };
 /* GAMEPLAY > MINIMAP (maintainer 2026-11-27): the radar's look, then an ON/OFF switch per element */
@@ -206,9 +213,14 @@ static uint32_t g_wait_t0;
 static uint64_t g_wait_pad_base;    /* held when the wait began */
 static uint8_t g_wait_key_base[256];
 static int g_wait_hold;   /* after a pad binding: ignore keys until released */
+static int g_wait_first = -1;   /* the button held first: a second one makes a combination, its release alone a plain binding */
 /* EXIT GAME? - B / Esc on the main menu and EXIT GAME ask first (maintainer
  * 2026-11-26; the game quit at once, through the credits) */
 static const mline l_exit[] = { { "NO", L_ACTION, ACT_EXIT_NO }, { "YES", L_ACTION, ACT_EXIT_YES } };
+/* v0.9.1 (maintainer 2026-11-28): a short pop-up the first time CUSTOM MAPPING is opened (settings.ini news_combos = 1
+ * afterwards), instead of a hint on the page; OK / back go on to CUSTOM MAPPING */
+static const mline l_news[] = { { "DID YOU KNOW YOU CAN NOW", L_HEAD, 0 }, { "USE BUTTON COMBINATIONS?", L_HEAD, 0 },
+                                { "", L_HEAD, 0 }, { "OK", L_BACK, 0 } };
 /* the pause menu over the game (START / Esc in play; maintainer 2026-11-26) */
 /* + SAVE GAME under RESUME (save anywhere, issue #6; maintainer 2026-11-28: in the pause menu during play) */
 static const mline l_pause[] = {
@@ -235,7 +247,7 @@ static mpage g_pages[VP_COUNT] = {
     [VP_DISPLAY] = { "RENDERING", VP_ROOT, l_display, (int)(sizeof l_display / sizeof l_display[0]) },
     [VP_PERF]    = { "PERFORMANCE", VP_ROOT, l_perf, 4 },
     [VP_CONTROLS] = { "CONTROLS", VP_ROOT, l_controls, 6 },
-    [VP_ANALOGUE] = { "ANALOGUE STEERING", VP_GAMEPLAY, l_analogue, (int)(sizeof l_analogue / sizeof l_analogue[0]) },
+    [VP_ANALOGUE] = { "ANALOGUE", VP_GAMEPLAY, l_analogue, (int)(sizeof l_analogue / sizeof l_analogue[0]) },
     [VP_SPRINTBAR] = { "SPRINT", VP_GAMEPLAY, l_sprintbar, (int)(sizeof l_sprintbar / sizeof l_sprintbar[0]) },
     [VP_DAYNIGHT] = { "DAY / NIGHT", VP_GAMEPLAY, l_daynight, (int)(sizeof l_daynight / sizeof l_daynight[0]) },
     [VP_PADVIEW] = { "CONTROLLER LAYOUT", VP_CONTROLS, l_padview, 1 },
@@ -249,6 +261,7 @@ static mpage g_pages[VP_COUNT] = {
     [VP_SHBROWSE] = { g_browse_title, VP_SHADERS, l_browse, 0 },
     [VP_CHEATS]  = { "CHEATS", VP_ROOT, l_cheats, 0 },
     [VP_EXIT]    = { "EXIT GAME?", -1, l_exit, 2 },
+    [VP_NEWS]    = { "NEW FEATURE!", VP_MAPPING, l_news, (int)(sizeof l_news / sizeof l_news[0]) },
     [VP_PAUSE]   = { "PAUSED", -1, l_pause, (int)(sizeof l_pause / sizeof l_pause[0]) },
     [VP_MAP]     = { "MAP", VP_PAUSE, l_map, 1 },
     [VP_QUITPROG] = { "EXIT GAME?", VP_PAUSE, l_quitprog, 2 },
@@ -410,7 +423,9 @@ static void line_value(const mline *l, char *v, size_t cap)
             gta2_overview_value(l->arg, v, cap);
         break;
     case L_BIND:
-        if (g_wait == l->arg)
+        if (g_wait == l->arg && g_wait_first >= 0)
+            snprintf(v, cap, "%s + ?", wr_pad_control_name(g_wait_first));
+        else if (g_wait == l->arg)
             snprintf(v, cap, "%s", g_map_keyboard ? "PRESS A KEY" : "PRESS A BUTTON");
         else
             gta2_bind_value(g_map_keyboard, l->arg, v, cap);
@@ -452,6 +467,13 @@ static void build_mapping_page(void)
     l_mapping[n++] = (mline){ "DEVICE", L_DEVICE, 0 };
     l_mapping[n++] = (mline){ "PROFILE", L_PROFILE, 0 };   /* STOCK, 1..3: a whole mapping each (maintainer 2026-11-27) */
     l_mapping[n++] = (mline){ "", L_HEAD, 0 };
+    /* combinations (v0.9.1, maintainer 2026-11-28): the main menu's RECOMP OPTIONS shows the NEW FEATURE! pop-up once
+     * (VP_NEWS), the pause menu a short hint on the page instead (two lines that fit its panel) */
+    if (!g_map_keyboard && g_host == HOST_PAUSE) {
+        l_mapping[n++] = (mline){ "BUTTON COMBINATIONS:", L_HEAD, 0 };
+        l_mapping[n++] = (mline){ "HOLD ONE, PRESS ANOTHER", L_HEAD, 0 };
+        l_mapping[n++] = (mline){ "", L_HEAD, 0 };
+    }
     /* the functions in groups with headings and empty lines (maintainer 2026-11-27) */
     for (int r = 0; r < gta2_bind_rows(g_map_keyboard) && n < (int)(sizeof l_mapping / sizeof l_mapping[0]); r++) {
         int b;
@@ -550,6 +572,10 @@ static void open_vpage(int vp)
     while (g_cur < g_pages[vp].n - 1 && g_pages[vp].l[g_cur].kind == L_HEAD)   /* not on a heading */
         g_cur++;
     g_top = 0;
+    if (vp == VP_MAPPING && g_host != HOST_PAUSE && !wr_settings_get_int("news_combos", 0)) {   /* NEW FEATURE! once */
+        wr_settings_set_int("news_combos", 1);
+        open_vpage(VP_NEWS);
+    }
 }
 
 /* an item's u16[50] text (upper-case ASCII; translations come later) */
@@ -606,25 +632,25 @@ void gta2_menu_background(void)
 }
 
 
-/* Y (pad) / Home (keyboard): every line of the page back to its default */
+/* Y (pad) / Home (keyboard): the marked line back to its default (maintainer 2026-11-28, v0.9.1: "not everything,
+ * only the marked one" - before, Y reset the whole page, on CUSTOM MAPPING the whole layout) */
 static void page_defaults(X86Ctx *ctx)
 {
     const mpage *pg = &g_pages[g_vp];
-    for (int i = 0; i < pg->n; i++) {
-        const mline *l = &pg->l[i];
-        switch (l->kind) {
-        case L_OPT: opt_set(l->arg, opt_default(l->arg)); if (l->arg == OPT_CONTROL_SCHEME) controls_sync(); break;
-        case L_VOL: vol_set(ctx, l->arg, 127); break;
-        case L_CHEAT: if (cheat_on(l->arg) != g_cheats[l->arg].def) cheat_set(l->arg, g_cheats[l->arg].def); break;
-        case L_LANG: break;   /* the language stays: Y on GAMEPLAY resets the gameplay settings only */
-        case L_SHPARAM: gta2_shader_param_reset(l->arg); break;   /* Y: the preset's values */
-        default: break;
-        }
-    }
-    if (g_vp == VP_MAPPING) {   /* the device's default layout */
-        gta2_bind_defaults(g_map_keyboard);
+    if (g_cur < 0 || g_cur >= pg->n)
+        return;
+    const mline *l = &pg->l[g_cur];
+    switch (l->kind) {
+    case L_OPT: opt_set(l->arg, opt_default(l->arg)); if (l->arg == OPT_CONTROL_SCHEME) controls_sync(); break;
+    case L_VOL: vol_set(ctx, l->arg, 127); break;
+    case L_CHEAT: if (cheat_on(l->arg) != g_cheats[l->arg].def) cheat_set(l->arg, g_cheats[l->arg].def); break;
+    case L_SHPARAM: gta2_shader_param_reset(l->arg); break;   /* Y: the preset's value */
+    case L_BIND:   /* this function's default button / key (the one that had it gets this one's, as a binding does) */
+        gta2_bind_default_one(g_map_keyboard, l->arg);
         if (g_map_keyboard)
             wr_call_guest(ctx, FN_READ_CONTROLS, 0, NULL);
+        break;
+    default: return;   /* a page, the language, an action: nothing to reset */
     }
     /* a page that shrank (CONTROLS loses ANALOGUE SETTINGS): the cursor stays on it (review 2026-11-28) */
     if (g_cur >= g_pages[g_vp].n)
@@ -637,8 +663,6 @@ static void page_defaults(X86Ctx *ctx)
 static int g_post_cursor = -1, g_post_quit;
 
 /* where the menu is shown: the frontend's page 12, or over the paused game */
-enum { HOST_FRONTEND, HOST_PAUSE };
-static int g_host = HOST_FRONTEND;
 static int g_pause_open;
 static int g_after_quit;   /* 1: land on the main menu, 2: restart the area (page 11 REPLAY), 3: exit */
 
@@ -793,6 +817,8 @@ static int poll_wait(X86Ctx *ctx)
         return 0;
     if (wr_time_ms() - g_wait_t0 > 5000) {   /* nothing pressed: cancel */
         g_wait = -1;
+        g_wait_first = -1;
+        g_wait_hold = 1;   /* a button still held does not act in the menu */
         return 1;
     }
     if (g_map_keyboard) {
@@ -817,14 +843,35 @@ static int poll_wait(X86Ctx *ctx)
     uint64_t now = wr_pad_controls();
     g_wait_pad_base &= now;   /* released ones may count again */
     uint64_t fresh = now & ~g_wait_pad_base;
-    if (fresh) {
-        int c = 0;
-        while (!(fresh >> c & 1))
-            c++;
+    int c = -1;
+    if (g_wait_first >= 0) {   /* combinations (v0.9.1): a second button while the first is held */
+        uint64_t other = fresh & ~(1ull << g_wait_first);
+        if (other) {
+            int b = 0;
+            while (!(other >> b & 1))
+                b++;
+            c = gta2_bind_combo(g_wait_first, b);
+        } else if (!(now >> g_wait_first & 1))
+            c = g_wait_first;   /* released alone: the button itself */
+        else
+            return 1;
+    } else if (fresh) {
+        int b = 0;
+        while (!(fresh >> b & 1))
+            b++;
+        if (gta2_bind_can_modify(b)) {   /* wait: released alone = b, another one pressed = a combination */
+            g_wait_first = b;
+            g_wait_t0 = wr_time_ms();
+            return 1;
+        }
+        c = b;
+    }
+    if (c >= 0) {
         /* MODERN keeps MODERN (its own button layout, issue #3); CLASSIC becomes CUSTOM as before */
         if (gta2_bind_set_pad(g_wait, c) && opt_get(OPT_CONTROL_SCHEME) == SCHEME_CLASSIC)
             opt_set(OPT_CONTROL_SCHEME, SCHEME_CUSTOM), controls_sync();
         g_wait = -1;
+        g_wait_first = -1;
         g_wait_hold = 1;   /* the menu ignores keys until everything is released */
     }
     return 1;
@@ -917,6 +964,7 @@ static void menu_keys(X86Ctx *ctx, uint32_t f, int left, int right, int up, int 
             wr_wr32(FE_SOUND, SND_SELECT);
         } else if (l->kind == L_BIND) {
             g_wait = l->arg;
+            g_wait_first = -1;
             g_wait_t0 = wr_time_ms();
             g_wait_pad_base = wr_pad_controls();
             wr_keys_keyboard_dik(g_wait_key_base);

@@ -67,9 +67,14 @@ Everything stays in the game's folder: `game/` (the game's files), `saves/` (you
   own mapping (the modern layout keeps its right-stick aiming, on foot and in a car mapped apart), three mapping
   profiles beside the stock one, keyboard only or keyboard + mouse, and a keyboard mapping of your own in the same
   layout (on foot and in a car apart); an illustrated controller layout and a control overview
-- **Analogue controls** (by maverick-hunter): analogue walking with the stick, analogue gas and brake when they are
-  mapped to the triggers, and in ENHANCEMENTS (off by default) ANALOGUE STEERING (with presets, dead zone, curve,
-  smoothing), PUNCH (with the weapon put away), TURRET AIM (the right stick) and CAMERA PAN (Select + right stick)
+- **Analogue controls** (by maverick-hunter), ENHANCEMENTS > ANALOGUE: steering with the stick (presets, dead zone,
+  curve, smoothing), gas and brake on a stick or the triggers - the press sets the speed the car drives at (from each
+  model's own top speed), the brake brakes as hard as you press - with their dead zone and full point, and walking
+  with the stick (three presets, dead zone); all on by default. Turret aim with the right stick (fire truck, tank, ...)
+  always; in ENHANCEMENTS, off by default, PUNCH (with the weapon put away) and CAMERA PAN (Select + right stick)
+- **Button combinations** in CUSTOM MAPPING: hold one button and press another (e.g. LB + A), so every function fits
+  on the controller; a button used first in a combination still does its own function - on a short tap, or held
+  alone for a moment
 - **Sprint** (ENHANCEMENTS > SPRINT): a short sprint with a stamina bar, two presets, the bar's place of your choice
 - **Mods:** every folder in `mods/` is one mod whose files stand in for the game's (graphics, maps, scripts,
   texts, sounds) - nothing in the game's own folder is changed; a folder name starting with `_` switches it off.

@@ -53,14 +53,20 @@ enum {
     OPT_SAVE_ANYWHERE,     /* OFF / ON: SAVE GAME in the pause menu, LOAD GAME in the main menu (issue #6) */
     /* PR #7 (maverick-hunter) split into switches (maintainer 2026-11-28); analogue walking (the stick) and analogue
      * pedals (gas / brake mapped to R2 / L2) need none */
-    OPT_ANALOGUE_STEERING, /* OFF / ON: the car steers with the left stick's push (ENHANCEMENTS > ANALOGUE STEERING) */
+    OPT_ANALOGUE_STEERING, /* OFF / ON (v0.9.1: ON by default): in a car the left stick is analogue in all four directions -
+                            * steering, and gas / brake where they are on the stick (ENHANCEMENTS > ANALOGUE STEERING) */
+    OPT_ANALOGUE_TRIGGERS, /* OFF / ON (ON by default, v0.9.1): gas on R2 / brake on L2 follow the trigger's pull */
+    /* ENHANCEMENTS > ANALOGUE (v0.9.1, maintainer 2026-11-28): the pedals' and the walking's fine settings */
+    OPT_PEDAL_DEAD,        /* 0 .. 20 % (default 5 %): the pull (trigger or stick) below which the pedal does nothing */
+    OPT_PEDAL_FULL,        /* 70 .. 100 % (default 95 %): the pull that gives full gas / brake */
+    OPT_WALK_PRESET,       /* SMOOTH / SNAPPY / HEAVY (default HEAVY, as before): the on-foot feel of the PR */
+    OPT_WALK_DEAD,         /* 0.10 .. 0.30 (default 0.22): the stick's push below which the player stands */
     OPT_PUNCH,             /* OFF / ON: punch with the weapon put away (MODERN / KEYBOARD CUSTOM: X by default) */
     OPT_CAMERA_PAN,        /* OFF / ON: SPECIAL 2 held + the right stick pans the view */
     OPT_STEER_PRESET,      /* SMOOTH / SNAPPY / HEAVY / CUSTOM: sets the three numbers below; changing one of them makes it match or CUSTOM */
     OPT_STEER_DEAD,        /* ANALOGUE car steering: stick dead zone 0.04 .. 0.20 (default 0.10) */
     OPT_STEER_CURVE,       /* curve 1.0 .. 3.0, higher = finer around the middle (default 1.6) */
     OPT_STEER_HOLD,        /* smoothing: ticks one steering pulse is held, 1 .. 4 (default 2) */
-    OPT_TURRET_AIM,        /* OFF / ON: in a turret vehicle the right stick points the turret and fires (ENHANCEMENTS) */
     OPT_ENDLESS_SPRINT,    /* OFF / ON cheat: the sprint never runs out (gta2_state.c) */
     /* ENHANCEMENTS > SPRINT page (maintainer 2026-11-28: as the minimap - SPRINT, PRESET, SPRINT BAR, its position) */
     OPT_SPRINT_PRESET,     /* PRESET 1 / PRESET 2: the stamina sprint's numbers (1 the maintainer's, 2 PR #7's) */

@@ -228,12 +228,28 @@ Ang16 = u16, normalised to **0..1439 (0x5A0)**: `sub_00401C10` adds/subtracts 14
 `sub_004A4C40(player, car)` → `sub_00429810(car, fwd, back, left, right, handbrake, special1, special1-edge, attack)`
 (ret 0x20) → `sub_0049FB00(phys=[car+0x58], fwd, back, left, right, handbrake)`:
 * **`phys+0xAD` steering: right only → 0xFF (-1), left only → +1, both/none → 0** [V 0x0049FB98-0x0049FBD2].
-* `phys+0x91` accelerate, `phys+0x93` brake/reverse (depends on motion state `sub_0040F840`), `phys+0x92` handbrake [V].
+* `phys+0x92` handbrake [V]. Forward / back (corrected 2026-11-28, read again in `sub_0049FB00`) [V]:
+  standing (`sub_00420360(phys+0x40)`): `0x93 = fwd`, `0x91 = 0`, `0x94 = back`; rolling forward (`sub_0040F840`):
+  `0x93 = fwd`, `0x91 = back`, `0x94 = 0`; rolling backward: `0x91 = fwd`, `0x94 = back`, `0x93 = 0` (a change of
+  direction clears both for a tick). So **`0x93` drives forward, `0x94` drives backward, `0x91` brakes** - the drive
+  code `sub_0049E950` runs `sub_0049E790` on 0x93, `sub_0049E7C0` on 0x94 [V]. (Before, this line read 0x91 as
+  "accelerate"; the PR's analogue gas was built on that and gated the brake instead of the gas.)
 * So steering and throttle are **digital**. The turn rate comes from the physics code. A stick can only choose
   left/none/right (optionally pulse it for partial steering [I]).
 * "Point to drive" (optional): car heading = `u16[[car+0x50]+0]` (same Ang16 convention [I]). Steer left/right toward
   the stick angle with a dead band (±8–12° [I]), hold *forward* while the stick is pushed. Steering a moving car toward
   an absolute direction is a design choice, not a game feature. Keep the default car scheme "tank" (left/right = steer).
+
+### 3.4 Car speed and top speed (2026-11-28, for the analogue gas)
+* Velocity = `phys+0x40 / +0x44` (two dwords, read by `sub_00421150`, through `sub_00421E70(car)`) [V].
+* Car data: `sub_0049EC80(phys)`: model = `sub_004220A0([phys+0x5C] = car)` (al), info =
+  `sub_004327E0([0x5E5488], model)` = `[[0x5E5488] + 0x404 + model*4]`, kept in `[0x66AB70]` while the physics runs [V].
+* The limiter `sub_004A1B20(phys)` clamps |velocity| (`sub_0041E260`) to **`[info+0x28]` = the top speed**, or
+  `[info+0x40]` when `sub_0040F840(phys)` is false [V 0x004A1B3A-0x004A1B6B; I: +0x40 = the reverse / lower gear limit].
+* `sub_0049E980` grows a force `phys+0x64` by `[0x66AF48]` up to `[0x66AD88]` while `phys+0x91` (the brake, 3.3) is
+  set (not in states 7 / 8), else resets it [V; I: the brake force]. `[info+1]` is tested as a flag (turbo [I]).
+* The port's analogue gas (v0.9.1, src/gta2_feel.c): pedal x top speed = a target; `phys+0x93` (drive forward) on
+  below it, the speed held at it, off well above it; `0x94` / `0x91` gated to the pull.
 
 ---
 

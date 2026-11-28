@@ -722,7 +722,6 @@ int gta2_radar_draw_full(float x, float y, float s)
 
 void gta2_radar_draw(X86Ctx *ctx)
 {
-    (void)ctx;
     if (!opt_get(OPT_MINIMAP))
         return;
     float px, py, pz;
@@ -740,6 +739,16 @@ void gta2_radar_draw(X86Ctx *ctx)
     float fx = (float)opt_get(OPT_MINIMAP_X) / 40.0f, fy = (float)opt_get(OPT_MINIMAP_Y) / 40.0f;
     v.x = floorf(m + (sw - v.s - 2 * m) * fx);
     v.y = floorf(m + (sh - v.s - 2 * m) * fy);
+    /* v0.9.1 (maintainer 2026-11-28): hidden while a subtitle (the pager / speaker message with its portrait, along the
+     * bottom of the screen) is up - sub_004C9430 draws it only while [HUD+0xE4 +0x6F8] != 0 (0x004C9434); HUD = this
+     * call's ecx (sub_004CA440). Only when the minimap reaches into the bottom part; kept hidden 0.5 s after the
+     * message so it does not blink between two of them. */
+    static uint32_t hide_until;
+    uint32_t hud = ctx->r_ecx, now = wr_time_ms();
+    if (hud && wr_mem_valid(hud + 0xE4 + 0x6F8, 4) && wr_rd32(hud + 0xE4 + 0x6F8))
+        hide_until = now + 500;
+    if ((int32_t)(hide_until - now) > 0 && v.y + v.s > sh * 0.70f)
+        return;
     v.cx = px;
     v.cy = py;
     v.r = half[opt_get(OPT_MINIMAP_ZOOM)];

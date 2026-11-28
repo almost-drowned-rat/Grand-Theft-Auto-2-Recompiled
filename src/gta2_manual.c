@@ -490,6 +490,7 @@ void sub_004A5C50(RECOMP_PARAMS)   /* on-foot control step (thiscall player, ped
 /* ---- the ANALOGUE feel: analog car steering (gta2_feel.c) --------------------------------------- */
 void gta2_feel_car_step(void);
 void gta2_feel_car_pre(void);
+void gta2_feel_car_top(uint32_t car, uint32_t top);
 
 /* ANALOGUE: in one of the three turret vehicles the right stick points the turret. The game only turns it one fixed step a
  * tick, left or right (sub_00423720: Special 1 held + left / right; the step is a u16 at 0x5E4D34 / 0x5E4D60 / 0x5E501C, left
@@ -531,8 +532,8 @@ int gta2_turret_active(void) { return g_turret_on; }
 static void gta2_turret_pre(X86Ctx *ctx)
 {
     g_turret_on = 0;
-    /* ENHANCEMENTS > TURRET AIM (PR #7's switch, on its own since 2026-11-28), single player only */
-    if (!opt_get(OPT_TURRET_AIM) || wr_rd32(0x00673E2Cu) || gta2_pause_open() || gta2_pan_held() ||
+    /* TURRET AIM (PR #7; always on since v0.9.1, maintainer 2026-11-28: no switch), single player only */
+    if (wr_rd32(0x00673E2Cu) || gta2_pause_open() || gta2_pan_held() ||
         !gta2_player_driving())
         return;
     uint32_t ped = gta2_player_ped();
@@ -580,9 +581,39 @@ static void gta2_turret_pre(X86Ctx *ctx)
     wr_wr8(player + (d > 0 ? 0x7A : 0x7B), 1);
 }
 
+/* v0.9.1: the top speed of the player's car from the game's own car data (docs/re/gameplay_input_pause.md 3.4): the
+ * limiter sub_004A1B20 clamps |phys+0x40, +0x44| to [info+0x28]; info = [[0x5E5488] + 0x404 + model * 4]
+ * (sub_004327E0), model = sub_004220A0(car) (as sub_0049EC80 does). 0 = not known. */
+static uint32_t car_top_speed(X86Ctx *ctx, uint32_t car)
+{
+    static uint32_t last_car, last_top;
+    if (!car)   /* out of the car: asked again at the next one (a car's slot may hold another model later) */
+        return last_car = last_top = 0;
+    if (car == last_car)
+        return last_top;
+    uint32_t ecx = ctx->r_ecx, eax = ctx->r_eax, top = 0;
+    ctx->r_ecx = car;
+    uint32_t model = wr_call_guest(ctx, 0x004220A0u, 0, NULL) & 0xFF;
+    ctx->r_ecx = ecx;
+    ctx->r_eax = eax;
+    uint32_t tab = wr_rd32(0x005E5488u);
+    if (tab && wr_mem_valid(tab + 0x404 + model * 4, 4)) {
+        uint32_t info = wr_rd32(tab + 0x404 + model * 4);
+        if (info && wr_mem_valid(info + 0x28, 4))
+            top = wr_rd32(info + 0x28);
+    }
+    wr_log("feel: car %08x model %u top speed %u", car, model, top);
+    last_car = car;
+    last_top = top;
+    return top;
+}
+
 extern void sub_004A4C40_gen(RECOMP_PARAMS);
 void sub_004A4C40(RECOMP_PARAMS)   /* the player's car control step (docs/re/gameplay_input_pause.md 3.3) */
 {
+    uint32_t ped = gta2_player_ped();
+    uint32_t car = ped && wr_mem_valid(ped, 0x170) && gta2_player_driving() ? wr_rd32(ped + 0x16C) : 0;
+    gta2_feel_car_top(car, car_top_speed(ctx, car));   /* the analogue gas's target speed */
     gta2_feel_car_pre();   /* ANALOGUE: the trigger pulls become the held forward / back bytes first */
     gta2_turret_pre(ctx);  /* ANALOGUE: right stick left / right = the turret (Special 1 held + left / right) */
     sub_004A4C40_gen(ctx, base);
@@ -601,7 +632,8 @@ void sub_004CA440(RECOMP_PARAMS)   /* draws the HUD each frame (thiscall HUD) */
     gta2_saveany_frame(gta2_pause_open());   /* SAVE ANYWHERE: the height-still counter */
     gta2_saveany_game_running(ctx);          /* ... and the save name after a LOAD GAME */
     gbh_daynight_world_end();       /* DAY / NIGHT: the world is drawn - the HUD's sprites carry the same light flag */
-    gta2_radar_draw(ctx);   /* MINIMAP: over the world, under all of the game's HUD (texts, bars, panels) */
+    gta2_radar_draw(ctx);   /* MINIMAP: over the world, under all of the game's HUD (texts, bars, panels); reads the
+                             * HUD (ecx) for the subtitle */
     sub_004CA440_gen(ctx, base);
     uint32_t eax = ctx->r_eax;
     gta2_radio_label_draw(ctx);   /* MIXTAPE: station + song for a moment */

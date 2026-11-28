@@ -15,6 +15,7 @@
 #include "gta2_render.h"
 #include "../gta2_options.h"
 #include "../gta2_daynight.h"
+#include "../gta2_gameplay.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -530,6 +531,23 @@ static void draw_core(uint32_t flags, uint32_t texva, uint32_t verts, uint32_t s
         return;
     if (rdf(verts + 8) <= 0.0f)
         return;
+    /* issue #9: a sprite's shadow (sub_004BE060: flags 0x2180, all colours 0xA0000000, moved 5 x the HUD scale right and
+     * down) keeps its distance in proportion to the sprite under MANUAL CAMERA (gta2_shadow_scale) */
+    if (quad && flags == 0x2180u && wr_rd32(verts + 0x10) == 0xA0000000u) {
+        float s = gta2_shadow_scale();
+        uint32_t cam = wr_rd32(0x005E3CC4u);
+        if (s < 1.0f && cam && wr_mem_valid(cam + 0xA8, 4)) {
+            float d = 5.0f * (float)(int32_t)wr_rd32(cam + 0xA8) / 16384.0f, k = d * (s - 1.0f);
+            static int logged;
+            if (!logged++)
+                wr_log("shadow: offset %.2f px, scale %.3f -> moved back %.2f (MANUAL CAMERA)", d, s, -k);
+            for (int i = 0; i < 4; i++) {
+                uint32_t v = verts + 0x20u * (uint32_t)i;
+                wrf(v, rdf(v) + k);
+                wrf(v + 4, rdf(v + 4) + k);
+            }
+        }
+    }
     float minx = 1e30f, maxx = -1e30f, miny = 1e30f, maxy = -1e30f;
     for (int i = 0; i < n; i++) {
         float x = rdf(verts + 0x20u * (uint32_t)i), y = rdf(verts + 0x20u * (uint32_t)i + 4);

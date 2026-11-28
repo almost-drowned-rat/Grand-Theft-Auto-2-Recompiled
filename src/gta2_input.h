@@ -17,16 +17,26 @@ int  gta2_bind_rows(int keyboard);
 const char *gta2_bind_row(int keyboard, int r, int *bind);
 const char *gta2_bind_label(int keyboard, int i);
 void gta2_bind_value(int keyboard, int i, char *out, size_t cap);
-int  gta2_bind_set_pad(int i, int control);   /* 0: refused (MODERN: not one of its buttons) */
+int  gta2_bind_set_pad(int i, int control);   /* 0: refused (MODERN: not one of its buttons); control may be a combination */
+int  gta2_bind_can_modify(int c);             /* c may be held first for a combination (a button or the d-pad) */
+int  gta2_bind_combo(int mod, int c);         /* the binding value "hold mod, press c" */
 int  gta2_bind_profile(void);                 /* PROFILE 1..3: a whole mapping each */
 void gta2_bind_profile_set(int p);            /* then call sub_0044BF30 (the keyboard keys changed) */
 void gta2_bind_set_key(int i, uint8_t dik);   /* then call sub_0044BF30 */
 void gta2_bind_defaults(int keyboard);        /* the keyboard: then call sub_0044BF30 */
+void gta2_bind_default_one(int keyboard, int i);   /* line i only (Y on CUSTOM MAPPING); the keyboard: then sub_0044BF30 */
 
 int  gta2_sprint_pressed(void);
 int  gta2_pan_held(void);       /* CAMERA PAN: the SPECIAL 2 button is held, the right stick pans the camera */
 int  gta2_punch_pressed(void);   /* PUNCH: its button is held (on foot) */
-int  gta2_gas_on_rt(void);       /* gas is mapped to R2: the pedal is analogue (gta2_feel.c) */
+/* v0.9.1: where gas / brake are analogue now (ANALOGUE TRIGGERS on R2 / L2, ANALOGUE STEERING on the left stick) */
+enum { GTA2_PEDAL_NONE, GTA2_PEDAL_TRIGGER, GTA2_PEDAL_LSTICK, GTA2_PEDAL_RSTICK };
+int  gta2_gas_analogue(void);
+int  gta2_brake_analogue(void);
+/* the stick that steers the car in this scheme: 0 none, 1 left, 2 right (CUSTOM: LEFT / RIGHT on the d-pad = the left
+ * stick, on R-STICK LEFT / RIGHT = the right one) */
+int  gta2_steer_stick(void);
+int  gta2_gas_on_rt(void);      /* gas is mapped to R2: the pedal is analogue (gta2_feel.c) */
 int  gta2_brake_on_lt(void);     /* brake / reverse is mapped to L2: analogue too */
 void gta2_camera_keys(void);   /* CAMERA KEYS: once per frame in play */
 void gta2_keys_apply(void);

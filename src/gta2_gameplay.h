@@ -25,5 +25,6 @@ void gta2_camera_distance_apply(void);   /* every frame (cheap): writes only on 
 int  gta2_fixed_camera_on(void);
 int  gta2_is_player_camera(uint32_t cam);
 void gta2_fixed_camera_apply(void);      /* every frame */
+float gta2_shadow_scale(void);           /* issue #9: the sprites' shadow offset under MANUAL CAMERA, 1.0 = original */
 
 #endif

@@ -367,10 +367,12 @@ void gta2_traffic_tick(void)
 #define CHASE_ACCEL 0x005E3F38u
 #define CHASE_TOP   0x005E3DCCu
 
+static uint32_t orig_walk;   /* the game's own zoom [0x5E3EB4], read before the first change */
+
 void gta2_camera_distance_apply(void)
 {
     static const uint32_t f_q14[] = { 0x4000, 0x5000, 0x6000, 0x7000, 0x8000 };   /* 1.0 .. 2.0 */
-    static uint32_t orig_walk, orig_dead, orig_accel, orig_top;
+    static uint32_t orig_dead, orig_accel, orig_top;
     static int applied = -1;
     /* the step the camera buttons set; MANUAL CAMERA off = the game's own distance (maintainer 2026-11-27:
      * no CAMERA DISTANCE line in the menu) */
@@ -420,6 +422,29 @@ int gta2_is_player_camera(uint32_t cam)
 {
     uint32_t p = gta2_player();
     return p && (cam == p + 0x90 || cam == p + 0x208);
+}
+
+/* Issue #9 (v0.9.1): the shadows' offset under MANUAL CAMERA. The game draws a sprite's shadow as a black copy moved
+ * 5 x the HUD scale ([cam+0xA8]) right and down (sub_004BE060, 0x004BE324-0x004BE43B: flags 0x2180, colour
+ * 0xA0000000) - in screen pixels, whatever the zoom; so with the camera further out (CAMERA DISTANCE, the fixed
+ * height) cars and peds shrink but their shadows stay as far away and they seem to float. The picture's scale goes
+ * with zoom / (7 + height) (docs/re/camera_distance.md 2: the view rect's half width is (7 + z) / zoom / 2), so the
+ * offset is scaled by that against the game's own camera: its zoom and the height without our fixed extra one.
+ * 1.0 = as the original (MANUAL CAMERA off). cam = the render camera [0x5E3CC4]; all Q14. */
+float gta2_shadow_scale(void)
+{
+    if (!opt_get(OPT_MANUAL_CAMERA) || !orig_walk)
+        return 1.0f;
+    uint32_t cam = wr_rd32(0x005E3CC4u);
+    if (!cam || !wr_mem_valid(cam + 0x40, 4) || !wr_mem_valid(cam + 0xA0, 8))
+        return 1.0f;
+    float z = (float)(int32_t)wr_rd32(cam + 0xA0) / 16384.0f, zoom = (float)(int32_t)wr_rd32(cam + 0xA4);
+    float extra = (float)(int32_t)wr_rd32(cam + 0x40) / 16384.0f;
+    float z0 = z - extra;
+    if (zoom <= 0 || z0 < 0 || 7.0f + z <= 0)
+        return 1.0f;
+    float s = (zoom / (float)orig_walk) * (7.0f + z0) / (7.0f + z);
+    return s < 0.2f ? 0.2f : s > 1.0f ? 1.0f : s;
 }
 
 /* every frame (next to gta2_camera_distance_apply): the fixed extra height, or back to 0 once we set it */

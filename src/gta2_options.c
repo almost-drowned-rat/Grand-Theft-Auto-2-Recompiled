@@ -49,6 +49,13 @@ static const char *const l_spreset[] = { "SMOOTH", "SNAPPY", "HEAVY", "CUSTOM" }
 static const char *const v_sdead[] = { "0.04", "0.06", "0.08", "0.10", "0.12", "0.14", "0.16", "0.20" };
 static const char *const v_scurve[] = { "1.0", "1.2", "1.4", "1.6", "1.8", "2.0", "2.4", "3.0" };
 static const char *const v_shold[] = { "1", "2", "3", "4" };
+static const char *const v_pdead[] = { "0", "5", "10", "15", "20" };
+static const char *const l_pdead[] = { "0%", "5%", "10%", "15%", "20%" };
+static const char *const v_pfull[] = { "70", "75", "80", "85", "90", "95", "100" };
+static const char *const l_pfull[] = { "70%", "75%", "80%", "85%", "90%", "95%", "100%" };
+static const char *const v_wpreset[] = { "smooth", "snappy", "heavy" };
+static const char *const l_wpreset[] = { "SMOOTH", "SNAPPY", "HEAVY" };
+static const char *const v_wdead[] = { "0.10", "0.14", "0.18", "0.22", "0.26", "0.30" };
 static const char *const v_spreset2[] = { "1", "2" };   /* SPRINT > PRESET */
 static const char *const l_spreset2[] = { "PRESET 1", "PRESET 2" };
 static const char *const v_factor[] = { "1", "2", "3", "4" };
@@ -219,14 +226,21 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_SAVE_ANYWHERE]  = { "SAVE ANYWHERE", "save_anywhere", 2, v_onoff, l_onoff, 0, apply_nothing },
     /* PR #7 (maverick-hunter) as ENHANCEMENTS switches (maintainer 2026-11-28), off by default (the original); each
      * acts in single player only (its writes are local: in a network game they would desync the others) */
-    [OPT_ANALOGUE_STEERING] = { "ANALOGUE STEERING", "analogue_steering", 2, v_onoff, l_onoff, 0, apply_nothing },
+    /* v0.9.1 (maintainer 2026-11-28, issue #9): two switches, both ON by default - "we keep our layout, but everyone
+     * has what they want as an option" */
+    [OPT_ANALOGUE_STEERING] = { "ANALOGUE STEERING", "analogue_steering", 2, v_onoff, l_onoff, 1, apply_nothing },
+    [OPT_ANALOGUE_TRIGGERS] = { "ANALOGUE TRIGGERS", "analogue_triggers", 2, v_onoff, l_onoff, 1, apply_nothing },
+    /* ENHANCEMENTS > ANALOGUE (v0.9.1): the defaults are the numbers used before (pedal 5 % / 95 %, walking HEAVY 0.22) */
+    [OPT_PEDAL_DEAD]     = { "DEAD ZONE", "pedal_dead", 5, v_pdead, l_pdead, 1, apply_nothing },
+    [OPT_PEDAL_FULL]     = { "FULL AT", "pedal_full", 7, v_pfull, l_pfull, 5, apply_nothing },
+    [OPT_WALK_PRESET]    = { "PRESET", "walk_preset", 3, v_wpreset, l_wpreset, 2, apply_nothing },
+    [OPT_WALK_DEAD]      = { "DEAD ZONE", "walk_dead", 6, v_wdead, v_wdead, 3, apply_nothing },
     [OPT_PUNCH]          = { "PUNCH", "punch", 2, v_onoff, l_onoff, 0, apply_nothing },
     [OPT_CAMERA_PAN]     = { "CAMERA PAN", "camera_pan", 2, v_onoff, l_onoff, 0, apply_nothing },
     [OPT_STEER_PRESET]   = { "PRESET", "steer_preset", 4, v_spreset, l_spreset, 0, apply_steer_preset },
     [OPT_STEER_DEAD]     = { "DEAD ZONE", "steer_dead", 8, v_sdead, v_sdead, 3, apply_steer_value },
     [OPT_STEER_CURVE]    = { "CURVE", "steer_curve", 8, v_scurve, v_scurve, 3, apply_steer_value },
     [OPT_STEER_HOLD]     = { "SMOOTHING", "steer_hold", 4, v_shold, v_shold, 1, apply_steer_value },
-    [OPT_TURRET_AIM]     = { "TURRET AIM", "turret_aim", 2, v_onoff, l_onoff, 0, apply_nothing },   /* off: the original */
     [OPT_ENDLESS_SPRINT] = { "ENDLESS SPRINTING", "cheat_endless_sprint", 2, v_onoff, l_onoff, 0, apply_nothing },
     /* 1: 2.5 s / refill after 2.5 s / full in 8 s (maintainer, default); 2: 3.5 / 0.5 / 3 (PR #7) */
     [OPT_SPRINT_PRESET]  = { "PRESET", "sprint_preset", 2, v_spreset2, l_spreset2, 0, apply_nothing },

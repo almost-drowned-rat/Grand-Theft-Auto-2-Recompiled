@@ -16,7 +16,7 @@ void     gta2_sprint_bar_draw(void);  /* SPRINT BAR: the stamina bar (its place:
 void     gta2_sprint_bar_preview(float alpha);   /* a full sample bar at the set place (the menu, after a POSITION change) */
 int      gta2_sprint_exhausted(void); /* 1 while locked out after running dry */
 
-int      gta2_turret_active(void);    /* ANALOGUE: the player drives a turret vehicle with TURRET AIM on (as of the last tick) */
+int      gta2_turret_active(void);    /* ANALOGUE: the player drives a turret vehicle, TURRET AIM (as of the last tick) */
 void     gta2_pan_pre(void);          /* ANALOGUE pan: before the game tick, note the look-around offsets */
 void     gta2_pan_post(void);         /* after it: the tick's change made bigger (within the game's limits) */
 void     gta2_pan_arrows_draw(void);  /* ANALOGUE pan: four arrows at the screen edges while the pan button is held */

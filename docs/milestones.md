@@ -121,6 +121,20 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
       the stamina sprint in every scheme; ENHANCEMENTS order: the pages first, then the switches
 - [x] Frame interpolation stays as it is (maintainer 2026-11-28: no further work; 30 fps recommended)
 
+## v0.9.1
+- [x] Issue #9: ANALOGUE STEERING ON by default, the left stick analogue in a car in all four directions (gas / brake
+      where they are on the stick; MODERN may put GAS / BRAKE on STICK UP / DOWN); new switch ANALOGUE TRIGGERS (ON)
+- [x] Analogue gas as a target speed: pull x the model's own top speed (car data, docs/re/gameplay_input_pause.md
+      3.4), linear; held there from below, rolls when eased off; brake and reverse gated to the pull. The flags were
+      mixed up before: 0x93 drives forward, 0x91 brakes (the PR gated the brake) - read again in sub_0049FB00
+- [x] ENHANCEMENTS > ANALOGUE (was ANALOGUE STEERING): STEERING, PEDALS (ANALOGUE TRIGGERS, DEAD ZONE, FULL AT),
+      WALKING (PRESET SMOOTH / SNAPPY / HEAVY, DEAD ZONE)
+- [x] Y on a RECOMP OPTIONS page resets only the marked line (CUSTOM MAPPING: that function's default)
+- [x] MINIMAP hidden while a subtitle (pager / speaker message) is up, when it reaches into the bottom part
+- [x] TURRET AIM always on, its switch removed (maintainer 2026-11-28)
+- [x] CUSTOM MAPPING: button combinations on the controller (hold one, press another; the first one's own function
+      on a tap, or held alone for 0.2 s); a NEW FEATURE! pop-up the first time CUSTOM MAPPING is opened (settings.ini news_combos)
+
 ## Planned — Mod support with code (maintainer 2026-11-28)
 - [ ] Mods that bring their own code: a plugin interface (C) for mods/<name>/ (mod.ini + plugin.dll / .so), the game
       loads them and lists them with their options under RECOMP OPTIONS > MODS - so features such as the analogue

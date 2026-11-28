@@ -38,8 +38,21 @@ static const char *const k_name[4] = { "default", "smooth", "snappy", "heavy" };
  * when gas / brake are mapped to the triggers (gta2_gas_on_rt / gta2_brake_on_lt). Never in a network game. */
 static int single_player(void) { return !wr_rd32(0x00673E2Cu); }
 int gta2_feel_active(void) { return single_player(); }   /* the on-foot feel */
-static int steer_active(void) { return single_player() && opt_get(OPT_ANALOGUE_STEERING); }
-static int pedals_active(void) { return single_player() && (gta2_gas_on_rt() || gta2_brake_on_lt()); }
+/* v0.9.1 (maintainer 2026-11-28, issue #9): ANALOGUE STEERING (ON by default) makes the left stick analogue in all four
+ * directions in a car - steering where the stick steers (CUSTOM: LEFT / RIGHT on the d-pad), gas / brake where they are
+ * on the stick's up / down; ANALOGUE TRIGGERS (ON by default) the pedals on R2 / L2. Each layout stays as it is. */
+static int steer_active(void) { return single_player() && opt_get(OPT_ANALOGUE_STEERING) && gta2_steer_stick(); }
+
+/* the left (1) or right (2) stick, -1..1 each */
+static void stick_xy(int which, float *x, float *y)
+{
+    *x = *y = 0;
+    if (which == 1)
+        wr_pad_stick(x, y);
+    else if (which == 2)
+        wr_pad_stick_right(x, y);
+}
+static int pedals_active(void) { return single_player() && (gta2_gas_analogue() || gta2_brake_analogue()); }
 
 static float ovr(const char *key, float v)
 {
@@ -51,9 +64,9 @@ const gta2_feel *gta2_feel_get(void)
 {
     static gta2_feel cur;
     static int loaded = -1;
-    int p = 3;
-    if (p < 0 || p > 3)
-        p = 0;
+    int p = 1 + opt_get(OPT_WALK_PRESET);   /* ENHANCEMENTS > ANALOGUE > WALKING PRESET: SMOOTH / SNAPPY / HEAVY (v0.9.1) */
+    if (p < 1 || p > 3)
+        p = 3;
     if (p != loaded) {   /* a change of preset: its numbers, then the settings.ini overrides */
         cur = k_preset[p];
         if (p > 0) {
@@ -88,6 +101,12 @@ const gta2_feel *gta2_feel_get(void)
     cur.steer_dead = k_dead[id < 0 ? 0 : id > 7 ? 7 : id];
     cur.steer_curve = k_curve[ic < 0 ? 0 : ic > 7 ? 7 : ic];
     cur.steer_hold = (float)(ih < 0 ? 1 : ih > 3 ? 4 : ih + 1);
+    /* ENHANCEMENTS > ANALOGUE > WALKING DEAD ZONE (v0.9.1; was the preset's / feel_dead_in) */
+    static const float k_wdead[6] = { 0.10f, 0.14f, 0.18f, 0.22f, 0.26f, 0.30f };
+    int iw = opt_get(OPT_WALK_DEAD);
+    cur.dead_in = k_wdead[iw < 0 ? 0 : iw > 5 ? 5 : iw];
+    if (cur.dead_out < cur.dead_in + 0.05f)
+        cur.dead_out = cur.dead_in + 0.05f;
     return &cur;
 }
 
@@ -197,25 +216,47 @@ static float trigger_pull(int right)
     return best;
 }
 
+/* the stick's push one way as a pedal pull 0..1: its own dead zone first (a resting stick drifts a little), the same
+ * as the steering's (ANALOGUE STEERING > DEAD ZONE) */
+static float stick_pull(float v)
+{
+    float d = gta2_feel_get()->steer_dead;
+    return v <= d ? 0 : clamp01((v - d) / (1.0f - d));
+}
+
 /* pull -> pedal: 0 under a small dead zone, full from "pedal_full", then floor + (1 - floor) * x^curve (curve > 1 = less throttle in the middle).
  * settings.ini: feel_pedal_dead, feel_pedal_full, feel_pedal_curve, feel_pedal_floor (read once). */
+/* ENHANCEMENTS > ANALOGUE > PEDALS DEAD ZONE / FULL AT (v0.9.1; were feel_pedal_dead / _full in settings.ini) - for the
+ * forward gas's linear pull and the brake / reverse alike, read every time so a change applies at once */
+static void pedal_range(float *dead, float *full)
+{
+    static const float k_pd[5] = { 0.0f, 0.05f, 0.10f, 0.15f, 0.20f };
+    int d = opt_get(OPT_PEDAL_DEAD), f = opt_get(OPT_PEDAL_FULL);
+    *dead = k_pd[d < 0 ? 0 : d > 4 ? 4 : d];
+    *full = 0.70f + 0.05f * (float)(f < 0 ? 0 : f > 6 ? 6 : f);
+    if (*full < *dead + 0.1f)
+        *full = *dead + 0.1f;
+}
+
 static float pedal_of(float t)
 {
-    static float dead = -1, full, curve, floor_;
-    if (dead < 0) {
-        dead = ovr("feel_pedal_dead", 0.05f);
-        full = ovr("feel_pedal_full", 0.80f);
-        curve = ovr("feel_pedal_curve", 2.0f);    /* > 1: the middle of the pull gives less than half throttle */
-        floor_ = ovr("feel_pedal_floor", 0.30f);  /* throttle at the first touch, so a light pull still moves the car */
-        if (full < dead + 0.1f)
-            full = dead + 0.1f;
+    static float curve = -1, floor_;
+    if (curve < 0) {
+        /* v0.9.1 (maintainer 2026-11-28, stick and triggers): "the less I press, the less gas - with a minimal press
+         * really minimal acceleration"; was 0.80 / 2.0 / floor 0.30 (a touch gave 30 %) */
+        curve = ovr("feel_pedal_curve", 1.8f);    /* > 1: fine at the bottom - a quarter pull ~7 %, half ~28 % */
+        floor_ = ovr("feel_pedal_floor", 0.0f);   /* no step at the first touch: the gas starts at 0 */
     }
+    float dead, full;
+    pedal_range(&dead, &full);
     if (t <= dead)
         return 0;
     return floor_ + (1.0f - floor_) * powf(clamp01((t - dead) / (full - dead)), curve);
 }
 
 static float g_pull_r, g_pull_l, g_duty = -1;
+static int g_gas_lead;   /* the gas pedal is pressed more than the brake: its pull sets a target speed */
+static float g_gas_pull; /* that pull, 0..1 linear */
 
 void gta2_feel_car_pre(void)
 {
@@ -228,15 +269,82 @@ void gta2_feel_car_pre(void)
     uint32_t player = wr_rd32(ped + 0x15C);
     if (!player || !wr_mem_valid(player, 0x90))
         return;
-    g_pull_r = trigger_pull(1);
-    g_pull_l = trigger_pull(0);
-    float pr = gta2_gas_on_rt() ? pedal_of(g_pull_r) : 0, pl = gta2_brake_on_lt() ? pedal_of(g_pull_l) : 0;
+    int gs = gta2_gas_analogue(), bs = gta2_brake_analogue();
+    float gx, gy, bx, by;   /* y down = +: up is the gas, down the brake */
+    stick_xy(gs == GTA2_PEDAL_LSTICK ? 1 : gs == GTA2_PEDAL_RSTICK ? 2 : 0, &gx, &gy);
+    stick_xy(bs == GTA2_PEDAL_LSTICK ? 1 : bs == GTA2_PEDAL_RSTICK ? 2 : 0, &bx, &by);
+    g_pull_r = gs == GTA2_PEDAL_TRIGGER ? trigger_pull(1) : stick_pull(-gy);
+    g_pull_l = bs == GTA2_PEDAL_TRIGGER ? trigger_pull(0) : stick_pull(by);
+    float pr = gs ? pedal_of(g_pull_r) : 0, pl = bs ? pedal_of(g_pull_l) : 0;
     int dig = wr_rd8(player + 0x78) || wr_rd8(player + 0x79);   /* Cross / Square / keys: full, as before */
     if (pr > 0)
         wr_wr8(player + 0x78, 1);   /* the game's own gas / brake / reverse logic sees the pull as a press ... */
     if (pl > 0)
         wr_wr8(player + 0x79, 1);
     g_duty = dig ? -1 : (pr > pl ? pr : pl);   /* ... and the throttle it gives is gated to the pull afterwards */
+    g_gas_lead = pr > 0 && pr >= pl;
+    /* the gas pedal's pull for the target speed: linear past the pedals' DEAD ZONE, full from FULL AT */
+    float t = g_pull_r, dz, fu;
+    pedal_range(&dz, &fu);
+    g_gas_pull = t <= dz ? 0 : clamp01((t - dz) / (fu - dz));
+}
+
+/* v0.9.1 (maintainer 2026-11-28: "shouldn't the car get slower when I ease off?"): with the gas pedal the pull is a
+ * target speed - pedal x this car's top speed - and the game's gas is given only while the car is slower, so easing
+ * off lets the game's own drag slow it down (the PR only gated how often the gas was given: less pull = slower
+ * acceleration, but the same top speed in the end). The speed is |phys+0x40, +0x44| (the velocity, sub_00421150 via
+ * sub_00421E70); the top speed is the game's own for this model (gta2_feel_car_top, from the car data the game's
+ * limiter sub_004A1B20 uses); only if that is unknown, the most the car reached, starting from feel_vmax. */
+static uint32_t g_top_car, g_top;
+void gta2_feel_car_top(uint32_t car, uint32_t top)
+{
+    g_top_car = car;
+    g_top = top;
+}
+
+/* At the target the drive stays on and the speed is held there the way the game's own limiter holds the top speed
+ * (sub_004A1B20: the velocity scaled down to the limit), so it does not pulse; only well above it (after easing off)
+ * the drive goes off and the game's drag slows the car. (The first try switched phys+0x91 - the brake, not the gas -
+ * which the maintainer felt as "gas, brake, gas, brake".) pull: 0..1, linear (half a pull = half the top speed). */
+static int gas_for_speed(uint32_t car, uint32_t phys, float pull, float *speed_out, float *vmax_out)
+{
+    static uint32_t vcar;
+    static float vmax, last_target;
+    static int held;
+    float vx = (float)(int32_t)wr_rd32(phys + 0x40), vy = (float)(int32_t)wr_rd32(phys + 0x44);
+    float s = sqrtf(vx * vx + vy * vy);
+    if (car != vcar) {
+        vcar = car;
+        vmax = ovr("feel_vmax", 6000.0f);
+        held = 0;
+    }
+    if (car == g_top_car && g_top)
+        vmax = (float)g_top;   /* the game's own top speed */
+    else if (s > vmax)
+        vmax = s;
+    *speed_out = s;
+    *vmax_out = vmax;
+    /* held: the car reached the target from below (accelerating) and the target did not drop since - only then the speed
+     * is held at it; when the target drops (easing off, letting go) the drive just goes off and the car rolls on and
+     * slows down by the game's own drag, as before (maintainer 2026-11-28: "it used to roll when I let go") */
+    float target = pull * vmax;
+    if (held && target > last_target)
+        last_target = target;   /* the target the car is held at: the highest since it got there */
+    if (target < last_target - 0.02f * vmax)   /* eased off (more than the stick's jitter): roll from here */
+        held = 0;
+    if (s <= target) {
+        held = 1;              /* below: full gas, the game's own acceleration */
+        last_target = target;
+        return 1;
+    }
+    if (!held)
+        return 0;              /* above a lower target: roll */
+    if (s > 0) {               /* at the target from below: drive on, the speed held there */
+        float k = target / s;
+        wr_wr32(phys + 0x40, (uint32_t)(int32_t)lroundf(vx * k));
+        wr_wr32(phys + 0x44, (uint32_t)(int32_t)lroundf(vy * k));
+    }
+    return 1;
 }
 
 void gta2_feel_car_step(void)
@@ -264,27 +372,45 @@ void gta2_feel_car_step(void)
                    "(car %08x driver %08x ped %08x phys %08x) - steering left alone", car, wr_rd32(car + 0x54), ped, phys);
         return;
     }
-    if (trig_on && g_duty >= 0) {   /* ANALOGUE: the throttle the game gave (phys+0x91: gas, or gas in reverse) is
-                                     * gated to the pull; the brake flags are left to the game's own state machine */
-        if (wr_rd8(phys + 0x91)) {
-            acc_gas += g_duty;
-            int on = acc_gas >= 1.0f;
+    if (trig_on && g_duty >= 0) {
+        /* ANALOGUE pedals (v0.9.1, maintainer 2026-11-28). The game's own flags (sub_0049FB00, docs/re/
+         * gameplay_input_pause.md 3.3): phys+0x93 = drive forward (forward held, standing or rolling forward),
+         * phys+0x94 = drive backward, phys+0x91 = brake (the pedal against the rolling direction). The PR gated 0x91
+         * as "the gas" - so forward driving was always full gas. Now: forward = a target speed (gas_for_speed,
+         * linear in the pull); backward and the brake = gated to the pull. */
+        static float acc_rev, acc_brk;
+        float speed = 0, vmax = 0;
+        if (wr_rd8(phys + 0x93) && g_gas_lead)
+            wr_wr8(phys + 0x93, (uint8_t)gas_for_speed(car, phys, g_gas_pull, &speed, &vmax));
+        if (wr_rd8(phys + 0x94)) {
+            acc_rev += g_duty;
+            int on = acc_rev >= 1.0f;
             if (on)
-                acc_gas -= 1.0f;
+                acc_rev -= 1.0f;
+            wr_wr8(phys + 0x94, (uint8_t)on);
+        } else
+            acc_rev = 0;
+        if (wr_rd8(phys + 0x91)) {
+            acc_brk += g_duty;
+            int on = acc_brk >= 1.0f;
+            if (on)
+                acc_brk -= 1.0f;
             wr_wr8(phys + 0x91, (uint8_t)on);
         } else
-            acc_gas = 0;
+            acc_brk = 0;
+        (void)acc_gas;
         static int lines, tk;
-        if ((tk++ % 30) == 0 && lines++ < 120)
-            wr_log("feel: pedals R2 %.2f L2 %.2f -> %.2f (gas flag %d, brake flags %d %d)", g_pull_r, g_pull_l, g_duty,
-                   wr_rd8(phys + 0x91), wr_rd8(phys + 0x93), wr_rd8(phys + 0x94));
+        if ((tk++ % 30) == 0 && lines++ < 600)   /* test logging: 5 minutes of driving at 2 lines a second */
+            wr_log("feel: pedals gas %.2f brake %.2f -> %.2f (forward %d, backward %d, brake %d) speed %.0f / target %.0f / top %.0f",
+                   g_pull_r, g_pull_l, g_duty, wr_rd8(phys + 0x93), wr_rd8(phys + 0x94), wr_rd8(phys + 0x91), speed,
+                   g_gas_pull * vmax, vmax);
         if (!tlogged++)
             wr_log("feel: analog pedals active (car %08x phys %08x)", car, phys);
     }
     if (!steer_on)
         return;
     float sx, sy;
-    wr_pad_stick(&sx, &sy);
+    stick_xy(gta2_steer_stick(), &sx, &sy);
     float t = steer_of(sx);
     if (t == 0) {   /* centred: the game's own steering stays (d-pad, keyboard), no leftover pulse */
         err = 0;

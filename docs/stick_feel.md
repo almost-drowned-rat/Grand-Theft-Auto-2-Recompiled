@@ -4,7 +4,15 @@ Contributed by maverick-hunter (pull request #7). In v0.9.0 the ANALOGUE scheme 
 2026-11-28), each scheme keeps its own buttons: analogue walking is always on (the stick); the pedals are analogue when
 gas / brake are mapped to R2 / L2; RECOMP OPTIONS > ENHANCEMENTS has ANALOGUE STEERING (a page: on / off, preset, dead
 zone, curve, smoothing), PUNCH (MODERN's X on foot by default, CUSTOM MAPPING moves it), TURRET AIM and CAMERA PAN, all
-off by default and single player only; the sprint is ENHANCEMENTS > SPRINT for every scheme. The d-pad weapons / radio
+off by default and single player only; the sprint is ENHANCEMENTS > SPRINT for every scheme. v0.9.1 (maintainer
+2026-11-28, issue #9; every layout stays as it is, each part is an option): ANALOGUE STEERING is ON by default and makes
+both sticks analogue in a car in all four directions ("for both sticks, just in case") - steering on the stick that
+steers (CUSTOM: LEFT / RIGHT on the d-pad = the left stick, on R-STICK LEFT / RIGHT = the right one), gas / brake on the
+stick whose up / down they are on (CLASSIC: the left stick; CUSTOM: FORWARD / BACKWARD on the d-pad or a stick; MODERN:
+GAS / BRAKE put on STICK or R-STICK UP / DOWN in CUSTOM MAPPING - IN A CAR only); the new switch ANALOGUE TRIGGERS (ON
+by default) is the R2 / L2 pedals. The stick pedal uses the steering's dead zone, then the pedal curve below (since
+v0.9.1: no step at the first touch, full at 95 %, curve 1.8 - a light press gives really little gas). TURRET AIM is
+always on since v0.9.1 (its switch is gone). The d-pad weapons / radio
 and the right-stick vehicle fire are not taken over (a player can map them). The text below describes the PR as it came.
 
 Not playtested by its author beyond the notes below; numbers are picks, not measurements of any GTA.
@@ -40,7 +48,7 @@ points the turret at the stick's direction and fires while it is out (past 0.3).
 tick (`sub_00423720`: Special 1 held + left / right; the step is the u16 at `0x5E4D34 / 0x5E4D60 / 0x5E501C`; left adds it to the
 turret's Ang16 at component+0x10, right subtracts it; the component is found in the car's list by type id 0x72 / 0x94 / 0xF8 with
 `sub_004BE980`), so each tick the angle still to go decides left, right or nothing. The turret angle is assumed relative to the car's
-heading (`u16[[car+0x50]]`); if it is the world's, `turret_world = 1` in `saves/settings.ini`. The horn edge byte is never touched. The turret's zero is half a turn from the stick's, so 720 is added. CONTROLS > ANALOGUE SETTINGS > TURRET AIM (on by default) turns all of this off, leaving the game's own Special 1 + left / right.
+heading (`u16[[car+0x50]]`); if it is the world's, `turret_world = 1` in `saves/settings.ini`. The horn edge byte is never touched. The turret's zero is half a turn from the stick's, so 720 is added. (The PR had CONTROLS > ANALOGUE SETTINGS > TURRET AIM to turn this off; since v0.9.1 it is always on. The game's own Special 1 + left / right still work.)
 
 The pan follows the stick directly: after each tick the look-around offsets (`cam+0x48 / +0x4C`, cam = `player+0x90`) are set to
 the push times the game's own limit (`[0x5E3CD0]`, `[0x5E3E74]`), so there is no acceleration lag and no drift. The sign of each axis
