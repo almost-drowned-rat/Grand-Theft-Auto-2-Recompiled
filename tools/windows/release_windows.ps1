@@ -50,7 +50,8 @@ foreach ($p in @($SdlDev, $SdlSrc, $Unshield, $UnshieldLicence, $ZlibLicence, $L
                  $Librashader, $LibrashaderLicence)) { Need $p }
 # librashader: only Windows' own DLLs and the UCRT may be imported (the official build needs D3DX9_43.dll, a
 # llvm-mingw build without static flags libc++.dll / libunwind.dll - neither is on a player's PC)
-$bad = (& llvm-objdump -p $Librashader | Select-String 'DLL Name: (.+)$' | ForEach-Object { $_.Matches[0].Groups[1].Value }) |
+# (case-sensitive: "DLL Name:" = an import; the export table's "DLL name:" is the library's own name)
+$bad = (& llvm-objdump -p $Librashader | Select-String -CaseSensitive 'DLL Name: (.+)$' | ForEach-Object { $_.Matches[0].Groups[1].Value }) |
     Where-Object { $_ -notmatch '^(KERNEL32|ntdll|ole32|SHELL32|bcryptprimitives|USER32|ADVAPI32|api-ms-win-.*)\.dll$' }
 if ($bad) { throw "librashader imports DLLs a player may not have: $($bad -join ', ')" }
 foreach ($p in @($Out, $SdlDev, $SdlSrc, $LlvmZip)) { if ($p -match ' ') { throw "path with a space: $p" } }
