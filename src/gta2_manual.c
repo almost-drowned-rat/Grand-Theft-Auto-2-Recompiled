@@ -563,7 +563,8 @@ static void gta2_turret_pre(X86Ctx *ctx)
         return;
     wr_wr8(player + 0x7C, 1);   /* fires while the stick is out */
     int aim = ((int)lroundf(atan2f(rx, ry) * (720.0f / 3.14159265f)) % 1440 + 1440) % 1440;   /* the screen direction */
-    int want = ((world ? aim + 720 : aim - heading + 720) % 1440 + 1440) % 1440;   /* + 720: the turret's zero is the other way round */
+    int back = type == 1 ? 720 : 0;   /* the fire truck's cannon fires backward from its sprite; the tank's and the gun jeep's forward */
+    int want = ((world ? aim + back : aim - heading + back) % 1440 + 1440) % 1440;
     int d = ((want - turret + 2160) % 1440) - 720;   /* + = turn left (the game adds the step), - = right */
     static int n;
     if (n++ < 12 || (n % 60) == 0)
