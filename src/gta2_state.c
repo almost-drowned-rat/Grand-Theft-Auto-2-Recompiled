@@ -281,11 +281,18 @@ int gta2_punch_swap(uint32_t ped)
 
 void gta2_punch_restore(uint32_t ped)
 {
-    if (wr_rd32(ped + 0x170) == 0)
-        wr_wr32(ped + 0x170, g_punch_cache);   /* the game refreshes it from the player on its own */
+    /* the weapon back only if it still exists and the ped lives (review 2026-11-28: killed, busted or a script
+     * clearing the weapons inside the tick left the old index on an empty slot); the ped's cached weapon object
+     * (ped+0x170) is not put back - the game refreshes it from the player (sub_00434D70) */
+    (void)g_punch_cache;
     uint32_t pl = gta2_player();
-    if (pl && wr_mem_valid(pl, 0x790) && wr_rd16(pl + 0x788) == 0xFFFF)   /* the game chose another meanwhile: keep that */
-        wr_wr16(pl + 0x788, g_punch_saved);
+    if (!pl || !wr_mem_valid(pl, 0x790) || wr_rd16(pl + 0x788) != 0xFFFF)   /* the game chose another meanwhile */
+        return;
+    if (g_punch_saved >= 0x20 || !wr_rd32(pl + 0x718 + 4u * g_punch_saved))   /* the slot is empty now */
+        return;
+    if (!ped || !wr_mem_valid(ped, 0x220) || (int16_t)wr_rd16(ped + 0x216) <= 0)   /* dead */
+        return;
+    wr_wr16(pl + 0x788, g_punch_saved);
 }
 
 /* SPRINT BAR: a thin bar at the bottom centre of the game screen, drawn after the HUD. Shown on foot while sprinting and

@@ -134,7 +134,7 @@ static const mline l_perf[] = {
     { NULL, L_OPT, OPT_PERF_SPEED },
 };
 static mline l_cheats[N_CHEATS + 2];
-static mline l_controls[8];   /* built by controls_sync: ANALOGUE STEERING is only listed with CONTROLLER = ANALOGUE */
+static mline l_controls[8];   /* built by controls_sync: ANALOGUE SETTINGS only with ENHANCEMENTS > ANALOGUE CONTROLS on */
 static const mline l_analogue[] = {
     { "DRIVING", L_HEAD, 0 },
     { NULL, L_OPT, OPT_STEER_PRESET }, { NULL, L_OPT, OPT_STEER_DEAD }, { NULL, L_OPT, OPT_STEER_CURVE },
@@ -170,6 +170,7 @@ static const mline l_gameplay[] = { { "LANGUAGE", L_LANG, 0 }, { "MINIMAP", L_PA
                                     { NULL, L_OPT, OPT_DAY_NIGHT }, { NULL, L_OPT, OPT_DAY_LENGTH },
                                     { NULL, L_OPT, OPT_MANUAL_CAMERA },   /* + the fixed camera (issue #6) */
                                     { NULL, L_OPT, OPT_SAVE_ANYWHERE },   /* SAVE GAME / LOAD GAME (issue #6) */
+                                    { NULL, L_OPT, OPT_ANALOGUE_CONTROLS },   /* PR #7; its settings: CONTROLS */
                                     { NULL, L_OPT, OPT_PEDESTRIANS }, { NULL, L_OPT, OPT_TRAFFIC },
                                     { NULL, L_OPT, OPT_SPRINT }, { NULL, L_OPT, OPT_MORE_BLOOD } };
 /* GAMEPLAY > MINIMAP (maintainer 2026-11-27): the radar's look, then an ON/OFF switch per element */
@@ -609,6 +610,11 @@ static void page_defaults(X86Ctx *ctx)
         if (g_map_keyboard)
             wr_call_guest(ctx, FN_READ_CONTROLS, 0, NULL);
     }
+    /* a page that shrank (CONTROLS loses ANALOGUE SETTINGS): the cursor stays on it (review 2026-11-28) */
+    if (g_cur >= g_pages[g_vp].n)
+        g_cur = g_pages[g_vp].n > 0 ? g_pages[g_vp].n - 1 : 0;
+    if (g_top > g_cur)
+        g_top = g_cur;
     wr_wr32(FE_SOUND, SND_VALUE);
 }
 

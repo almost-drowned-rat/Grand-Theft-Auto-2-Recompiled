@@ -21,7 +21,7 @@ enum {
     OPT_PERF_FRAMETIME,    /* OFF / ON   } stored together: performance_overlay */
     OPT_PERF_SPEED,        /* OFF / ON  /                               */
     OPT_RADIO_HALF_RATE,   /* OFF / ON (stereo radio stream rate, see docs/re/audio.md) */
-    OPT_CONTROL_SCHEME,    /* CLASSIC / MODERN / ANALOGUE / CUSTOM (controller) */
+    OPT_CONTROL_SCHEME,    /* CLASSIC / MODERN / CUSTOM (controller); ANALOGUE is OPT_ANALOGUE_CONTROLS */
     OPT_RUMBLE,            /* OFF / ON: explosions rumble the controller (M4c) */
     OPT_KEY_SCHEME,        /* CLASSIC / MODERN (keyboard only, as a controller) / KEYBOARD + MOUSE */
     OPT_PEDESTRIANS,       /* 1X / 2X / 3X / 4X (from the next game) */
@@ -48,6 +48,7 @@ enum {
     OPT_DAY_NIGHT,         /* OFF / ON: the DAY / NIGHT cycle (gta2_daynight.c) */
     OPT_DAY_LENGTH,        /* 24 / 48 / 96 MIN: real minutes for one full day */
     OPT_SAVE_ANYWHERE,     /* OFF / ON: SAVE GAME in the pause menu, LOAD GAME in the main menu (issue #6) */
+    OPT_ANALOGUE_CONTROLS, /* OFF / ON: the controller plays the ANALOGUE layout (PR #7; ENHANCEMENTS) */
     OPT_STEER_PRESET,      /* SMOOTH / SNAPPY / HEAVY / CUSTOM: sets the three numbers below; changing one of them makes it match or CUSTOM */
     OPT_STEER_DEAD,        /* ANALOGUE car steering: stick dead zone 0.04 .. 0.20 (default 0.10) */
     OPT_STEER_CURVE,       /* curve 1.0 .. 3.0, higher = finer around the middle (default 1.6) */
@@ -65,11 +66,15 @@ int         opt_count(int id);                /* number of choices */
 const char *opt_choice_label(int id, int c);  /* e.g. "16:9" */
 int         opt_get(int id);
 
-/* OPT_CONTROL_SCHEME values: ANALOGUE is MODERN plus the GTA V layout (analog pedals, d-pad weapons, punch, feel) */
-enum { SCHEME_CLASSIC, SCHEME_MODERN, SCHEME_ALT, SCHEME_CUSTOM };
-#define SCHEME_IS(v) (opt_get(OPT_CONTROL_SCHEME) == (v))
-#define SCHEME_ALT() SCHEME_IS(SCHEME_ALT)
-#define SCHEME_MODERNISH() (SCHEME_IS(SCHEME_MODERN) || SCHEME_IS(SCHEME_ALT))
+/* OPT_CONTROL_SCHEME values (CLASSIC / MODERN / CUSTOM). ANALOGUE (PR #7, maverick-hunter) is MODERN plus the GTA V
+ * layout (analog pedals, d-pad weapons, punch, feel); it is a switch of its own in ENHANCEMENTS (maintainer
+ * 2026-11-28), not a CONTROLLER choice: while it is ON the controller plays the ANALOGUE layout, whatever CONTROLLER
+ * says - SCHEME_IS(x) is then false for every x, SCHEME_MODERNISH() true. */
+enum { SCHEME_CLASSIC, SCHEME_MODERN, SCHEME_CUSTOM };
+int gta2_analogue_on(void);   /* ANALOGUE CONTROLS on and not a network game (its writes are local: they would desync) */
+#define SCHEME_ALT() (gta2_analogue_on() != 0)
+#define SCHEME_IS(v) (!SCHEME_ALT() && opt_get(OPT_CONTROL_SCHEME) == (v))
+#define SCHEME_MODERNISH() (SCHEME_ALT() || opt_get(OPT_CONTROL_SCHEME) == SCHEME_MODERN)
 int         opt_default(int id);
 void        opt_set(int id, int c);           /* store + apply */
 int         opt_visible(int id);              /* 0: hidden on this platform */

@@ -1,10 +1,14 @@
-# CONTROLLER = ANALOGUE, SPRINT and ENDLESS SPRINTING
+# ANALOGUE CONTROLS, SPRINT and ENDLESS SPRINTING
+
+Contributed by maverick-hunter (pull request #7). Since v0.9.0 ANALOGUE is a switch in RECOMP OPTIONS > ENHANCEMENTS
+(ANALOGUE CONTROLS, off by default; maintainer 2026-11-28) instead of a CONTROLLER choice: while it is on, the
+controller plays the layout below whatever CONTROLLER says. "CONTROLLER = ANALOGUE" below means that switch.
 
 Not playtested by its author beyond the notes below; numbers are picks, not measurements of any GTA.
 
 ## ANALOGUE
 
-A fourth CONTROLLER scheme after MODERN (CLASSIC / MODERN / ANALOGUE / CUSTOM). MODERN itself behaves as it
+(Originally a fourth CONTROLLER scheme after MODERN; now the ENHANCEMENTS switch, see above.) MODERN itself behaves as it
 did before. The alternate scheme is MODERN plus a GTA V style layout:
 
 * Cars: R2 is the gas and L2 the brake / reverse, read as analogue pulls; the right stick fires (see below); the left stick steers

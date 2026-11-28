@@ -569,7 +569,7 @@ static void gta2_turret_pre(X86Ctx *ctx)
     int want = ((world ? aim + 720 : aim - heading + 720) % 1440 + 1440) % 1440;   /* + 720: the turret's zero is the other way round */
     int d = ((want - turret + 2160) % 1440) - 720;   /* + = turn left (the game adds the step), - = right */
     static int n;
-    if (n++ < 12 || (n % 60) == 0)
+    if (n++ < 12)   /* the first aims only (review 2026-11-28: every 60 ticks for ever was log spam in a hot path) */
         wr_log("turret: type %d stick aim %d heading %d turret %d want %d diff %d step %d (%s)", type, aim, heading, turret,
                want, d, step, world ? "world" : "relative");
     if (d > -step / 2 && d < step / 2)

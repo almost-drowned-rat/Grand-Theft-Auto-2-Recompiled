@@ -40,8 +40,8 @@ static const char *const l_rate[] = { "30", "60 INTERPOLATED", "120 INTERPOLATED
 /* modern = keyboard only (the pad layout); custom = the keyboard's CUSTOM MAPPING by situation (maintainer 2026-11-27) */
 static const char *const v_kscheme[] = { "classic", "modern", "mouse", "custom" };
 static const char *const l_kscheme[] = { "CLASSIC", "MODERN", "KEYBOARD + MOUSE", "CUSTOM" };
-static const char *const v_scheme[] = { "classic", "modern", "analogue", "custom" };
-static const char *const l_scheme[] = { "CLASSIC", "MODERN", "ANALOGUE", "CUSTOM" };
+static const char *const v_scheme[] = { "classic", "modern", "custom" };   /* ANALOGUE: OPT_ANALOGUE_CONTROLS */
+static const char *const l_scheme[] = { "CLASSIC", "MODERN", "CUSTOM" };
 /* ANALOGUE SETTINGS (the page under CONTROLS): the car steering of the ANALOGUE scheme (gta2_feel.c turns the index into the number) */
 static const char *const v_spreset[] = { "smooth", "snappy", "heavy", "custom" };
 static const char *const l_spreset[] = { "SMOOTH", "SNAPPY", "HEAVY", "CUSTOM" };
@@ -146,7 +146,7 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_PERF_FRAMETIME] = { "FRAME TIME", NULL, 2, v_onoff, l_onoff, 0, apply_perf },
     [OPT_PERF_SPEED]     = { "GAME SPEED", NULL, 2, v_onoff, l_onoff, 0, apply_perf },
     [OPT_RADIO_HALF_RATE] = { "RADIO RATE FIX", "radio_half_rate", 2, v_onoff, l_onoff, 1, apply_radio },
-    [OPT_CONTROL_SCHEME] = { "CONTROLLER", "control_scheme", 4, v_scheme, l_scheme, 0, apply_nothing },
+    [OPT_CONTROL_SCHEME] = { "CONTROLLER", "control_scheme", 3, v_scheme, l_scheme, 0, apply_nothing },
     [OPT_RUMBLE]         = { "RUMBLE", "rumble", 2, v_onoff, l_onoff, 1, apply_nothing },
     [OPT_KEY_SCHEME]     = { "KEYBOARD", "keyboard_scheme", 4, v_kscheme, l_kscheme, 0, apply_keys },
     [OPT_PEDESTRIANS]    = { "PEDESTRIANS", "pedestrians", 4, v_factor, l_factor, 0, apply_peds },
@@ -178,6 +178,8 @@ static const optdef g_def[OPT_COUNT] = {
     [OPT_DAY_LENGTH]     = { "DAY LENGTH", "day_length", 3, v_daylen, l_daylen, 0, apply_nothing },
     /* issue #6 (maintainer 2026-11-28: an ENHANCEMENTS switch - purists do not need it): off = church saves only */
     [OPT_SAVE_ANYWHERE]  = { "SAVE ANYWHERE", "save_anywhere", 2, v_onoff, l_onoff, 0, apply_nothing },
+    /* PR #7 (maverick-hunter) as an ENHANCEMENTS switch (maintainer 2026-11-28), off by default */
+    [OPT_ANALOGUE_CONTROLS] = { "ANALOGUE CONTROLS", "analogue_controls", 2, v_onoff, l_onoff, 0, apply_nothing },
     [OPT_STEER_PRESET]   = { "PRESET", "steer_preset", 4, v_spreset, l_spreset, 0, apply_steer_preset },
     [OPT_STEER_DEAD]     = { "DEAD ZONE", "steer_dead", 8, v_sdead, v_sdead, 3, apply_steer_value },
     [OPT_STEER_CURVE]    = { "CURVE", "steer_curve", 8, v_scurve, v_scurve, 3, apply_steer_value },
@@ -223,6 +225,10 @@ const char *opt_label(int id) { return id >= 0 && id < OPT_COUNT ? g_def[id].lab
 int opt_count(int id) { return id >= 0 && id < OPT_COUNT ? g_def[id].n : 0; }
 int opt_default(int id) { return id >= 0 && id < OPT_COUNT ? g_def[id].def : 0; }
 int opt_get(int id) { return id >= 0 && id < OPT_COUNT ? g_val[id] : 0; }
+
+/* ANALOGUE CONTROLS (PR #7): never in a network game - the steering, pedal, turret and punch writes act on the local
+ * simulation only and would desync the other players (review 2026-11-28; as TRAFFIC / PEDESTRIANS) */
+int gta2_analogue_on(void) { return g_val[OPT_ANALOGUE_CONTROLS] && !wr_rd32(0x00673E2Cu); }
 
 const char *opt_choice_label(int id, int c)
 {

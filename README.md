@@ -66,6 +66,9 @@ Everything stays in the game's folder: `game/` (the game's files), `saves/` (you
   own mapping (the modern layout keeps its right-stick aiming, on foot and in a car mapped apart), three mapping
   profiles beside the stock one, keyboard only or keyboard + mouse, and a keyboard mapping of your own in the same
   layout (on foot and in a car apart); an illustrated controller layout and a control overview
+- **Analogue controls** (off by default; by maverick-hunter): analogue walking, gas and brake on the triggers,
+  proportional steering, the right stick aims turrets and pans the camera, a stamina sprint - fine-tuned in
+  CONTROLS > ANALOGUE SETTINGS
 - **Mods:** every folder in `mods/` is one mod whose files stand in for the game's (graphics, maps, scripts,
   texts, sounds) - nothing in the game's own folder is changed; a folder name starting with `_` switches it off
 - **MIXTAPE**, a radio station of your own: put your music (MP3, FLAC, Ogg Vorbis, WAV) into album folders under
@@ -100,6 +103,11 @@ headers (`VULKAN_SDK`); `unshield.exe` for the installer step. `SDL3.dll` goes b
 
 The release packaging: `docs/linux_release.md`, `docs/windows_release.md`. Generated C, game files and builds are
 never committed.
+
+## Contributors
+
+- [maverick-hunter](https://github.com/maverick-hunter) - ANALOGUE CONTROLS (analogue steering and pedals, turret aim,
+  camera pan, stamina sprint; pull request #7), and the shader report that found the Windows crash (issue #4)
 
 ## Thanks
 
