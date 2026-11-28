@@ -21,7 +21,7 @@ enum {
     OPT_PERF_FRAMETIME,    /* OFF / ON   } stored together: performance_overlay */
     OPT_PERF_SPEED,        /* OFF / ON  /                               */
     OPT_RADIO_HALF_RATE,   /* OFF / ON (stereo radio stream rate, see docs/re/audio.md) */
-    OPT_CONTROL_SCHEME,    /* CLASSIC / MODERN / CUSTOM (controller) */
+    OPT_CONTROL_SCHEME,    /* CLASSIC / MODERN / ANALOGUE / CUSTOM (controller) */
     OPT_RUMBLE,            /* OFF / ON: explosions rumble the controller (M4c) */
     OPT_KEY_SCHEME,        /* CLASSIC / MODERN (keyboard only, as a controller) / KEYBOARD + MOUSE */
     OPT_PEDESTRIANS,       /* 1X / 2X / 3X / 4X (from the next game) */
@@ -45,6 +45,14 @@ enum {
     OPT_BLIP_BONUSES,      /* OFF / ON: power-ups */
     OPT_BLIP_FRENZY,       /* OFF / ON: kill frenzies, also on cars */
     OPT_BLIP_POLICE,       /* OFF / ON: police / law cars (maintainer 2026-11-27) */
+    OPT_STEER_PRESET,      /* SMOOTH / SNAPPY / HEAVY / CUSTOM: sets the three numbers below; changing one of them makes it match or CUSTOM */
+    OPT_STEER_DEAD,        /* ANALOGUE car steering: stick dead zone 0.04 .. 0.20 (default 0.10) */
+    OPT_STEER_CURVE,       /* curve 1.0 .. 3.0, higher = finer around the middle (default 1.6) */
+    OPT_STEER_HOLD,        /* smoothing: ticks one steering pulse is held, 1 .. 4 (default 2) */
+    OPT_TURRET_AIM,        /* OFF / ON (ANALOGUE only): the right stick points the turret and fires (default ON) */
+    OPT_STAMINA_SPRINT,    /* OFF / ON (ANALOGUE only): the stamina-bar sprint; OFF = the original burst and rest sprint */
+    OPT_ENDLESS_SPRINT,    /* OFF / ON cheat: the sprint never runs out (gta2_state.c) */
+    OPT_SPRINT_BAR,        /* OFF / ON: draw the sprint stamina bar on foot (gta2_state.c) */
     OPT_COUNT
 };
 
@@ -53,6 +61,12 @@ const char *opt_label(int id);                /* the line's name, e.g. "ASPECT R
 int         opt_count(int id);                /* number of choices */
 const char *opt_choice_label(int id, int c);  /* e.g. "16:9" */
 int         opt_get(int id);
+
+/* OPT_CONTROL_SCHEME values: ANALOGUE is MODERN plus the GTA V layout (analog pedals, d-pad weapons, punch, feel) */
+enum { SCHEME_CLASSIC, SCHEME_MODERN, SCHEME_ALT, SCHEME_CUSTOM };
+#define SCHEME_IS(v) (opt_get(OPT_CONTROL_SCHEME) == (v))
+#define SCHEME_ALT() SCHEME_IS(SCHEME_ALT)
+#define SCHEME_MODERNISH() (SCHEME_IS(SCHEME_MODERN) || SCHEME_IS(SCHEME_ALT))
 int         opt_default(int id);
 void        opt_set(int id, int c);           /* store + apply */
 int         opt_visible(int id);              /* 0: hidden on this platform */

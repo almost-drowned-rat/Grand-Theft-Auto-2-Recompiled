@@ -24,6 +24,8 @@ void gta2_bind_set_key(int i, uint8_t dik);   /* then call sub_0044BF30 */
 void gta2_bind_defaults(int keyboard);        /* the keyboard: then call sub_0044BF30 */
 
 int  gta2_sprint_pressed(void);
+int  gta2_pan_held(void);       /* ANALOGUE: the SPECIAL 2 button is held, the right stick pans the camera */
+int  gta2_punch_pressed(void);   /* ANALOGUE: the punch button is held (on foot) */
 void gta2_camera_keys(void);   /* CAMERA KEYS: once per frame in play */
 void gta2_keys_apply(void);
 /* CONTROL OVERVIEW rows: function, "controller   |   keyboard" for the schemes in use */

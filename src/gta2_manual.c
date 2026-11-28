@@ -14,7 +14,11 @@
 #include "gta2_text.h"
 #include "gta2_radar.h"
 #include "gta2_input.h"
+#include "gta2_state.h"
+#include "gta2_options.h"
+#include "platform/wr_platform.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -62,13 +66,17 @@ void sub_00462A30(RECOMP_PARAMS)
     {   /* the pause menu (gta2_menu.c) between two loop steps */
         uint32_t ecx = ctx->r_ecx, eax = ctx->r_eax;
         gta2_pause_tick(ctx);
+        gta2_punch_hold();   /* ANALOGUE: the punch button keeps the weapon from firing */
         ctx->r_ecx = ecx;
         ctx->r_eax = eax;
     }
     uint32_t next0 = MEM32(0x00662748u);
     uint64_t f0 = gta2_frames_presented();
+    gta2_pan_pre();
     sub_00462A30_gen(ctx, base);
     uint32_t next = MEM32(0x00662748u);
+    if (next != next0)
+        gta2_pan_post();   /* ANALOGUE: the look-around made snappier */
     if (next != next0) {
         gta2_fps_after_tick();    /* FRAME RATE: the tick's positions for interpolation */
         wr_overlay_game_tick();   /* GAME SPEED */
@@ -476,6 +484,108 @@ void sub_004A5C50(RECOMP_PARAMS)   /* on-foot control step (thiscall player, ped
     ctx->r_eax = eax;
 }
 
+/* ---- the ANALOGUE feel: analog car steering (gta2_feel.c) --------------------------------------- */
+void gta2_feel_car_step(void);
+void gta2_feel_car_pre(void);
+
+/* ANALOGUE: in one of the three turret vehicles the right stick points the turret. The game only turns it one fixed step a
+ * tick, left or right (sub_00423720: Special 1 held + left / right; the step is a u16 at 0x5E4D34 / 0x5E4D60 / 0x5E501C, left
+ * adds it to the turret's Ang16 at (component + 0x10), right subtracts it; the component is found in the car's list by type id
+ * 0x72 / 0x94 / 0xF8 with sub_004BE980). So each tick the angle left to the stick's direction decides left, right or nothing.
+ * The stick's angle is a direction on the screen; the car's heading u16 [[car+0x50]+0] is subtracted because the turret's
+ * angle is assumed relative to the body (not checked: settings.ini turret_world = 1 if it is the world's). The horn
+ * edge byte is never touched. A push past the dead zone also fires. */
+static int turret_type(X86Ctx *ctx, uint32_t car)   /* 0 = no turret, else 1..3 */
+{
+    uint32_t ecx = ctx->r_ecx, eax = ctx->r_eax;
+    static const uint32_t fn[3] = { 0x004118F0u, 0x00411900u, 0x00411910u };
+    int r = 0;
+    for (int i = 0; i < 3 && !r; i++) {
+        ctx->r_ecx = car;
+        if (wr_call_guest(ctx, fn[i], 0, NULL) & 0xFF)
+            r = i + 1;
+    }
+    ctx->r_ecx = ecx;
+    ctx->r_eax = eax;
+    return r;
+}
+
+static uint32_t turret_node(X86Ctx *ctx, uint32_t car, int type)
+{
+    static const uint32_t id[3] = { 0x72, 0x94, 0xF8 };
+    uint32_t ecx = ctx->r_ecx, eax = ctx->r_eax;
+    ctx->r_ecx = car;
+    uint32_t arg = id[type - 1];
+    uint32_t node = wr_call_guest(ctx, 0x004BE980u, 1, &arg);
+    ctx->r_ecx = ecx;
+    ctx->r_eax = eax;
+    return node;
+}
+
+static int g_turret_on;
+int gta2_turret_active(void) { return g_turret_on; }
+
+static void gta2_turret_pre(X86Ctx *ctx)
+{
+    g_turret_on = 0;
+    if (!SCHEME_ALT() || !opt_get(OPT_TURRET_AIM) || gta2_pause_open() || gta2_pan_held() || !gta2_player_driving())
+        return;
+    uint32_t ped = gta2_player_ped();
+    if (!ped || !wr_mem_valid(ped, 0x170))
+        return;
+    uint32_t player = wr_rd32(ped + 0x15C), car = wr_rd32(ped + 0x16C);
+    if (!player || !car || !wr_mem_valid(player, 0x90) || !wr_mem_valid(car, 0x90))
+        return;
+    uint32_t spr = wr_rd32(car + 0x50);
+    if (!spr || !wr_mem_valid(spr, 4))
+        return;
+    int type = turret_type(ctx, car);
+    if (!type)
+        return;
+    uint32_t node = turret_node(ctx, car, type);
+    if (!node || !wr_mem_valid(node, 0x14))
+        return;
+    g_turret_on = 1;   /* the right stick's left / right now also press the game's own ATTACK (gta2_input.c) */
+    static const uint32_t step_at[3] = { 0x005E4D34u, 0x005E4D60u, 0x005E501Cu };
+    int step = (int)(wr_rd16(step_at[type - 1]) % 1440);
+    if (step <= 0 || step > 200)
+        step = 20;
+    int turret = wr_rd16(node + 0x10) % 1440, heading = wr_rd16(spr) % 1440;
+
+    static int world = -1;   /* settings.ini turret_world = 1 if the turret's angle is the world's, not the body's */
+    if (world < 0)
+        world = wr_settings_get_int("turret_world", 0) ? 1 : 0;
+
+    float rx = 0, ry = 0;
+    wr_pad_stick_right(&rx, &ry);
+    float mag = sqrtf(rx * rx + ry * ry);
+    if (mag < 0.3f)   /* the dead zone: it stays, nothing fires */
+        return;
+    wr_wr8(player + 0x7C, 1);   /* fires while the stick is out */
+    int aim = ((int)lroundf(atan2f(rx, ry) * (720.0f / 3.14159265f)) % 1440 + 1440) % 1440;   /* the screen direction */
+    int want = ((world ? aim + 720 : aim - heading + 720) % 1440 + 1440) % 1440;   /* + 720: the turret's zero is the other way round */
+    int d = ((want - turret + 2160) % 1440) - 720;   /* + = turn left (the game adds the step), - = right */
+    static int n;
+    if (n++ < 12 || (n % 60) == 0)
+        wr_log("turret: type %d stick aim %d heading %d turret %d want %d diff %d step %d (%s)", type, aim, heading, turret,
+               want, d, step, world ? "world" : "relative");
+    if (d > -step / 2 && d < step / 2)
+        return;   /* close enough: no jitter */
+    wr_wr8(player + 0x81, 1);                 /* Special 1 held */
+    wr_wr8(player + (d > 0 ? 0x7A : 0x7B), 1);
+}
+
+extern void sub_004A4C40_gen(RECOMP_PARAMS);
+void sub_004A4C40(RECOMP_PARAMS)   /* the player's car control step (docs/re/gameplay_input_pause.md 3.3) */
+{
+    gta2_feel_car_pre();   /* ANALOGUE: the trigger pulls become the held forward / back bytes first */
+    gta2_turret_pre(ctx);  /* ANALOGUE: right stick left / right = the turret (Special 1 held + left / right) */
+    sub_004A4C40_gen(ctx, base);
+    uint32_t eax = ctx->r_eax;
+    gta2_feel_car_step();   /* after the game set the steering byte; nothing happens with the ANALOGUE feel = DEFAULT */
+    ctx->r_eax = eax;
+}
+
 /* ---- the pause menu over the HUD ---------------------------------------------------------- */
 extern void sub_004CA440_gen(RECOMP_PARAMS);
 void sub_004CA440(RECOMP_PARAMS)   /* draws the HUD each frame (thiscall HUD) */
@@ -486,6 +596,8 @@ void sub_004CA440(RECOMP_PARAMS)   /* draws the HUD each frame (thiscall HUD) */
     sub_004CA440_gen(ctx, base);
     uint32_t eax = ctx->r_eax;
     gta2_radio_label_draw(ctx);   /* MIXTAPE: station + song for a moment */
+    gta2_sprint_bar_draw();       /* SPRINT BAR: stamina, on foot */
+    gta2_pan_arrows_draw();       /* ANALOGUE: the pan arrows */
     gta2_pause_draw(ctx);
     ctx->r_eax = eax;
 }
@@ -552,7 +664,7 @@ void sub_0041FC20(RECOMP_PARAMS)   /* (u16 *angle, speed *, out dx *, out dy *) 
 /* ---- GAMEPLAY: KEEP BODIES, MORE BLOOD (gta2_gameplay.c) ----------------------------------- */
 
 extern void sub_004454E0_gen(RECOMP_PARAMS);
-void sub_004454E0(RECOMP_PARAMS)   /* one ped's tick (thiscall ped) */
+static void ped_tick_inner(RECOMP_PARAMS)
 {
     uint32_t ped = ctx->r_ecx;
     int keep = gta2_body_before_tick(ped);
@@ -574,6 +686,16 @@ void sub_004454E0(RECOMP_PARAMS)   /* one ped's tick (thiscall ped) */
     sub_004454E0_gen(ctx, base);
     MEM8(0x005E5BEAu) = all;      /* a kept body does not count against the ped limits */
     MEM16(0x005E5BF4u) = shown;
+}
+
+void sub_004454E0(RECOMP_PARAMS)   /* one ped's tick (thiscall ped) */
+{
+    uint32_t ped = ctx->r_ecx;
+    int punch = gta2_punch_swap(ped);   /* ANALOGUE: PUNCH puts the weapon away for this tick */
+    ctx->r_ecx = ped;
+    ped_tick_inner(ctx, base);
+    if (punch)
+        gta2_punch_restore(ped);
 }
 
 extern void sub_0048BE60_gen(RECOMP_PARAMS);
