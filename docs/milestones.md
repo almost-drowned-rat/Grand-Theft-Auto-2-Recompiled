@@ -109,6 +109,9 @@ Targets: Windows, Linux, Android. Renderer: Vulkan 1.1 baseline. Toolkit: winrec
 - [x] SAVE ANYWHERE (ENHANCEMENTS, off by default): pause SAVE GAME, main-menu LOAD GAME (issue #6;
       docs/re/save_anywhere.md)
 - [x] KEYBOARD CUSTOM: the keyboard's mapping by situation; minimap defaults = the maintainer's settings
+- [x] ANALOGUE CONTROLS (ENHANCEMENTS, off by default; PR #7 by maverick-hunter, reviewed, network-gated): analogue
+      walking, R2 / L2 pedals, steering, turret aim, camera pan, punch; stamina sprint 2.5 s, refill after 2.5 s,
+      empty -> full 8 s (maintainer), the bar top centre in the game's pixel style; ENDLESS SPRINTING cheat
 - [x] Frame interpolation stays as it is (maintainer 2026-11-28: no further work; 30 fps recommended)
 
 ## M9 — Multiplayer (optional)

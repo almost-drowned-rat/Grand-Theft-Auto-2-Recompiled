@@ -141,12 +141,14 @@ int gta2_twin_move_angle(uint32_t obj)
  * hits zero the sprint stays locked until the button is released and the bar is full again. Counted in on-foot steps (one per game tick, 30.3 Hz). */
 #define SPRINT_FACTOR 1.4f
 #define SPRINT_HZ 30.3f
-#define SPRINT_REGEN_DELAY 0.5f   /* s after the last sprint step before the bar refills */
-#define SPRINT_REGEN_FULL 3.0f    /* s for an empty bar to refill while standing still */
+/* maintainer 2026-11-28: 3 s of running, a clearly longer refill ("GTA had no sprint at all - like this you sprint
+ * nearly all the time"): about the original port sprint's 1.5 s run / 10 s rest, as a bar; ENDLESS SPRINTING stays */
+#define SPRINT_REGEN_DELAY 2.5f   /* s after the last sprint step before the bar refills (PR #7: 0.5; maintainer: 2.5) */
+#define SPRINT_REGEN_FULL 8.0f    /* s for an empty bar to refill while standing still (PR #7: 3; then 12; 8) */
 #define SPRINT_REGEN_MOVING 0.5f  /* refill speed while the ped keeps walking, relative to standing */
 #define SPRINT_REARM 1.0f         /* after running dry, the bar must be full before the sprint works again */
 #define SPRINT_BAR_HOLD 1.5f      /* s the bar stays up after it is full and the ped stopped sprinting */
-#define SPRINT_SECS 3.5f          /* s of running a full bar lasts */
+#define SPRINT_SECS 2.5f          /* s of running a full bar lasts (PR #7: 3.5; maintainer 2026-11-28: 2.5) */
 /* g_sprint_left (declared above): > 0 while sprinting this tick; read by the speed hook and the feel */
 static float g_stamina = 1.0f;           /* 0..1 */
 static int g_sprint_locked, g_sprint_delay, g_bar_hold;
@@ -295,7 +297,8 @@ void gta2_punch_restore(uint32_t ped)
     wr_wr16(pl + 0x788, g_punch_saved);
 }
 
-/* SPRINT BAR: a thin bar at the bottom centre of the game screen, drawn after the HUD. Shown on foot while sprinting and
+/* SPRINT BAR: a thin bar at the top centre of the game screen (maintainer 2026-11-28: up there, not by the bottom edge;
+ * just below the game's own banner for vehicle / area names), split into 10 segments; drawn after the HUD. Shown on foot while sprinting and
  * while the bar refills, then for a moment (SPRINT_BAR_HOLD) before it fades out; green, then yellow, then red as it empties, flashing while locked out. */
 void gta2_sprint_bar_draw(void)
 {
@@ -306,20 +309,47 @@ void gta2_sprint_bar_draw(void)
     shown = shown < 0 ? 0 : shown > 1 ? 1 : shown;
     if (shown <= 0.0f)
         return;
+    /* in the game's own pixels (maintainer 2026-11-28: the first bar was too bright and "too high-def" next to the
+     * HUD): one game pixel p = the screen height / 480; muted colours with a light top row and a dark bottom row like
+     * the HUD's meters, the ends rounded by cut corners, slightly translucent, thin dark segment marks */
     float sw = (float)g_gfx.w, sh = (float)g_gfx.h;
-    float w = floorf(sh * 0.34f), h = fmaxf(4.0f, floorf(sh * 0.014f)), t = fmaxf(1.0f, floorf(h / 4.0f));
-    float x = floorf((sw - w) * 0.5f), y = floorf(sh - sh * 0.07f);
+    float p = fmaxf(1.0f, floorf(sh / 480.0f));
+    float w = 150.0f * p, h = 6.0f * p;   /* 150 x 6 game pixels */
+    float x = floorf((sw - w) * 0.5f / p) * p, y = floorf(sh * 0.135f / p) * p;
     float s = g_stamina;
-    float r = s < 0.5f ? 1.0f : (1.0f - s) * 2.0f, g = s > 0.5f ? 1.0f : s * 2.0f;   /* red - yellow - green */
+    /* muted green - yellow - red (the HUD's tones, not neon) */
+    float r = s < 0.5f ? 0.80f : 0.80f - (s - 0.5f) * 2.0f * 0.55f;   /* 0.80 .. 0.25 */
+    float g = s > 0.5f ? 0.70f : 0.25f + s * 2.0f * 0.45f;            /* 0.25 .. 0.70 */
+    float b = 0.18f;
     if (g_sprint_locked) {
         static unsigned n;
-        r = 1.0f; g = (n++ / 6) % 2 ? 0.35f : 0.0f;
+        r = 0.80f; g = (n++ / 6) % 2 ? 0.30f : 0.15f; b = 0.12f;
     }
-    uint32_t a = (uint32_t)(shown * 255.0f);
-    uint32_t col = (a << 24) | ((uint32_t)(0.25f * 255) << 16) | ((uint32_t)(g * 220) << 8) | (uint32_t)(r * 255);
-    gbh_port_rect(x - t, y - t, w + 2 * t, h + 2 * t, ((a * 200 / 255) << 24) | 0x101010u);   /* frame */
-    gbh_port_rect(x, y, w, h, ((a * 140 / 255) << 24) | 0x202020u);                            /* empty part */
-    gbh_port_rect(x, y, w * s, h, col);
+    uint32_t a = (uint32_t)(shown * 225.0f);   /* never fully opaque: it sits over the picture */
+#define BAR_ARGB(al, rr, gg, bb) (((uint32_t)(al) << 24) | ((uint32_t)((bb) * 255.0f) << 16) | \
+                                   ((uint32_t)((gg) * 255.0f) << 8) | (uint32_t)((rr) * 255.0f))
+    /* frame and the empty part, both with cut corners (one game pixel) */
+    uint32_t frame = BAR_ARGB(a * 200 / 255, 0.06f, 0.06f, 0.06f), empty = BAR_ARGB(a * 150 / 255, 0.14f, 0.14f, 0.13f);
+    gbh_port_rect(x, y - p, w, h + 2 * p, frame);
+    gbh_port_rect(x - p, y, w + 2 * p, h, frame);
+    gbh_port_rect(x + p, y, w - 2 * p, h, empty);
+    gbh_port_rect(x, y + p, w, h - 2 * p, empty);
+    /* the fill: three bands (light top row, the colour, dark bottom row), its left end rounded like the frame */
+    float fw = floorf(w * s / p) * p;
+    if (fw >= p) {
+        float lx = x, lw = fw;
+        uint32_t top = BAR_ARGB(a, fminf(1.0f, r * 1.25f + 0.05f), fminf(1.0f, g * 1.25f + 0.05f), fminf(1.0f, b * 1.25f + 0.05f));
+        uint32_t mid = BAR_ARGB(a, r, g, b), bot = BAR_ARGB(a, r * 0.60f, g * 0.60f, b * 0.60f);
+        float cut_r = fw >= w - p ? p : 0.0f;   /* the right end rounded only when the bar is full */
+        gbh_port_rect(lx + p, y, lw - p - cut_r, p, top);
+        gbh_port_rect(lx, y + p, lw, h - 3 * p, mid);
+        gbh_port_rect(lx, y + h - 2 * p, lw, p, mid);
+        gbh_port_rect(lx + p, y + h - p, lw - p - cut_r, p, bot);
+    }
+    /* 10 segments: one game pixel, dark and half transparent */
+    for (int i = 1; i < 10; i++)
+        gbh_port_rect(x + floorf(w * (float)i / 10.0f / p) * p, y + p, p, h - 2 * p, BAR_ARGB(a * 170 / 255, 0.05f, 0.05f, 0.05f));
+#undef BAR_ARGB
 }
 
 /* The player ped's movement speed factor (the movement call scales its

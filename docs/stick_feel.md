@@ -56,10 +56,11 @@ hypothesis from reading two fire functions; if the weapon still fires, `data/gta
 
 Every scheme keeps the original sprint (GAMEPLAY > SPRINT): 1.5 s at 1.4x, then 10 s before the next. With CONTROLLER =
 ANALOGUE, STAMINA SPRINT (CONTROLS > ANALOGUE SETTINGS, under ON FOOT, ON by default; OFF gives the original sprint back) replaces it with a
-stamina bar: a full bar lasts 3.5 s of running at 1.4x. It drains only while the ped walks, starts refilling 0.5 s after you
-stop, and refills from empty in 3 s standing still (6 s while walking). Running dry locks the sprint until the button is
-released and the bar is full. SPRINT BAR (same page, ON by default) draws the bar at the bottom centre while sprinting and
-refilling, fading out 1.5 s after it is full.
+stamina bar: a full bar lasts 2.5 s of running at 1.4x. It drains only while the ped walks, starts refilling 2.5 s after you
+stop, and refills from empty in 8 s standing still (16 s while walking) - the maintainer's values for v0.9.0 (GTA 2 had no
+sprint at all; it stays a short burst, about the original port sprint's 1.5 s run / 10 s rest). Running dry locks the sprint
+until the button is released and the bar is full. SPRINT BAR (same page, ON by default) draws the bar at the top centre, in
+10 segments, while sprinting and refilling, fading out 1.5 s after it is full.
 
 ## ENDLESS SPRINTING (CHEATS)
 
